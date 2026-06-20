@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Epic gaming background with fire and embers",
+      "imageUrl": "https://picsum.photos/seed/clash-arena-hero/1920/1080",
+      "imageHint": "gaming fire"
+    },
+    {
+      "id": "th15-arena",
+      "description": "Town Hall 15 visual concept",
+      "imageUrl": "https://picsum.photos/seed/th15/800/600",
+      "imageHint": "clash village"
+    },
+    {
+      "id": "th16-arena",
+      "description": "Town Hall 16 visual concept",
+      "imageUrl": "https://picsum.photos/seed/th16/800/600",
+      "imageHint": "clash village"
+    },
+    {
+      "id": "th17-arena",
+      "description": "Town Hall 17 visual concept",
+      "imageUrl": "https://picsum.photos/seed/th17/800/600",
+      "imageHint": "clash village"
+    },
+    {
+      "id": "avatar-user",
+      "description": "Gaming avatar placeholder",
+      "imageUrl": "https://picsum.photos/seed/user-avatar/150/150",
+      "imageHint": "gamer avatar"
+    }
+  ]
 }
