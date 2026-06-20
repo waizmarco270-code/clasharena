@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -7,40 +9,56 @@ import {
   Trophy, 
   Users, 
   ShieldCheck, 
-  Verified, 
   ArrowRight,
-  Flame,
   Target,
-  Zap,
-  Youtube,
-  Send,
-  MessageCircle,
-  ExternalLink
+  Bell,
+  Loader2
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
-import { Badge } from '@/components/ui/badge';
 import { NeuralBackground } from '@/components/ui/neural-background';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Home() {
   const { user } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
 
   const handleLogin = async () => {
+    if (isLoggingIn) return;
+    
+    setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
     try {
       const result = await signInWithPopup(auth, provider);
       if (result.user) {
-        router.push('/setup');
+        // Redirection is handled by the PageWrapper useEffect
+        toast({
+          title: "Welcome back, Warrior!",
+          description: "Entering the arena command center...",
+        });
       }
-    } catch (error) {
-      console.error("Login failed", error);
+    } catch (error: any) {
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "Please ensure popups are allowed in your browser and try again.",
+        });
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
   
@@ -48,6 +66,7 @@ export default function Home() {
     <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden min-h-screen">
       <NeuralBackground />
       
+      {/* Decorative Glows */}
       <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
 
@@ -92,10 +111,20 @@ export default function Home() {
               <Button 
                 onClick={handleLogin}
                 size="lg" 
+                disabled={isLoggingIn}
                 className="w-full h-20 text-xl animate-shimmer text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20"
               >
-                LOGIN TO CLASH ARENA
-                <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                    AUTHENTICATING...
+                  </>
+                ) : (
+                  <>
+                    LOGIN TO CLASH ARENA
+                    <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -207,3 +236,4 @@ export default function Home() {
     </div>
   );
 }
+
