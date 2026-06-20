@@ -19,17 +19,13 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const userRef = user ? doc(db, 'users', user.uid) : null;
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Define public routes that don't require authentication
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // Only redirect to home if it's not a public route and user is not authenticated
     if (!authLoading && !user && !isPublicRoute) {
       router.push('/');
     }
 
-    // Force setup if user is logged in but profile is incomplete
-    // Don't force redirect if they are already on the setup page
     if (!authLoading && user && !profileLoading && pathname !== '/setup') {
       if (!profile || !profile.username || !profile.tag || !profile.townHall) {
         router.push('/setup');
@@ -48,12 +44,10 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Handle setup page separately
   if (pathname === '/setup') {
-    return <>{children}</>;
+    return <div className="bg-background min-h-screen flex items-center justify-center">{children}</div>;
   }
 
-  // If unauthenticated on a public route, show children with guest-friendly layout
   if (!user && isPublicRoute) {
     return (
       <div className="flex min-h-screen w-full bg-background/95 flex-col">
@@ -61,7 +55,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
           <div className="container mx-auto h-full px-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3">C</div>
-              <span className="font-headline font-bold text-xl tracking-tight">CLASH <span className="text-primary italic">ARENA</span></span>
+              <span className="font-headline font-bold text-xl tracking-tight text-white uppercase italic">CLASH <span className="text-primary">ARENA</span></span>
             </Link>
           </div>
         </header>
@@ -72,7 +66,6 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Authenticated layout with Sidebar
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background/95">

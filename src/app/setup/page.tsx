@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -10,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldAlert, Timer, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Timer, Camera, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function ProfileSetup() {
   const { user, loading: authLoading } = useUser();
@@ -24,17 +24,21 @@ export default function ProfileSetup() {
   const [formData, setFormData] = useState({
     username: '',
     tag: '',
-    townHall: ''
+    townHall: '',
+    avatarUrl: ''
   });
+  const [uploading, setUploading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
       setFormData({
         username: profile.username || '',
         tag: profile.tag || '',
-        townHall: profile.townHall?.toString() || ''
+        townHall: profile.townHall?.toString() || '',
+        avatarUrl: profile.avatarUrl || user?.photoURL || ''
       });
 
       const lockTime = profile.profileLockedUntil ? new Date(profile.profileLockedUntil) : null;
@@ -44,7 +48,7 @@ export default function ProfileSetup() {
         setIsLocked(false);
       }
     }
-  }, [profile]);
+  }, [profile, user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -69,6 +73,73 @@ export default function ProfileSetup() {
     return () => clearInterval(timer);
   }, [profile]);
 
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Resize if too large
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = (height / width) * maxDim;
+              width = maxDim;
+            } else {
+              width = (width / height) * maxDim;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.85);
+        };
+      };
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      let uploadFile: Blob | File = file;
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "Compressing...", description: "Optimizing your photo for the arena." });
+        uploadFile = await compressImage(file);
+      }
+
+      const formDataCld = new FormData();
+      formDataCld.append('file', uploadFile);
+      formDataCld.append('upload_preset', 'ml_default'); // You may need to create this in Cloudinary
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formDataCld }
+      );
+
+      const data = await response.json();
+      if (data.secure_url) {
+        setFormData(prev => ({ ...prev, avatarUrl: data.secure_url }));
+        toast({ title: "Photo Updated!", description: "Looking sharp, warrior." });
+      }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload to Cloudinary." });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || isLocked) return;
@@ -85,6 +156,7 @@ export default function ProfileSetup() {
       username: formData.username,
       tag: formData.tag.startsWith('#') ? formData.tag : `#${formData.tag}`,
       townHall: parseInt(formData.townHall),
+      avatarUrl: formData.avatarUrl,
       profileLockedUntil: lockDate.toISOString(),
       balance: profile?.balance ?? 0,
       wins: profile?.wins ?? 0,
@@ -96,7 +168,7 @@ export default function ProfileSetup() {
     try {
       await setDoc(doc(db, 'users', user.uid), newProfile);
       toast({ title: "Profile Secured!", description: "Your details are locked for the next 3 days." });
-      router.push('/');
+      router.push('/arena');
     } catch (err) {
       console.error(err);
     }
@@ -104,91 +176,130 @@ export default function ProfileSetup() {
 
   if (authLoading || profileLoading) return null;
   if (!user) {
-    router.push('/login');
+    router.push('/');
     return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="glass w-full max-w-xl border-white/5">
-        <CardHeader className="space-y-1">
-          <CardTitle className="font-headline text-3xl font-black">PLAYER <span className="text-primary italic">SETUP</span></CardTitle>
-          <CardDescription>
-            Configure your arena identity. Choose wisely.
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background/50">
+      <Card className="glass w-full max-w-xl border-white/5 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
+        <CardHeader className="space-y-1 text-center pt-8">
+          <CardTitle className="font-headline text-4xl font-black italic tracking-tighter">
+            ARENA <span className="text-primary">IDENTITY</span>
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Establish your presence in the competitive ecosystem.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-4">
+          <CardContent className="space-y-8">
+            {/* Avatar Upload */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative group">
+                <Avatar className="h-28 w-28 border-4 border-primary/20 p-1 bg-background glow-primary transition-transform group-hover:scale-105">
+                  <AvatarImage src={formData.avatarUrl} className="rounded-full object-cover" />
+                  <AvatarFallback className="bg-muted text-2xl font-black">
+                    {formData.username?.substring(0, 2).toUpperCase() || '??'}
+                  </AvatarFallback>
+                </Avatar>
+                <Button 
+                  type="button"
+                  size="icon"
+                  className="absolute bottom-0 right-0 rounded-full bg-primary hover:bg-primary/90 shadow-xl border-2 border-background h-8 w-8"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleImageUpload} 
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Profile Photo</p>
+            </div>
+
+            {/* Security Protocol */}
+            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5 flex gap-4">
               <ShieldAlert className="w-6 h-6 text-primary shrink-0" />
-              <div className="text-xs space-y-1">
-                <p className="font-bold text-primary uppercase">Security Protocol</p>
-                <p className="text-muted-foreground leading-relaxed">
-                  Once updated, your <span className="text-white">In-game Name, Clash Tag, and Town Hall</span> will be locked for <span className="text-white">3 days</span> to prevent tournament fraud.
+              <div className="text-xs space-y-2">
+                <p className="font-bold text-primary uppercase tracking-wider">Security Protocol Level 1</p>
+                <p className="text-muted-foreground leading-relaxed font-medium">
+                  To prevent <span className="text-white font-bold underline decoration-primary/40">tournament fraud</span>, your details will be <span className="text-white font-bold">LOCKED for 3 days</span> after confirmation. Ensure your Clash Tag and Town Hall are 100% accurate.
                 </p>
               </div>
             </div>
 
             {isLocked && (
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center justify-between">
+              <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Timer className="w-5 h-5 text-yellow-500" />
-                  <p className="text-xs font-bold text-yellow-500 uppercase">Profile Locked</p>
+                  <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest">Modification Cooldown</p>
                 </div>
                 <p className="font-mono text-sm font-black text-yellow-500">{timeLeft}</p>
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="username">In-game Name</Label>
+                <Label htmlFor="username" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">In-game Name</Label>
                 <Input 
                   id="username" 
                   placeholder="e.g. SlayerX" 
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
                   disabled={isLocked}
-                  className="bg-white/5 border-white/10"
+                  className="bg-white/5 border-white/10 h-12 focus:border-primary/50 transition-all font-bold"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tag">Clash Tag</Label>
+                <Label htmlFor="tag" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label>
                 <Input 
                   id="tag" 
                   placeholder="#QY88PP0" 
                   value={formData.tag}
                   onChange={(e) => setFormData({...formData, tag: e.target.value})}
                   disabled={isLocked}
-                  className="bg-white/5 border-white/10"
+                  className="bg-white/5 border-white/10 h-12 focus:border-primary/50 transition-all font-mono font-bold"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Town Hall Level</Label>
+              <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall Level</Label>
               <Select 
                 disabled={isLocked} 
                 value={formData.townHall}
                 onValueChange={(val) => setFormData({...formData, townHall: val})}
               >
-                <SelectTrigger className="bg-white/5 border-white/10">
+                <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold focus:ring-primary/20">
                   <SelectValue placeholder="Select your TH level" />
                 </SelectTrigger>
-                <SelectContent>
-                  {[12, 13, 14, 15, 16, 17].map((th) => (
-                    <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
+                <SelectContent className="bg-card border-white/10">
+                  {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
+                    <SelectItem key={th} value={th.toString()} className="font-bold hover:bg-primary/10">Town Hall {th}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="pb-8">
             <Button 
               type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-12 glow-primary"
-              disabled={isLocked}
+              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary text-lg tracking-tighter"
+              disabled={isLocked || uploading}
             >
-              {isLocked ? 'MODIFICATIONS DISABLED' : 'SECURE IDENTITY'}
+              {isLocked ? (
+                <span className="flex items-center gap-2">IDENTITY SECURED <CheckCircle2 className="w-5 h-5" /></span>
+              ) : uploading ? (
+                <span className="flex items-center gap-2 italic">SYNCHRONIZING... <Loader2 className="w-5 h-5 animate-spin" /></span>
+              ) : (
+                'SECURE ARENA IDENTITY'
+              )}
             </Button>
           </CardFooter>
         </form>
