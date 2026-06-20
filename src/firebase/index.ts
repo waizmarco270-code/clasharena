@@ -1,9 +1,13 @@
 'use client';
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, initializeFirestore, Firestore, FirestoreSettings } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
+
+let app: FirebaseApp;
+let firestore: Firestore;
+let auth: Auth;
 
 /**
  * Initializes Firebase with specific settings for Cloud Workstations.
@@ -12,24 +16,29 @@ import { firebaseConfig } from './config';
  */
 export function initializeFirebase() {
   if (getApps().length > 0) {
-    const app = getApp();
-    return {
-      firebaseApp: app,
-      firestore: getFirestore(app),
-      auth: getAuth(app),
-    };
+    app = getApp();
+  } else {
+    app = initializeApp(firebaseConfig);
   }
 
-  const firebaseApp = initializeApp(firebaseConfig);
-  
-  // Use Long Polling to ensure stable connectivity in cloud IDE environments
-  const firestore = initializeFirestore(firebaseApp, {
-    experimentalForceLongPolling: true,
-  });
-  
-  const auth = getAuth(firebaseApp);
+  // Ensure Firestore is only initialized once with the correct settings
+  if (!firestore) {
+    const settings: FirestoreSettings = {
+      experimentalForceLongPolling: true,
+    };
+    try {
+      firestore = initializeFirestore(app, settings);
+    } catch (e) {
+      // If already initialized, get the existing instance
+      firestore = getFirestore(app);
+    }
+  }
 
-  return { firebaseApp, firestore, auth };
+  if (!auth) {
+    auth = getAuth(app);
+  }
+
+  return { firebaseApp: app, firestore, auth };
 }
 
 export * from './provider';

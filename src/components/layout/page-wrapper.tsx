@@ -8,31 +8,30 @@ import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
-  const { user } = useUser();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
 
   const userRef = userId ? doc(db, 'users', userId) : null;
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
+  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // If auth is still loading, wait.
     if (!authLoaded) return;
 
     // IF LOGGED IN
     if (userId) {
       // Check if profile is missing critical data
-      const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
+      // If there's an error fetching (like network error), we don't treat it as incomplete yet to avoid loops
+      const isProfileIncomplete = !profileError && (!profile || !profile.username || !profile.tag || !profile.townHall);
 
       // Force to setup if profile is incomplete
-      if (!profileLoading && isProfileIncomplete && pathname !== '/setup') {
+      if (!profileLoading && !profileError && isProfileIncomplete && pathname !== '/setup') {
         router.push('/setup');
       } 
       // If they have a profile but are stuck on landing or setup, send to arena
@@ -44,9 +43,9 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     else if (!isPublicRoute && authLoaded) {
       router.push('/');
     }
-  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
+  }, [userId, authLoaded, profile, profileLoading, profileError, pathname, router, isPublicRoute]);
 
-  // Global Loading State
+  // Global Loading State (Initial Auth)
   if (!authLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -72,12 +71,14 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   // Auth'd User with incomplete profile (prevent flicker while redirecting)
-  if (userId && pathname !== '/setup' && (!profile || !profile.username)) {
+  // If there's a profile error, we show the children anyway so the user can see what's happening or try again
+  if (userId && pathname !== '/setup' && (!profile || !profile.username) && !profileError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs">Synchronizing Identity...</p>
+          {profileLoading && <p className="text-[10px] text-muted-foreground animate-pulse">Connecting to Arena Data...</p>}
         </div>
       </div>
     );

@@ -27,14 +27,22 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
       (snapshot: DocumentSnapshot<T>) => {
         setData(snapshot.exists() ? snapshot.data()! : null);
         setLoading(false);
+        setError(null);
       },
-      async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'get',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setError(permissionError);
+      async (serverError: any) => {
+        // Only report as permission error if it actually is one
+        if (serverError?.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'get',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setError(permissionError);
+        } else {
+          // Log other errors (like network "Failed to fetch") without triggering the permission overlay
+          console.warn('Firestore Subscription Error:', serverError);
+          setError(serverError);
+        }
         setLoading(false);
       }
     );
