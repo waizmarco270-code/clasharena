@@ -8,8 +8,14 @@ import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
-import Link from 'next/link';
 
+/**
+ * PageWrapper acts as the global gatekeeper for the application.
+ * It handles:
+ * 1. Authentication guards for private routes.
+ * 2. Mandatory profile setup redirection for new users.
+ * 3. Consistent layout (Sidebar/Header) for authenticated sections.
+ */
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useUser();
   const db = useFirestore();
@@ -22,50 +28,45 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
+    // 1. If the user is NOT logged in and trying to access a private route, send to Home
     if (!authLoading && !user && !isPublicRoute) {
       router.push('/');
+      return;
     }
 
+    // 2. If the user IS logged in but hasn't completed their Arena Identity, force Setup
     if (!authLoading && user && !profileLoading && pathname !== '/setup') {
-      if (!profile || !profile.username || !profile.tag || !profile.townHall) {
+      const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
+      if (isProfileIncomplete) {
         router.push('/setup');
       }
     }
   }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
 
+  // Handle initialization and profile loading states
   if (authLoading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(255,69,0,0.5)]" />
+        <div className="relative w-20 h-20">
+          <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_hsla(var(--primary),0.5)]" />
+          <div className="absolute inset-0 flex items-center justify-center font-headline font-black text-primary text-xl">C</div>
         </div>
       </div>
     );
   }
 
+  // Setup page renders as a standalone full-screen experience
   if (pathname === '/setup') {
-    return <div className="bg-background min-h-screen flex items-center justify-center">{children}</div>;
+    return <div className="bg-background min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
+  // Public/Marketing view for guest users
   if (!user && isPublicRoute) {
-    return (
-      <div className="flex min-h-screen w-full bg-background/95 flex-col">
-        <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-white/5">
-          <div className="container mx-auto h-full px-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3">C</div>
-              <span className="font-headline font-bold text-xl tracking-tight text-white uppercase italic">CLASH <span className="text-primary">ARENA</span></span>
-            </Link>
-          </div>
-        </header>
-        <main className="flex-1">
-          {children}
-        </main>
-      </div>
-    );
+    return <div className="min-w-0 w-full">{children}</div>;
   }
 
+  // Standard App Layout for authenticated users
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background/95">
