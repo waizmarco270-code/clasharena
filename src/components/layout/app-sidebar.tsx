@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -24,7 +25,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.id) : null;
+  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   const mainNav = [

@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import Image from 'next/image';
 export default function Dashboard() {
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.id) : null;
+  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   const activeTournaments = [

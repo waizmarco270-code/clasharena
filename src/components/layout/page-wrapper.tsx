@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -18,19 +18,18 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Profile data
-  const userRef = userId ? doc(db, 'users', userId) : null;
+  // Memoize the document reference to prevent infinite re-renders
+  const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    if (!authLoaded || isRedirecting) return;
+    if (!authLoaded) return;
 
     // Handle Guests
     if (!userId) {
       if (!isPublicRoute) {
-        setIsRedirecting(true);
         router.push('/');
       }
       return;
@@ -39,25 +38,19 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     // Handle Authenticated Users
     const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
     
-    // Redirect from landing page
+    // Redirect logic
     if (pathname === '/') {
-      setIsRedirecting(true);
       router.push('/setup');
-      return;
-    }
-
-    // Force setup if incomplete
-    if (!profileLoading && isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
-      setIsRedirecting(true);
+    } else if (!profileLoading && isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
       router.push('/setup');
-    } 
-    // Redirect away from setup if complete
-    else if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
-      setIsRedirecting(true);
+    } else if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
       router.push('/dashboard');
+    } else {
+      // If we are where we need to be, ensure we aren't showing the loader
+      setIsRedirecting(false);
     }
 
-  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute, isRedirecting]);
+  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
 
   // Global Auth Loading State
   if (!authLoaded) {
@@ -79,8 +72,8 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     return <div className="bg-black min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
-  // Handle protected layout flicker
-  if (userId && (pathname === '/' || isRedirecting)) {
+  // Handle protected layout flicker/sync state
+  if (userId && (pathname === '/' || profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">

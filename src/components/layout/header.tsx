@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,7 +14,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 export function Header() {
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.id) : null;
+  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   return (
