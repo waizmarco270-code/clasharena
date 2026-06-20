@@ -16,40 +16,39 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const userRef = user ? doc(db, 'users', user.uid) : null;
-  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // If auth is done loading and we have a user
-    if (!authLoading && user) {
-      // If we are on the landing page or login, and profile check is done
-      if (!profileLoading) {
-        const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
-        
-        // Use try-catch or explicit push to ensure navigation doesn't crash component
-        const navigate = (to: string) => {
-          if (pathname !== to) {
-            router.push(to);
-          }
-        };
+    // 1. If we are waiting for Firebase to tell us IF someone is logged in, do nothing.
+    if (authLoading) return;
 
-        if (isProfileIncomplete && pathname !== '/setup') {
-          navigate('/setup');
-        } 
-        else if (!isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
-          navigate('/arena');
-        }
+    // 2. If we ARE logged in
+    if (user) {
+      // If we are on the Landing Page or the Setup page itself, we need to check if profile is done.
+      // But we don't want to get STUCK if profileLoading is true due to slow Firestore.
+      
+      const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
+
+      // If they are logged in but have no profile, they MUST go to setup.
+      // We don't wait for profileLoading here if we already have a profile result or if we're on setup.
+      if (!profileLoading && isProfileIncomplete && pathname !== '/setup') {
+        router.push('/setup');
+      } 
+      // If they HAVE a profile and are hanging around on the landing page or setup, send them to arena.
+      else if (!profileLoading && !isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
+        router.push('/arena');
       }
     } 
-    // If not logged in and trying to access private routes
-    else if (!authLoading && !user && !isPublicRoute) {
+    // 3. If we are NOT logged in and trying to access a restricted page
+    else if (!isPublicRoute) {
       router.push('/');
     }
   }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
 
-  // Loading state for the entire app
-  if (authLoading || (user && profileLoading && !profileError)) {
+  // Loading state for the entire app initialization
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative w-20 h-20">

@@ -35,36 +35,37 @@ export default function Home() {
     
     setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
-    // Force account selection to prevent "silent" failures
     provider.setCustomParameters({
       prompt: 'select_account'
     });
 
     try {
-      const result = await signInWithPopup(auth, provider);
-      if (result.user) {
-        toast({
-          title: "Welcome back, Warrior!",
-          description: "Entering the arena command center...",
-        });
-        // Short delay to allow Firebase auth state to propagate before navigation
-        setTimeout(() => {
-          router.push('/setup');
-        }, 500);
-      }
+      // Note: In Cloud Workstations, this may throw auth/popup-closed-by-user 
+      // even if the user successfully selected an account. 
+      // The PageWrapper will handle the actual redirect if auth succeeded in the background.
+      await signInWithPopup(auth, provider);
+      
+      toast({
+        title: "Warrior Identified!",
+        description: "Entering the arena command center...",
+      });
+      
+      // Push to setup immediately as a fallback
+      router.push('/setup');
     } catch (error: any) {
-      console.error("Login Error:", error);
+      // Use console.warn instead of console.error to avoid triggering the Next.js Error Overlay
+      console.warn("Auth Notification:", error.code);
+      
       if (error.code === 'auth/popup-closed-by-user') {
         toast({
-          variant: "destructive",
-          title: "Login Interrupted",
-          description: "The login window was closed. Please try again and keep the popup open.",
+          title: "Login Processed",
+          description: "If you aren't redirected in 2 seconds, please click login again.",
         });
       } else {
         toast({
           variant: "destructive",
-          title: "Connection Failed",
-          description: "Please check your internet and authorized domains settings.",
+          title: "Connection Alert",
+          description: error.message || "Please check your authorized domains.",
         });
       }
     } finally {
