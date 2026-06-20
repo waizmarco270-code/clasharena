@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   ShieldAlert as ShieldIcon
 } from 'lucide-react';
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser } from "@clerk/nextjs";
+import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -28,7 +29,7 @@ import Link from 'next/link';
 
 function ManualPayContent() {
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useUser();
+  const { user, isLoaded: authLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
@@ -79,13 +80,17 @@ function ManualPayContent() {
   };
 
   const handleSubmit = () => {
-    if (!screenshotUrl || !user || submitting) return;
+    if (!screenshotUrl || !user || submitting) {
+      if (!user) toast({ variant: "destructive", title: "Auth Error", description: "User identity not found." });
+      if (!screenshotUrl) toast({ variant: "destructive", title: "Missing Proof", description: "Please upload payment screenshot." });
+      return;
+    }
     
     setSubmitting(true);
     const requestRef = doc(db, 'recharge-requests', txId);
     const requestData = {
-      userId: user.uid,
-      username: user.displayName || user.email?.split('@')[0] || 'Warrior',
+      userId: user.id, // Clerk ID
+      username: user.username || user.firstName || 'Warrior',
       amount: amount,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
@@ -110,7 +115,7 @@ function ManualPayContent() {
       });
   };
 
-  if (settingsLoading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
+  if (settingsLoading || !authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
 
   if (showSuccess) {
     return (
