@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -10,101 +11,95 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 import { useAuth } from "@clerk/nextjs";
 
-/**
- * PageWrapper handles the global authentication and profile state.
- * It ensures that users are redirected to the correct location based on their auth status.
- */
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // We fetch the profile here
+  // Profile data
   const userRef = userId ? doc(db, 'users', userId) : null;
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    if (!authLoaded) return;
+    if (!authLoaded || isRedirecting) return;
 
-    // IF NOT LOGGED IN
+    // Handle Guests
     if (!userId) {
       if (!isPublicRoute) {
+        setIsRedirecting(true);
         router.push('/');
       }
-    } 
-    // IF LOGGED IN
-    else {
-      // 1. Force to setup if on landing page
-      if (pathname === '/') {
-        router.push('/setup');
-        return;
-      }
-      
-      // 2. Gatekeeping: Only check profile completion if we aren't already on setup or a public route
-      if (pathname !== '/setup' && !isPublicRoute) {
-        // If we know for sure the profile is incomplete, push to setup
-        const isIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
-        if (isIncomplete) {
-          router.push('/setup');
-        }
-      }
-      
-      // 3. If profile is complete and they ARE on setup, force them to arena
-      const isComplete = !profileLoading && profile && profile.username && profile.tag;
-      if (isComplete && pathname === '/setup') {
-        router.push('/arena');
-      }
+      return;
     }
-  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
 
-  // Global Loading State (Initial Auth Check)
+    // Handle Authenticated Users
+    const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
+    
+    // Redirect from landing page
+    if (pathname === '/') {
+      setIsRedirecting(true);
+      router.push('/setup');
+      return;
+    }
+
+    // Force setup if incomplete
+    if (!profileLoading && isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
+      setIsRedirecting(true);
+      router.push('/setup');
+    } 
+    // Redirect away from setup if complete
+    else if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
+      setIsRedirecting(true);
+      router.push('/dashboard');
+    }
+
+  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute, isRedirecting]);
+
+  // Global Auth Loading State
   if (!authLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_30px_hsla(var(--primary),0.5)]" />
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="font-headline font-black text-primary text-2xl animate-pulse">C</span>
+            <span className="font-headline font-black text-primary text-2xl">C</span>
           </div>
         </div>
       </div>
     );
   }
 
-  // Setup page is full screen and handled independently
-  if (pathname === '/setup') {
-    return <div className="bg-background min-h-screen flex items-center justify-center w-full overflow-hidden">{children}</div>;
+  // Full screen pages
+  if (pathname === '/setup' || (pathname === '/' && !userId)) {
+    return <div className="bg-black min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
-  // Guests on Landing Page / Public Pages
-  if (!userId && isPublicRoute) {
-    return <div className="min-w-0 w-full bg-background">{children}</div>;
-  }
-
-  // Prevent flicker for logged in users on landing page while redirecting
-  if (userId && pathname === '/') {
+  // Handle protected layout flicker
+  if (userId && (pathname === '/' || isRedirecting)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs">Entering the Arena...</p>
+          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs italic">
+            SYNCHRONIZING IDENTITY...
+          </p>
         </div>
       </div>
     );
   }
 
-  // Standard Protected Layout
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background overflow-x-hidden">
+      <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent">
           <Header />
-          <main className="flex-1 pt-20 pb-20 md:pb-6 px-4 md:px-8 max-w-7xl mx-auto w-full">
+          <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full overflow-x-hidden">
             {children}
           </main>
           <BottomNav />

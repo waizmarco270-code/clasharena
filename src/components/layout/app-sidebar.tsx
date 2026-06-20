@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,36 +15,37 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Home, Swords, Trophy, User, Shield, Zap, Settings } from 'lucide-react';
-import { useDoc, useFirestore, useUser } from '@/firebase';
+import { Home, Swords, Trophy, User, Shield, LayoutDashboard, Settings } from 'lucide-react';
+import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { useUser } from "@clerk/nextjs";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.uid) : null;
+  const userRef = user ? doc(db, 'users', user.id) : null;
   const { data: profile } = useDoc(userRef);
 
   const mainNav = [
-    { name: 'Home', href: '/', icon: Home },
+    { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Tournament Arena', href: '/arena', icon: Swords },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy },
   ];
 
   const userNav = [
     { name: 'My Profile', href: '/profile', icon: User },
-    { name: 'Account Setup', href: '/setup', icon: Settings },
+    { name: 'Arena Identity', href: '/setup', icon: Shield },
   ];
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
       <SidebarHeader className="h-16 flex items-center px-4 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/dashboard" className="flex items-center gap-2 group">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform">
             C
           </div>
-          <span className="font-headline font-bold text-xl tracking-tight group-data-[collapsible=icon]:hidden">
+          <span className="font-headline font-bold text-xl tracking-tight group-data-[collapsible=icon]:hidden uppercase">
             CLASH <span className="text-primary italic">ARENA</span>
           </span>
         </Link>

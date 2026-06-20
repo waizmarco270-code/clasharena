@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldAlert, Timer, Camera, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Timer, Camera, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from "@clerk/nextjs";
+import Link from 'next/link';
 
 export default function ProfileSetup() {
   const { user, isLoaded: userLoaded } = useUser();
@@ -31,6 +33,7 @@ export default function ProfileSetup() {
   });
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,9 +54,12 @@ export default function ProfileSetup() {
         setIsLocked(false);
       }
 
-      // If profile is already complete and user is not currently saving, move to arena
-      if (profile.username && profile.tag && profile.townHall && !isSubmitting) {
-        router.push('/arena');
+      // If profile is complete, don't auto-redirect immediately to give visual feedback
+      // But allow them to move if they refresh
+      if (profile.username && profile.tag && profile.townHall && !isSubmitting && !isSuccess) {
+        // Only redirect if they've been here for a bit or if they aren't actively changing things
+        const timer = setTimeout(() => router.push('/dashboard'), 2000);
+        return () => clearTimeout(timer);
       }
     } else if (user) {
       setFormData(prev => ({
@@ -61,7 +67,7 @@ export default function ProfileSetup() {
         avatarUrl: prev.avatarUrl || user.imageUrl || ''
       }));
     }
-  }, [profile, user, isSubmitting, router]);
+  }, [profile, user, isSubmitting, router, isSuccess]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -86,59 +92,18 @@ export default function ProfileSetup() {
     return () => clearInterval(timer);
   }, [profile]);
 
-  const compressImage = async (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          const maxDim = 1200;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = (height / width) * maxDim;
-              width = maxDim;
-            } else {
-              width = (width / height) * maxDim;
-              height = maxDim;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.85);
-        };
-      };
-    });
-  };
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     try {
-      let uploadFile: Blob | File = file;
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "Compressing...", description: "Optimizing your photo for the arena." });
-        uploadFile = await compressImage(file);
-      }
-
       const formDataCld = new FormData();
-      formDataCld.append('file', uploadFile);
+      formDataCld.append('file', file);
       formDataCld.append('upload_preset', 'ml_default');
 
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) {
-        throw new Error("Cloudinary Cloud Name is not configured.");
-      }
+      if (!cloudName) throw new Error("Cloudinary not configured.");
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -148,12 +113,12 @@ export default function ProfileSetup() {
       const data = await response.json();
       if (data.secure_url) {
         setFormData(prev => ({ ...prev, avatarUrl: data.secure_url }));
-        toast({ title: "Photo Updated!", description: "Looking sharp, warrior." });
+        toast({ title: "War Portrait Updated!" });
       } else {
         throw new Error(data.error?.message || "Upload failed");
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message || "Could not upload photo." });
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally {
       setUploading(false);
     }
@@ -164,7 +129,7 @@ export default function ProfileSetup() {
     if (!user || isLocked || isSubmitting) return;
 
     if (!formData.username || !formData.tag || !formData.townHall) {
-      toast({ variant: "destructive", title: "Missing Intel!", description: "All fields are required to enter the arena." });
+      toast({ variant: "destructive", title: "Missing Intel!" });
       return;
     }
 
@@ -188,8 +153,9 @@ export default function ProfileSetup() {
     const docRef = doc(db, 'users', user.id);
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
-        toast({ title: "Identity Secured!", description: "Welcome to the Arena." });
-        setTimeout(() => router.push('/arena'), 500);
+        setIsSuccess(true);
+        toast({ title: "Identity Secured!", description: "Prepare for battle." });
+        setTimeout(() => router.push('/dashboard'), 1500);
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -205,7 +171,7 @@ export default function ProfileSetup() {
   if (!userLoaded) return null;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-background selection:bg-primary selection:text-white">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-black">
       <Card className="glass w-full max-w-xl border-white/5 overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
         <CardHeader className="space-y-1 text-center pt-8">
@@ -230,20 +196,14 @@ export default function ProfileSetup() {
                   <Button 
                     type="button"
                     size="icon"
-                    className="absolute bottom-1 right-1 rounded-full bg-primary hover:bg-primary/90 shadow-2xl border-2 border-background h-10 w-10 animate-pulse"
+                    className="absolute bottom-1 right-1 rounded-full bg-primary hover:bg-primary/90 shadow-2xl border-2 border-background h-10 w-10"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                   >
                     {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
                   </Button>
                 )}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleImageUpload} 
-                />
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
               </div>
               <p className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.3em]">War Portrait</p>
             </div>
@@ -253,18 +213,17 @@ export default function ProfileSetup() {
               <div className="text-xs space-y-3">
                 <p className="font-black text-primary uppercase tracking-widest text-sm">SECURITY PROTOCOL</p>
                 <p className="text-muted-foreground leading-relaxed font-medium">
-                  To maintain <span className="text-white font-bold underline decoration-primary/40 underline-offset-2">competitive integrity</span>, your identity details will be <span className="text-white font-bold">LOCKED for 72 hours</span> after confirmation. Fake IDs will lead to a permanent ban.
+                  Identity details will be <span className="text-white font-bold">LOCKED for 72 hours</span> to ensure fair play.
                 </p>
               </div>
             </div>
 
             {isLocked && (
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Timer className="w-6 h-6 text-yellow-500 animate-spin-slow" style={{ animationDuration: '3s' }} />
+                  <Timer className="w-6 h-6 text-yellow-500" />
                   <div>
                     <p className="text-xs font-black text-yellow-500 uppercase tracking-widest">Identity Cooldown</p>
-                    <p className="text-[10px] text-muted-foreground font-bold">SECURED AGAINST CHANGES</p>
                   </div>
                 </div>
                 <p className="font-headline text-xl font-black text-yellow-500 glow-text">{timeLeft || 'SECURED'}</p>
@@ -273,61 +232,51 @@ export default function ProfileSetup() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-3">
-                <Label htmlFor="username" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">In-game Name</Label>
-                <Input 
-                  id="username" 
-                  placeholder="e.g. SlayerX" 
-                  value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  disabled={isLocked}
-                  className="bg-white/5 border-white/10 h-14 focus:border-primary/50 transition-all font-bold text-lg"
-                />
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">In-game Name</Label>
+                <Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} disabled={isLocked} className="bg-white/5 border-white/10 h-14 font-bold" />
               </div>
               <div className="space-y-3">
-                <Label htmlFor="tag" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label>
-                <Input 
-                  id="tag" 
-                  placeholder="#QY88PP0" 
-                  value={formData.tag}
-                  onChange={(e) => setFormData({...formData, tag: e.target.value})}
-                  disabled={isLocked}
-                  className="bg-white/5 border-white/10 h-14 focus:border-primary/50 transition-all font-mono font-bold text-lg"
-                />
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label>
+                <Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} disabled={isLocked} className="bg-white/5 border-white/10 h-14 font-mono font-bold" />
               </div>
             </div>
 
             <div className="space-y-3">
               <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall Level</Label>
-              <Select 
-                disabled={isLocked} 
-                value={formData.townHall}
-                onValueChange={(val) => setFormData({...formData, townHall: val})}
-              >
-                <SelectTrigger className="bg-white/5 border-white/10 h-14 font-bold text-lg focus:ring-primary/20">
-                  <SelectValue placeholder="Select your TH level" />
+              <Select disabled={isLocked} value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}>
+                <SelectTrigger className="bg-white/5 border-white/10 h-14 font-bold">
+                  <SelectValue placeholder="Select TH Level" />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-white/10">
-                  {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
-                    <SelectItem key={th} value={th.toString()} className="font-bold hover:bg-primary/10 py-3">Town Hall {th}</SelectItem>
+                <SelectContent>
+                  {[9, 10, 11, 12, 13, 14, 15, 16, 17].map((th) => (
+                    <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </CardContent>
-          <CardFooter className="pb-8">
+          <CardFooter className="flex flex-col gap-4 pb-8">
             <Button 
               type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-16 rounded-2xl glow-primary text-xl tracking-tighter transition-transform active:scale-95"
-              disabled={isLocked || uploading || isSubmitting}
+              className="w-full bg-primary hover:bg-primary/90 font-black h-16 rounded-2xl glow-primary text-xl"
+              disabled={isLocked || uploading || isSubmitting || isSuccess}
             >
-              {isLocked ? (
-                <span className="flex items-center gap-3">IDENTITY SECURED <CheckCircle2 className="w-6 h-6" /></span>
-              ) : uploading || isSubmitting ? (
-                <span className="flex items-center gap-3 italic">SYNCHRONIZING... <Loader2 className="w-6 h-6 animate-spin" /></span>
-              ) : (
-                'SECURE ARENA IDENTITY'
-              )}
+              {isSuccess ? <span className="flex items-center gap-3">IDENTITY SECURED <CheckCircle2 /></span> : 
+               isSubmitting ? <span className="flex items-center gap-3 italic">SYNCHRONIZING... <Loader2 className="animate-spin" /></span> : 
+               'SECURE ARENA IDENTITY'}
             </Button>
+            
+            {(isSuccess || profile?.username) && (
+              <Button 
+                onClick={() => router.push('/dashboard')}
+                type="button" 
+                variant="outline" 
+                className="w-full h-16 rounded-2xl border-primary/20 hover:bg-primary/10 font-black text-xl group"
+              >
+                ENTER ARENA
+                <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            )}
           </CardFooter>
         </form>
       </Card>
