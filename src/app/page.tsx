@@ -19,19 +19,20 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
+import { NeuralBackground } from '@/components/ui/neural-background';
 
 export default function Home() {
   const { user } = useUser();
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
   
   return (
-    <div className="flex flex-col bg-black selection:bg-primary selection:text-white">
-      {/* Red Ambient Particles Overlay */}
-      <div className="particles-bg" />
+    <div className="flex flex-col bg-black selection:bg-primary selection:text-white overflow-x-hidden">
+      {/* Neural Node Particle Background */}
+      <NeuralBackground />
       
-      {/* Dynamic Glowing Blobs */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
+      {/* Dynamic Glowing Blobs for Ambient Depth */}
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
@@ -40,11 +41,11 @@ export default function Home() {
             src={heroBg?.imageUrl || ''} 
             alt="Hero Background" 
             fill 
-            className="object-cover opacity-20 scale-110 saturate-150"
+            className="object-cover opacity-20 scale-105 saturate-150"
             priority
             data-ai-hint="gaming fire"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/90 to-black" />
         </div>
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center">
@@ -185,7 +186,7 @@ export default function Home() {
                 <Badge className="mb-4 bg-primary/20 text-primary border-primary/30 font-black tracking-widest uppercase text-[10px]">{item.th} CATEGORY</Badge>
                 <h3 className="font-headline text-3xl font-bold mb-3 text-white">{item.title}</h3>
                 <p className="text-xs text-muted-foreground mb-10 font-medium">Competitive matches for elite {item.th} players only.</p>
-                <Link href="/login" className="w-full">
+                <Link href={user ? "/arena" : "/login"} className="w-full">
                   <Button variant="secondary" className="w-full font-black rounded-xl uppercase tracking-widest py-6 group-hover:bg-primary group-hover:text-white transition-all">Join Arena</Button>
                 </Link>
               </CardContent>
