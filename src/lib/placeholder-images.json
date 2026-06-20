@@ -2,7 +2,7 @@
   "placeholderImages": [
     {
       "id": "hero-bg",
-      "description": "Epic gaming background with fire and embers",
+      "description": "Epic gaming background with fire and embers. Replace the imageUrl below with your own image link.",
       "imageUrl": "https://picsum.photos/seed/clash-arena-hero/1920/1080",
       "imageHint": "gaming fire"
     },
