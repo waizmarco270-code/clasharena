@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,6 +24,16 @@
     --input: 20 10% 12%;
     --ring: 15 100% 50%;
     --radius: 0.75rem;
+
+    /* Sidebar Variables */
+    --sidebar-background: 20 20% 5%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 15 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 20 10% 12%;
+    --sidebar-accent-foreground: 15 100% 50%;
+    --sidebar-border: 20 10% 12%;
+    --sidebar-ring: 15 100% 50%;
   }
 }
 
@@ -40,6 +49,13 @@
   }
   .glow-text {
     text-shadow: 0 0 10px hsla(var(--primary), 0.5);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
@@ -57,7 +73,7 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.9)), url('https://picsum.photos/seed/legendary-arena/1920/1080');
+  background-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('https://picsum.photos/seed/legendary-arena/1920/1080');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
