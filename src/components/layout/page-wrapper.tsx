@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -20,6 +21,27 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
+
+  // Presence Tracking - Updates every navigation or every 3 mins
+  useEffect(() => {
+    if (!userId || !userRef) return;
+
+    const updatePresence = async () => {
+      try {
+        await updateDoc(userRef, {
+          lastActive: new Date().toISOString()
+        });
+      } catch (e) {
+        // Silently fail to not interrupt UX
+      }
+    };
+
+    updatePresence();
+    
+    // Heartbeat every 3 minutes
+    const interval = setInterval(updatePresence, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [userId, userRef, pathname]);
 
   useEffect(() => {
     if (!authLoaded) return;

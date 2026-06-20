@@ -7,12 +7,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2, Settings, QrCode, ImagePlus, Save, Ban, UserCog, UserMinus, UserPlus, Coins } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2, Settings, QrCode, ImagePlus, Save, Ban, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCollection, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, setDoc, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, setDoc, where, getDocs, limit, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -32,6 +32,13 @@ export default function AdminPanel() {
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
+  // Stats Queries
+  const allUsersQuery = useMemo(() => query(collection(db, 'users')), [db]);
+  const { data: allUsers, loading: usersLoading } = useCollection(allUsersQuery);
+  
+  const allRequestsQuery = useMemo(() => query(collection(db, 'recharge-requests')), [db]);
+  const { data: allRequests } = useCollection(allRequestsQuery);
+
   // Recharge Requests
   const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc')), [db]);
   const { data: rechargeRequests, loading: rechargeLoading } = useCollection(rechargeQuery);
@@ -40,10 +47,10 @@ export default function AdminPanel() {
   const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
   const { data: paymentSettings, loading: settingsLoading } = useDoc(settingsRef);
 
-  // User Management (Super Admin)
+  // User Management
   const [userSearch, setUserSearch] = useState('');
-  const [foundUsers, setFoundUsers] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [displayUsers, setDisplayUsers] = useState<any[]>([]);
 
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -57,6 +64,13 @@ export default function AdminPanel() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync displayed users with either all users or search results
+  useEffect(() => {
+    if (!userSearch && allUsers) {
+      setDisplayUsers(allUsers);
+    }
+  }, [allUsers, userSearch]);
+
   useEffect(() => {
     if (paymentSettings) {
       setUpiId(paymentSettings.adminUpiId || '');
@@ -64,19 +78,33 @@ export default function AdminPanel() {
     }
   }, [paymentSettings]);
 
+  // Online count calculation (active in last 5 mins)
+  const onlineCount = useMemo(() => {
+    if (!allUsers) return 0;
+    const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
+    return allUsers.filter(u => {
+      if (!u.lastActive) return false;
+      const lastActive = new Date(u.lastActive).getTime();
+      return lastActive > fiveMinsAgo;
+    }).length;
+  }, [allUsers]);
+
   const searchUsers = async () => {
-    if (!userSearch.trim()) return;
+    if (!userSearch.trim()) {
+      if (allUsers) setDisplayUsers(allUsers);
+      return;
+    }
     setSearching(true);
     try {
       const q = query(
         collection(db, 'users'),
         where('username', '>=', userSearch),
         where('username', '<=', userSearch + '\uf8ff'),
-        limit(5)
+        limit(20)
       );
       const snap = await getDocs(q);
       const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setFoundUsers(results);
+      setDisplayUsers(results);
     } catch (e) {
       toast({ variant: "destructive", title: "Search Error" });
     } finally {
@@ -188,6 +216,38 @@ export default function AdminPanel() {
           <p className="text-muted-foreground font-medium">Tournament management & financial oversight.</p>
         </div>
 
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="glass border-white/5 bg-primary/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Users className="w-12 h-12" /></div>
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Total Recruits</p>
+              <h3 className="text-3xl font-headline font-black">{allUsers?.length || 0}</h3>
+              <p className="text-[10px] text-muted-foreground font-bold mt-2 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> Registered Warriors
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="glass border-white/5 bg-green-500/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Activity className="w-12 h-12" /></div>
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-green-500 uppercase tracking-[0.2em] mb-1">Active Warriors</p>
+              <h3 className="text-3xl font-headline font-black">{onlineCount}</h3>
+              <p className="text-[10px] text-muted-foreground font-bold mt-2 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Live Now
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="glass border-white/5 bg-blue-500/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Wallet className="w-12 h-12" /></div>
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Total Transactions</p>
+              <h3 className="text-3xl font-headline font-black">{allRequests?.length || 0}</h3>
+              <p className="text-[10px] text-muted-foreground font-bold mt-2 italic uppercase">Financial Audit Active</p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="wallets" className="w-full">
           <TabsList className="bg-muted/50 border border-white/10 w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="wallets"><Wallet className="w-4 h-4 mr-2" /> Wallet Logs</TabsTrigger>
@@ -204,6 +264,8 @@ export default function AdminPanel() {
                   <TableBody>
                     {rechargeLoading ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : rechargeRequests?.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground italic font-medium">No recharge requests found.</TableCell></TableRow>
                     ) : (
                       rechargeRequests?.map((req: any) => (
                         <TableRow key={req.id} className="border-white/5">
@@ -249,39 +311,48 @@ export default function AdminPanel() {
                   </div>
 
                   <div className="space-y-4">
-                    {foundUsers.map(u => (
-                      <div key={u.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-full overflow-hidden border border-white/10 bg-muted">
-                            {u.avatarUrl && <Image src={u.avatarUrl} alt="avatar" width={48} height={48} />}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-black uppercase">{u.username}</p>
-                              {u.isSuperAdmin && <CheckCircle2 className="w-4 h-4 text-yellow-500" />}
-                              {u.isAdmin && !u.isSuperAdmin && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                    {usersLoading ? (
+                      <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-yellow-500" /></div>
+                    ) : displayUsers.length === 0 ? (
+                      <p className="text-center py-10 text-muted-foreground italic">No users found in registry.</p>
+                    ) : (
+                      displayUsers.map(u => (
+                        <div key={u.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 transition-colors hover:bg-white/[0.07]">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-full overflow-hidden border border-white/10 bg-muted relative">
+                              {u.avatarUrl && <Image src={u.avatarUrl} alt="avatar" width={48} height={48} />}
+                              {(u.lastActive && (new Date(u.lastActive).getTime() > Date.now() - 5 * 60 * 1000)) && (
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
+                              )}
                             </div>
-                            <p className="text-[10px] font-mono text-muted-foreground">{u.tag} • Balance: 🪙{u.balance}</p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-black uppercase">{u.username || 'Warrior'}</p>
+                                {u.isSuperAdmin && <CheckCircle2 className="w-4 h-4 text-yellow-500" />}
+                                {u.isAdmin && !u.isSuperAdmin && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                              </div>
+                              <p className="text-[10px] font-mono text-muted-foreground">{u.tag} • Balance: 🪙{u.balance}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            <Button size="sm" variant="outline" className="h-9 border-green-500/20 text-green-500" onClick={() => handleUpdateUserCoins(u.id, 50)}><Coins className="w-3 h-3 mr-1" /> +50</Button>
+                            <Button size="sm" variant="outline" className="h-9 border-red-500/20 text-red-500" onClick={() => handleUpdateUserCoins(u.id, -50)}><Coins className="w-3 h-3 mr-1" /> -50</Button>
+                            {u.id !== MASTER_SUPER_ADMIN_ID && (
+                              <Button 
+                                size="sm" 
+                                variant={u.isAdmin ? "destructive" : "secondary"} 
+                                className="h-9 font-black" 
+                                onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
+                              >
+                                {u.isAdmin ? <UserMinus className="w-3 h-3 mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
+                                {u.isAdmin ? 'REVOKE ADMIN' : 'MAKE ADMIN'}
+                              </Button>
+                            )}
                           </div>
                         </div>
-
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          <Button size="sm" variant="outline" className="h-9 border-green-500/20 text-green-500" onClick={() => handleUpdateUserCoins(u.id, 50)}><Coins className="w-3 h-3 mr-1" /> +50</Button>
-                          <Button size="sm" variant="outline" className="h-9 border-red-500/20 text-red-500" onClick={() => handleUpdateUserCoins(u.id, -50)}><Coins className="w-3 h-3 mr-1" /> -50</Button>
-                          {u.id !== MASTER_SUPER_ADMIN_ID && (
-                            <Button 
-                              size="sm" 
-                              variant={u.isAdmin ? "destructive" : "secondary"} 
-                              className="h-9 font-black" 
-                              onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
-                            >
-                              {u.isAdmin ? <UserMinus className="w-3 h-3 mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
-                              {u.isAdmin ? 'REVOKE ADMIN' : 'MAKE ADMIN'}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
