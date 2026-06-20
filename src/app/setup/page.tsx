@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,15 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldAlert, Timer, Camera, Loader2, CheckCircle2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUser } from "@clerk/nextjs";
 
 export default function ProfileSetup() {
-  const { user, loading: authLoading } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
   
-  const userRef = user ? doc(db, 'users', user.uid) : null;
+  const userRef = user ? doc(db, 'users', user.id) : null;
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const [formData, setFormData] = useState({
@@ -39,7 +41,7 @@ export default function ProfileSetup() {
         username: profile.username || '',
         tag: profile.tag || '',
         townHall: profile.townHall?.toString() || '',
-        avatarUrl: profile.avatarUrl || user?.photoURL || ''
+        avatarUrl: profile.avatarUrl || user?.imageUrl || ''
       });
 
       const lockTime = profile.profileLockedUntil ? new Date(profile.profileLockedUntil) : null;
@@ -48,6 +50,11 @@ export default function ProfileSetup() {
       } else {
         setIsLocked(false);
       }
+    } else if (user) {
+      setFormData(prev => ({
+        ...prev,
+        avatarUrl: prev.avatarUrl || user.imageUrl || ''
+      }));
     }
   }, [profile, user]);
 
@@ -168,7 +175,7 @@ export default function ProfileSetup() {
       rank: profile?.rank ?? 'Rookie'
     };
 
-    const docRef = doc(db, 'users', user.uid);
+    const docRef = doc(db, 'users', user.id);
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
         toast({ title: "Identity Secured!", description: "Redirecting to the Command Center..." });
@@ -185,7 +192,7 @@ export default function ProfileSetup() {
       });
   };
 
-  if (authLoading || profileLoading) return null;
+  if (!userLoaded || profileLoading) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background/50 selection:bg-primary selection:text-white">

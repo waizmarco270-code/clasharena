@@ -3,18 +3,17 @@
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Shield, Wallet, Menu } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Shield, Wallet } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useUser } from '@/firebase';
+import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { UserButton, useUser } from "@clerk/nextjs";
 
 export function Header() {
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.uid) : null;
+  const userRef = user ? doc(db, 'users', user.id) : null;
   const { data: profile } = useDoc(userRef);
-  const avatar = PlaceHolderImages.find(img => img.id === 'avatar-user');
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-white/5">
@@ -46,18 +45,13 @@ export function Header() {
           <div className="flex items-center gap-3 ml-2 border-l border-white/10 pl-3">
             <div className="flex flex-col items-end hidden xs:flex">
               <span className="text-xs font-black leading-none uppercase tracking-tight">
-                {profile?.username || 'WARRIOR'}
+                {profile?.username || user?.firstName || 'WARRIOR'}
               </span>
               <span className="text-[9px] text-muted-foreground font-bold">
                 TH{profile?.townHall || '??'} • {profile?.rank || 'ROOKIE'}
               </span>
             </div>
-            <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-lg">
-              <AvatarImage src={user?.photoURL || avatar?.imageUrl} alt="User" className="object-cover" />
-              <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
-                {profile?.username?.substring(0, 2).toUpperCase() || '??'}
-              </AvatarFallback>
-            </Avatar>
+            <UserButton afterSignOutUrl="/" />
           </div>
         </div>
       </div>

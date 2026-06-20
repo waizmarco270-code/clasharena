@@ -1,4 +1,3 @@
-
 'use client';
 
 import { PageWrapper } from '@/components/layout/page-wrapper';
@@ -7,14 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Wallet, Trophy, Swords, Zap, ExternalLink, Timer, ShieldAlert } from 'lucide-react';
-import { useUser, useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
+import { useUser } from "@clerk/nextjs";
 
 export default function ProfilePage() {
   const { user } = useUser();
   const db = useFirestore();
-  const userRef = user ? doc(db, 'users', user.uid) : null;
+  const userRef = user ? doc(db, 'users', user.id) : null;
   const { data: profile } = useDoc(userRef);
 
   const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
@@ -35,7 +35,7 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
               <Avatar className="h-32 w-32 border-4 border-primary/20 p-1 bg-background">
-                <AvatarImage src={user?.photoURL || ''} className="rounded-full object-cover" />
+                <AvatarImage src={profile?.avatarUrl || user?.imageUrl || ''} className="rounded-full object-cover" />
                 <AvatarFallback className="bg-muted text-2xl font-black">
                   {profile?.username?.substring(0, 2).toUpperCase() || '??'}
                 </AvatarFallback>
@@ -70,17 +70,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Security Notice */}
-        {isLocked && (
-          <div className="glass border-yellow-500/20 p-4 rounded-2xl flex items-start gap-4">
-            <ShieldAlert className="w-6 h-6 text-yellow-500 shrink-0 mt-1" />
-            <div>
-              <p className="text-sm font-bold text-yellow-500 uppercase">Identity Cooldown Active</p>
-              <p className="text-xs text-muted-foreground">For security and tournament integrity, your profile details are locked. You can modify them once every 3 days.</p>
-            </div>
-          </div>
-        )}
-
         {/* Career Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -99,59 +88,6 @@ export default function ProfilePage() {
               <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{stat.label}</p>
             </Card>
           ))}
-        </div>
-
-        {/* History & Achievements */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="glass border-white/5">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                <Swords className="w-5 h-5 text-primary" /> MATCH HISTORY
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { opponent: 'DragonKing', result: 'Win', score: '3-2', tournament: 'Titan Cup', date: '2h ago' },
-                { opponent: 'SlayerX', result: 'Loss', score: '1-3', tournament: 'Winter Clash', date: '1d ago' },
-                { opponent: 'NoobStomper', result: 'Win', score: '3-0', tournament: 'Rising Stars', date: '3d ago' },
-              ].map((match, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-1 h-10 rounded-full ${match.result === 'Win' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
-                    <div>
-                      <p className="text-sm font-bold">vs {match.opponent}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase">{match.tournament}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-mono text-sm font-black ${match.result === 'Win' ? 'text-green-500' : 'text-red-500'}`}>{match.score}</p>
-                    <p className="text-[10px] text-muted-foreground">{match.date}</p>
-                  </div>
-                </div>
-              ))}
-              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-white mt-2">
-                VIEW FULL HISTORY <ExternalLink className="w-3 h-3 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="glass border-white/5">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                <Trophy className="w-5 h-5 text-primary" /> ACHIEVEMENTS
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="aspect-square bg-white/5 rounded-2xl flex flex-col items-center justify-center border border-white/5 hover:border-primary/40 transition-all p-4 text-center group">
-                  <div className="w-10 h-10 mb-2 opacity-50 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0">
-                    <Trophy className="w-full h-full text-yellow-500" />
-                  </div>
-                  <p className="text-[8px] font-bold uppercase leading-tight text-muted-foreground group-hover:text-white">Veteran Striker</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </PageWrapper>

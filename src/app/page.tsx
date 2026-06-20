@@ -14,73 +14,21 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useUser, useAuth } from '@/firebase';
 import { NeuralBackground } from '@/components/ui/neural-background';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { useToast } from '@/hooks/use-toast';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { useRouter } from 'next/navigation';
+import { SignInButton, Show, useAuth } from "@clerk/nextjs";
 
 export default function Home() {
-  const { user, loading: authLoading } = useUser();
-  const auth = useAuth();
+  const { userId, isLoaded } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
 
-  // If user is already logged in, redirect them to setup immediately
   useEffect(() => {
-    if (user && !authLoading) {
+    if (isLoaded && userId) {
       router.push('/setup');
     }
-  }, [user, authLoading, router]);
-
-  const handleLogin = async () => {
-    if (isLoggingIn) return;
-    
-    setIsLoggingIn(true);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
-
-    try {
-      // In Cloud Workstations, signInWithPopup often returns 'auth/popup-closed-by-user' 
-      // even if the user successfully selected an account. 
-      await signInWithPopup(auth, provider);
-      
-      toast({
-        title: "Connection Established!",
-        description: "Redirecting to Arena Identity Setup...",
-      });
-      
-      // Force navigation immediately
-      router.push('/setup');
-    } catch (error: any) {
-      // Don't treat popup-closed as a hard failure because background auth might have worked
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.warn("Auth Popup Closure Handled. Monitoring background state...");
-        // Check if user state updated despite the error
-        if (auth.currentUser) {
-          router.push('/setup');
-        } else {
-          toast({
-            title: "Identity Check",
-            description: "Please ensure your browser isn't blocking the login window.",
-          });
-          setIsLoggingIn(false);
-        }
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Critical Alert",
-          description: error.message || "Please check your Authorized Domains.",
-        });
-        setIsLoggingIn(false);
-      }
-    }
-  };
+  }, [userId, isLoaded, router]);
   
   return (
     <PageWrapper>
@@ -121,24 +69,27 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center items-center">
-              <Button 
-                onClick={handleLogin}
-                size="lg" 
-                disabled={isLoggingIn}
-                className="w-full h-20 text-xl animate-shimmer text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20"
-              >
-                {isLoggingIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    BATTLE ENTRY...
-                  </>
-                ) : (
-                  <>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <Button 
+                    size="lg" 
+                    className="w-full h-20 text-xl animate-shimmer text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20"
+                  >
                     LOGIN TO CLASH ARENA
                     <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
-                  </>
-                )}
-              </Button>
+                  </Button>
+                </SignInButton>
+              </Show>
+              <Show when="signed-in">
+                <Button 
+                  onClick={() => router.push('/arena')}
+                  size="lg" 
+                  className="w-full h-20 text-xl animate-shimmer text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20"
+                >
+                  ENTER THE ARENA
+                  <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                </Button>
+              </Show>
             </div>
           </div>
         </section>

@@ -2,30 +2,32 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUser, useDoc, useFirestore } from '@/firebase';
+import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
+import { useAuth, useUser } from "@clerk/nextjs";
 
 export function PageWrapper({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useUser();
+  const { userId, isLoaded: authLoaded } = useAuth();
+  const { user } = useUser();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
 
-  const userRef = user ? doc(db, 'users', user.uid) : null;
+  const userRef = userId ? doc(db, 'users', userId) : null;
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
     // If auth is still loading, wait.
-    if (authLoading) return;
+    if (!authLoaded) return;
 
     // IF LOGGED IN
-    if (user) {
+    if (userId) {
       // Check if profile is missing critical data
       const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
 
@@ -39,13 +41,13 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       }
     } 
     // IF NOT LOGGED IN and trying to access restricted page
-    else if (!isPublicRoute && !authLoading) {
+    else if (!isPublicRoute && authLoaded) {
       router.push('/');
     }
-  }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
+  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
 
   // Global Loading State
-  if (authLoading) {
+  if (!authLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative w-24 h-24">
@@ -65,12 +67,12 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   // Guests on Landing Page
-  if (!user && isPublicRoute) {
+  if (!userId && isPublicRoute) {
     return <div className="min-w-0 w-full bg-background">{children}</div>;
   }
 
   // Auth'd User with incomplete profile (prevent flicker while redirecting)
-  if (user && pathname !== '/setup' && (!profile || !profile.username)) {
+  if (userId && pathname !== '/setup' && (!profile || !profile.username)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
