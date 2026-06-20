@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Tournament": {
@@ -29,7 +30,8 @@
         "balance": { "type": "number", "description": "Current coin balance." },
         "wins": { "type": "number", "description": "Total matches won." },
         "losses": { "type": "number", "description": "Total matches lost." },
-        "earnings": { "type": "number", "description": "Total coins earned from tournaments." }
+        "earnings": { "type": "number", "description": "Total coins earned from tournaments." },
+        "profileLockedUntil": { "type": "string", "format": "date-time", "description": "ISO string indicating when the profile can be edited again." }
       },
       "required": ["username", "tag", "townHall", "balance"]
     },
@@ -54,7 +56,7 @@
     }
   },
   "auth": {
-    "providers": ["google.com", "password"]
+    "providers": ["google.com"]
   },
   "firestore": {
     "/tournaments/{tournamentId}": {

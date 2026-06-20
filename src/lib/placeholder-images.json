@@ -7,6 +7,12 @@
       "imageHint": "gaming fire"
     },
     {
+      "id": "arena-main-bg",
+      "description": "Legendary Arena landscape for background",
+      "imageUrl": "https://picsum.photos/seed/legendary-arena/1920/1080",
+      "imageHint": "fantasy landscape"
+    },
+    {
       "id": "th15-arena",
       "description": "Town Hall 15 visual concept",
       "imageUrl": "https://picsum.photos/seed/th15/800/600",
