@@ -20,10 +20,12 @@ import { NeuralBackground } from '@/components/ui/neural-background';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const { user } = useUser();
   const auth = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
@@ -44,9 +46,11 @@ export default function Home() {
           title: "Welcome back, Warrior!",
           description: "Entering the arena command center...",
         });
-        // Redirection to /setup is handled automatically by PageWrapper
+        // Explicit push to setup to ensure the user doesn't hang on the landing page
+        router.push('/setup');
       }
     } catch (error: any) {
+      console.error("Login Error:", error);
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
           variant: "destructive",

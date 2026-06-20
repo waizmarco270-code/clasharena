@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -9,13 +9,6 @@ import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 
-/**
- * PageWrapper acts as the global gatekeeper for the application.
- * It handles:
- * 1. Authentication guards for private routes.
- * 2. Mandatory profile setup redirection for new users.
- * 3. Consistent layout (Sidebar/Header) for authenticated sections.
- */
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useUser();
   const db = useFirestore();
@@ -28,23 +21,30 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // 1. If the user is NOT logged in and trying to access a private route, send to Home
-    if (!authLoading && !user && !isPublicRoute) {
-      router.push('/');
-      return;
-    }
-
-    // 2. If the user IS logged in but hasn't completed their Arena Identity, force Setup
-    if (!authLoading && user && !profileLoading && pathname !== '/setup') {
-      const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
-      if (isProfileIncomplete) {
-        router.push('/setup');
+    // If auth is done loading and we have a user
+    if (!authLoading && user) {
+      // If we are on the landing page or login, and profile check is done
+      if (!profileLoading) {
+        const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
+        
+        // If profile is incomplete and we aren't already on setup, go to setup
+        if (isProfileIncomplete && pathname !== '/setup') {
+          router.push('/setup');
+        } 
+        // If profile IS complete and we are on setup or root, go to arena
+        else if (!isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
+          router.push('/arena');
+        }
       }
+    } 
+    // If not logged in and trying to access private routes
+    else if (!authLoading && !user && !isPublicRoute) {
+      router.push('/');
     }
   }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
 
-  // Handle initialization and profile loading states
-  if (authLoading || (user && profileLoading)) {
+  // Loading state for the entire app
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative w-20 h-20">
