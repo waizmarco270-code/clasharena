@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -16,9 +15,8 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Memoize the document reference to prevent infinite re-renders
+  // Memoize the document reference
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
@@ -27,7 +25,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authLoaded) return;
 
-    // Handle Guests
+    // 1. Handle Unauthenticated Users
     if (!userId) {
       if (!isPublicRoute) {
         router.push('/');
@@ -35,21 +33,23 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Handle Authenticated Users
-    const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
-    
-    // Redirect logic
-    if (pathname === '/') {
-      router.push('/setup');
-    } else if (!profileLoading && isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
-      router.push('/setup');
-    } else if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
-      router.push('/dashboard');
-    } else {
-      // If we are where we need to be, ensure we aren't showing the loader
-      setIsRedirecting(false);
-    }
+    // 2. Handle Authenticated Users
+    // Only redirect if we've finished loading the profile
+    if (!profileLoading) {
+      const isProfileIncomplete = !profile || !profile.username || !profile.tag;
 
+      if (isProfileIncomplete) {
+        // If profile is incomplete and user is not on /setup, force them to /setup
+        if (pathname !== '/setup' && !isPublicRoute) {
+          router.push('/setup');
+        }
+      } else {
+        // If profile is complete but user is stuck on / or /setup, move to dashboard
+        if (pathname === '/' || pathname === '/setup') {
+          router.push('/dashboard');
+        }
+      }
+    }
   }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
 
   // Global Auth Loading State
@@ -67,12 +67,12 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Full screen pages
+  // No-layout pages (Landing & Setup)
   if (pathname === '/setup' || (pathname === '/' && !userId)) {
     return <div className="bg-black min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
-  // Handle protected layout flicker/sync state
+  // Loading synchronization screen
   if (userId && (pathname === '/' || profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">

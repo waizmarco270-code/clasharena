@@ -11,8 +11,8 @@ let auth: Auth;
 
 /**
  * Initializes Firebase with specific settings for Cloud Workstations.
- * We use experimentalForceLongPolling to prevent "Failed to fetch" errors
- * caused by proxy/WebSocket limitations in this environment.
+ * We use experimentalForceLongPolling and useFetchStreams: false to prevent 
+ * connection hangs in this environment.
  */
 export function initializeFirebase() {
   if (getApps().length > 0) {

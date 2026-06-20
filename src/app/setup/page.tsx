@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -14,7 +13,6 @@ import { ShieldAlert, Timer, Camera, Loader2, CheckCircle2, ArrowRight } from 'l
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from "@clerk/nextjs";
-import Link from 'next/link';
 
 export default function ProfileSetup() {
   const { user, isLoaded: userLoaded } = useUser();
@@ -23,7 +21,7 @@ export default function ProfileSetup() {
   const { toast } = useToast();
   
   const userRef = user ? doc(db, 'users', user.id) : null;
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
+  const { data: profile } = useDoc(userRef);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -53,21 +51,13 @@ export default function ProfileSetup() {
       } else {
         setIsLocked(false);
       }
-
-      // If profile is complete, don't auto-redirect immediately to give visual feedback
-      // But allow them to move if they refresh
-      if (profile.username && profile.tag && profile.townHall && !isSubmitting && !isSuccess) {
-        // Only redirect if they've been here for a bit or if they aren't actively changing things
-        const timer = setTimeout(() => router.push('/dashboard'), 2000);
-        return () => clearTimeout(timer);
-      }
     } else if (user) {
       setFormData(prev => ({
         ...prev,
         avatarUrl: prev.avatarUrl || user.imageUrl || ''
       }));
     }
-  }, [profile, user, isSubmitting, router, isSuccess]);
+  }, [profile, user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -129,7 +119,7 @@ export default function ProfileSetup() {
     if (!user || isLocked || isSubmitting) return;
 
     if (!formData.username || !formData.tag || !formData.townHall) {
-      toast({ variant: "destructive", title: "Missing Intel!" });
+      toast({ variant: "destructive", title: "Missing Intel!", description: "Fill out all fields warrior." });
       return;
     }
 
@@ -154,8 +144,9 @@ export default function ProfileSetup() {
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
         setIsSuccess(true);
-        toast({ title: "Identity Secured!", description: "Prepare for battle." });
-        setTimeout(() => router.push('/dashboard'), 1500);
+        toast({ title: "Identity Secured!", description: "Redirecting to Command Hub..." });
+        // Force immediate move to dashboard
+        setTimeout(() => router.push('/dashboard'), 1000);
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -266,7 +257,7 @@ export default function ProfileSetup() {
                'SECURE ARENA IDENTITY'}
             </Button>
             
-            {(isSuccess || profile?.username) && (
+            {(isSuccess || (profile?.username && profile?.tag)) && (
               <Button 
                 onClick={() => router.push('/dashboard')}
                 type="button" 
