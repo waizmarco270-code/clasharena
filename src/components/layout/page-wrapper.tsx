@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -21,7 +20,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // We fetch the profile here, but we don't let it block the initial navigation logic
+  // We fetch the profile here
   const userRef = userId ? doc(db, 'users', userId) : null;
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
@@ -38,15 +37,22 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     } 
     // IF LOGGED IN
     else {
-      // If the user is on the landing page, push them into the app (Setup first)
+      // 1. If the user is on the landing page, push them to setup
       if (pathname === '/') {
+        router.push('/setup');
+        return;
+      }
+      
+      const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
+      
+      // 2. If profile is missing and they aren't on setup, force them to setup
+      if (isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
         router.push('/setup');
       }
       
-      // If we are in the app (not setup/landing) and we finally know the profile is missing
-      const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
-      if (isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
-        router.push('/setup');
+      // 3. If profile is complete and they ARE on setup, force them to arena
+      if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
+        router.push('/arena');
       }
     }
   }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);

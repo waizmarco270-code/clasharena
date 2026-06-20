@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -52,9 +51,9 @@ export default function ProfileSetup() {
         setIsLocked(false);
       }
 
-      // If profile is already complete and not recently updated, redirect to arena
+      // If profile is already complete and user is not currently saving, move to arena
       if (profile.username && profile.tag && profile.townHall && !isSubmitting) {
-        // router.push('/arena');
+        router.push('/arena');
       }
     } else if (user) {
       setFormData(prev => ({
@@ -62,7 +61,7 @@ export default function ProfileSetup() {
         avatarUrl: prev.avatarUrl || user.imageUrl || ''
       }));
     }
-  }, [profile, user, isSubmitting]);
+  }, [profile, user, isSubmitting, router]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -190,7 +189,8 @@ export default function ProfileSetup() {
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
         toast({ title: "Identity Secured!", description: "Welcome to the Arena." });
-        setTimeout(() => router.push('/arena'), 1000);
+        // The PageWrapper or the useEffect will handle the redirect once the data syncs
+        setTimeout(() => router.push('/arena'), 500);
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
