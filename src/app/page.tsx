@@ -35,6 +35,7 @@ export default function Home() {
     
     setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
+    // Force account selection to prevent "silent" failures
     provider.setCustomParameters({
       prompt: 'select_account'
     });
@@ -46,16 +47,24 @@ export default function Home() {
           title: "Welcome back, Warrior!",
           description: "Entering the arena command center...",
         });
-        // Explicit push to setup to ensure the user doesn't hang on the landing page
-        router.push('/setup');
+        // Short delay to allow Firebase auth state to propagate before navigation
+        setTimeout(() => {
+          router.push('/setup');
+        }, 500);
       }
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code !== 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/popup-closed-by-user') {
         toast({
           variant: "destructive",
-          title: "Login Failed",
-          description: "Please ensure popups are allowed in your browser and try again.",
+          title: "Login Interrupted",
+          description: "The login window was closed. Please try again and keep the popup open.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: "Please check your internet and authorized domains settings.",
         });
       }
     } finally {

@@ -16,7 +16,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const userRef = user ? doc(db, 'users', user.uid) : null;
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
+  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
@@ -27,13 +27,18 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       if (!profileLoading) {
         const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
         
-        // If profile is incomplete and we aren't already on setup, go to setup
+        // Use try-catch or explicit push to ensure navigation doesn't crash component
+        const navigate = (to: string) => {
+          if (pathname !== to) {
+            router.push(to);
+          }
+        };
+
         if (isProfileIncomplete && pathname !== '/setup') {
-          router.push('/setup');
+          navigate('/setup');
         } 
-        // If profile IS complete and we are on setup or root, go to arena
         else if (!isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
-          router.push('/arena');
+          navigate('/arena');
         }
       }
     } 
@@ -44,7 +49,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
 
   // Loading state for the entire app
-  if (authLoading) {
+  if (authLoading || (user && profileLoading && !profileError)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative w-20 h-20">
