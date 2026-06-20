@@ -44,7 +44,6 @@ export default function Dashboard() {
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Setup Form State
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ 
     username: '', 
@@ -98,7 +97,7 @@ export default function Dashboard() {
         setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url }));
         toast({ title: "UPI QR Secured!" });
       } else {
-        throw new Error(data.error?.message || "Upload failed");
+        throw new Error(data.error?.message || "Check Cloudinary Unsigned Presets");
       }
     } catch (err: any) {
       toast({ variant: "destructive", title: "QR Upload Failed", description: err.message });
@@ -118,7 +117,6 @@ export default function Dashboard() {
 
     setIsSubmitting(true);
     
-    // Set 3-day lock
     const lockDate = new Date();
     lockDate.setDate(lockDate.getDate() + 3);
 
@@ -176,7 +174,6 @@ export default function Dashboard() {
   return (
     <PageWrapper>
       <div className="flex flex-col gap-8">
-        {/* Welcome Header */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <h1 className="font-headline text-3xl md:text-4xl font-black mb-2 tracking-tight uppercase">
@@ -195,7 +192,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="glass border-white/5 bg-primary/5">
             <CardContent className="p-6">
@@ -277,9 +273,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Identity Setup Modal */}
       <Dialog open={setupOpen} onOpenChange={() => {}}>
-        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
+        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[95vh] sm:max-h-[90vh] flex flex-col">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
           
           <DialogHeader className="pt-8 px-8 shrink-0">
@@ -293,7 +288,6 @@ export default function Dashboard() {
 
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="setup-form" onSubmit={handleSetupSubmit} className="space-y-8 pb-8">
-              {/* Profile Overview */}
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="h-24 w-24 border-4 border-primary/20 p-1 bg-background glow-primary">
                   <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
@@ -304,7 +298,6 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              {/* Security Alert */}
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-start">
                 <ShieldAlert className="w-6 h-6 text-primary shrink-0 animate-pulse" />
                 <div className="text-[11px] space-y-1">
@@ -315,7 +308,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Identity Fields - Horizontal on Desktop */}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label>
@@ -356,7 +348,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Reward Information */}
               <div className="pt-4 border-t border-white/5 space-y-6">
                 <div className="flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-primary" />
@@ -381,7 +372,7 @@ export default function Dashboard() {
                         <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
                           <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                            {uploading ? <Loader2 className="w-8 h-8 animate-spin text-white" /> : <ImagePlus className="w-8 h-8 text-white opacity-80" />}
                           </div>
                         </div>
                       ) : (
@@ -398,11 +389,11 @@ export default function Dashboard() {
             </form>
           </ScrollArea>
 
-          <div className="p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
+          <div className="p-6 sm:p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
             <Button 
               form="setup-form"
               type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary text-lg"
+              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary shadow-xl"
               disabled={uploading || isSubmitting}
             >
               {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2" />}

@@ -58,7 +58,6 @@ export default function ProfilePage() {
 
   const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
 
-  // Live Countdown Logic
   useEffect(() => {
     if (!profile?.profileLockedUntil) return;
 
@@ -84,7 +83,6 @@ export default function ProfilePage() {
     return () => clearInterval(timer);
   }, [profile?.profileLockedUntil]);
 
-  // Sync form when profile loads
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -105,10 +103,11 @@ export default function ProfilePage() {
     try {
       const formDataCld = new FormData();
       formDataCld.append('file', file);
+      // Ensure 'ml_default' or your specific preset is set to 'Unsigned' in Cloudinary Settings
       formDataCld.append('upload_preset', 'ml_default');
 
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) throw new Error("Cloudinary not configured.");
+      if (!cloudName) throw new Error("Cloudinary Cloud Name is not configured in .env");
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -118,9 +117,9 @@ export default function ProfilePage() {
       const data = await response.json();
       if (data.secure_url) {
         setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url }));
-        toast({ title: "QR Updated!" });
+        toast({ title: "QR Updated!", description: "Cloudinary upload successful." });
       } else {
-        throw new Error(data.error?.message || "Upload failed");
+        throw new Error(data.error?.message || "Check if your Cloudinary preset is set to 'Unsigned'");
       }
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
@@ -135,12 +134,6 @@ export default function ProfilePage() {
 
     setIsSubmitting(true);
     
-    const baseProfile = {
-      upiId: formData.upiId,
-      upiQrUrl: formData.upiQrUrl,
-      updatedAt: new Date().toISOString()
-    };
-
     const identityUpdate = !isLocked ? {
       username: formData.username,
       tag: formData.tag.startsWith('#') ? formData.tag.toUpperCase() : `#${formData.tag.toUpperCase()}`,
@@ -148,18 +141,23 @@ export default function ProfilePage() {
       profileLockedUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
     } : {};
 
-    const updatedData = { ...baseProfile, ...identityUpdate };
+    const updatedData = { 
+      upiId: formData.upiId,
+      upiQrUrl: formData.upiQrUrl,
+      updatedAt: new Date().toISOString(),
+      ...identityUpdate 
+    };
 
     setDoc(userRef, updatedData, { merge: true })
       .then(() => {
         setEditOpen(false);
-        toast({ title: "Profile Updated!", description: "Your changes have been saved." });
+        toast({ title: "Profile Updated!", description: "Arena records and payout info secured." });
         setIsSubmitting(false);
       })
       .catch(async (err) => {
         const permissionError = new FirestorePermissionError({
           path: userRef.path,
-          operation: 'write',
+          operation: 'update',
           requestResourceData: updatedData,
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -170,7 +168,6 @@ export default function ProfilePage() {
   return (
     <PageWrapper>
       <div className="max-w-6xl mx-auto space-y-8 pb-20">
-        {/* Profile Banner */}
         <div className="relative rounded-3xl overflow-hidden glass border-white/5 p-6 md:p-10 bg-gradient-to-br from-primary/5 to-transparent">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
@@ -229,7 +226,6 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Career Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Tournaments', value: '0', icon: <Swords className="text-blue-500 w-4 h-4" /> },
@@ -249,7 +245,6 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {/* Payout Protocol Section */}
             <Card className="glass border-white/5 overflow-hidden">
               <CardHeader className="border-b border-white/5 bg-white/5">
                 <CardTitle className="font-headline text-lg font-bold flex items-center gap-2 uppercase tracking-tighter">
@@ -319,9 +314,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
+        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[95vh] sm:max-h-[90vh] flex flex-col">
           <DialogHeader className="pt-8 px-8 shrink-0">
             <DialogTitle className="font-headline text-2xl sm:text-3xl font-black italic tracking-tighter uppercase text-center">
               EDIT <span className="text-primary">IDENTITY</span>
@@ -401,12 +395,12 @@ export default function ProfilePage() {
                         <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
                           <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                            {uploading ? <Loader2 className="animate-spin text-white w-8 h-8" /> : <ImagePlus className="w-8 h-8 text-white opacity-80" />}
                           </div>
                         </div>
                       ) : (
                         <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
-                          {uploading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-muted-foreground" />}
+                          {uploading ? <Loader2 className="animate-spin text-primary w-8 h-8" /> : <ImagePlus className="text-muted-foreground w-8 h-8" />}
                           <p className="text-[10px] font-bold uppercase">Upload New QR</p>
                         </div>
                       )}
@@ -418,11 +412,11 @@ export default function ProfilePage() {
             </form>
           </ScrollArea>
 
-          <div className="p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
+          <div className="p-6 sm:p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
             <Button 
               form="edit-form"
               type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary"
+              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary shadow-xl"
               disabled={uploading || isSubmitting}
             >
               {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2" />}
