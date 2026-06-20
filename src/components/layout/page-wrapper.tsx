@@ -16,7 +16,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Memoize the document reference
+  // Memoize the document reference to prevent infinite re-renders
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
@@ -25,7 +25,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authLoaded) return;
 
-    // 1. Handle Unauthenticated Users
+    // Handle Unauthenticated Users
     if (!userId) {
       if (!isPublicRoute) {
         router.push('/');
@@ -33,24 +33,11 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 2. Handle Authenticated Users
-    // Only redirect if we've finished loading the profile
-    if (!profileLoading) {
-      const isProfileIncomplete = !profile || !profile.username || !profile.tag;
-
-      if (isProfileIncomplete) {
-        // If profile is incomplete and user is not on /setup, force them to /setup
-        if (pathname !== '/setup' && !isPublicRoute) {
-          router.push('/setup');
-        }
-      } else {
-        // If profile is complete but user is stuck on / or /setup, move to dashboard
-        if (pathname === '/' || pathname === '/setup') {
-          router.push('/dashboard');
-        }
-      }
+    // Handle Authenticated Users - Direct to dashboard if on landing page
+    if (pathname === '/') {
+      router.push('/dashboard');
     }
-  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
+  }, [userId, authLoaded, pathname, router, isPublicRoute]);
 
   // Global Auth Loading State
   if (!authLoaded) {
@@ -67,25 +54,12 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // No-layout pages (Landing & Setup)
-  if (pathname === '/setup' || (pathname === '/' && !userId)) {
+  // Simple landing page for non-logged in users
+  if (pathname === '/' && !userId) {
     return <div className="bg-black min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
-  // Loading synchronization screen
-  if (userId && (pathname === '/' || profileLoading)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs italic">
-            SYNCHRONIZING IDENTITY...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // Dashboard & other internal pages
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background">
