@@ -21,12 +21,16 @@ import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 
+const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
+
 export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const db = useFirestore();
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
+
+  const isAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isAdmin || profile?.isSuperAdmin;
 
   const mainNav = [
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard },
@@ -99,18 +103,21 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Admin Portal"
-                  className="hover:bg-primary/10 hover:text-primary transition-colors h-11 px-4"
-                >
-                  <Link href="/admin">
-                    <Shield className="text-primary" />
-                    <span className="font-bold">Admin Center</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/admin'}
+                    tooltip="Admin Center"
+                    className="hover:bg-primary/10 hover:text-primary transition-colors h-11 px-4"
+                  >
+                    <Link href="/admin">
+                      <Shield className="text-primary" />
+                      <span className="font-bold text-primary">Admin Center</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -34,7 +34,9 @@
         "earnings": { "type": "number" },
         "upiId": { "type": "string" },
         "upiQrUrl": { "type": "string" },
-        "profileLockedUntil": { "type": "string", "format": "date-time" }
+        "profileLockedUntil": { "type": "string", "format": "date-time" },
+        "isAdmin": { "type": "boolean" },
+        "isSuperAdmin": { "type": "boolean" }
       },
       "required": ["username", "tag", "townHall", "balance"]
     },

@@ -23,7 +23,8 @@ import {
   Camera,
   Loader2,
   QrCode,
-  ImagePlus
+  ImagePlus,
+  CheckCircle2
 } from 'lucide-react';
 import { useDoc, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -36,6 +37,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
+
 export default function Dashboard() {
   const { user } = useUser();
   const db = useFirestore();
@@ -43,6 +46,9 @@ export default function Dashboard() {
   
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
+
+  const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
+  const isAdmin = profile?.isAdmin || isSuperAdmin;
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -83,24 +89,15 @@ export default function Dashboard() {
       const formDataCld = new FormData();
       formDataCld.append('file', file);
       formDataCld.append('upload_preset', 'ml_default');
-
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) throw new Error("Cloudinary not configured.");
-
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: 'POST', body: formDataCld }
-      );
-
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formDataCld });
       const data = await response.json();
       if (data.secure_url) {
         setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url }));
         toast({ title: "UPI QR Secured!" });
-      } else {
-        throw new Error(data.error?.message || "Check Cloudinary Unsigned Presets");
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "QR Upload Failed", description: err.message });
+      toast({ variant: "destructive", title: "QR Upload Failed" });
     } finally {
       setUploading(false);
     }
@@ -109,17 +106,13 @@ export default function Dashboard() {
   const handleSetupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || isSubmitting) return;
-
     if (!formData.username || !formData.tag || !formData.townHall) {
-      toast({ variant: "destructive", title: "Missing Intel!", description: "Fill out all fields warrior." });
+      toast({ variant: "destructive", title: "Missing Intel!" });
       return;
     }
-
     setIsSubmitting(true);
-    
     const lockDate = new Date();
     lockDate.setDate(lockDate.getDate() + 3);
-
     const newProfile = {
       username: formData.username,
       tag: formData.tag.startsWith('#') ? formData.tag.toUpperCase() : `#${formData.tag.toUpperCase()}`,
@@ -132,43 +125,27 @@ export default function Dashboard() {
       wins: profile?.wins ?? 0,
       losses: profile?.losses ?? 0,
       earnings: profile?.earnings ?? 0,
-      rank: profile?.rank || 'ROOKIE'
+      rank: profile?.rank || 'ROOKIE',
+      isAdmin: profile?.isAdmin || (user.id === MASTER_SUPER_ADMIN_ID),
+      isSuperAdmin: profile?.isSuperAdmin || (user.id === MASTER_SUPER_ADMIN_ID)
     };
-
     if (userRef) {
       setDoc(userRef, newProfile, { merge: true })
         .then(() => {
           setSetupOpen(false);
-          toast({ title: "Identity Secured!", description: "Welcome to the Arena Hub." });
+          toast({ title: "Identity Secured!" });
           setIsSubmitting(false);
         })
         .catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'write',
-            requestResourceData: newProfile,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'write' }));
           setIsSubmitting(false);
         });
     }
   };
 
   const activeTournaments = [
-    {
-      id: '1',
-      name: 'Titan Clash Championship',
-      category: 'TH16 Arena',
-      prize: 2000,
-      image: PlaceHolderImages.find(img => img.id === 'th16-arena')?.imageUrl
-    },
-    {
-      id: '2',
-      name: 'Rising Stars Cup',
-      category: 'TH15 Arena',
-      prize: 1000,
-      image: PlaceHolderImages.find(img => img.id === 'th15-arena')?.imageUrl
-    }
+    { id: '1', name: 'Titan Clash Championship', category: 'TH16 Arena', prize: 2000, image: PlaceHolderImages.find(img => img.id === 'th16-arena')?.imageUrl },
+    { id: '2', name: 'Rising Stars Cup', category: 'TH15 Arena', prize: 1000, image: PlaceHolderImages.find(img => img.id === 'th15-arena')?.imageUrl }
   ];
 
   return (
@@ -176,95 +153,60 @@ export default function Dashboard() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
-            <h1 className="font-headline text-3xl md:text-4xl font-black mb-2 tracking-tight uppercase">
-              COMMAND <span className="text-primary italic">HUB</span>
-            </h1>
-            <p className="text-muted-foreground font-medium">
-              Welcome back, <span className="text-white font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>. The arena awaits.
-            </p>
+            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+              <h1 className="font-headline text-3xl md:text-4xl font-black tracking-tight uppercase">COMMAND <span className="text-primary italic">HUB</span></h1>
+              {isSuperAdmin ? <CheckCircle2 className="w-6 h-6 text-yellow-500 fill-yellow-500/20" /> : isAdmin && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+            </div>
+            <p className="text-muted-foreground font-medium">Welcome back, <span className="text-white font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
           </div>
-          <div className="flex gap-3">
-            <Link href="/arena">
-              <Button className="bg-primary hover:bg-primary/90 font-black px-8 h-12 rounded-xl glow-primary">
-                FIND TOURNAMENT
-              </Button>
-            </Link>
-          </div>
+          <Link href="/arena"><Button className="bg-primary font-black px-8 h-12 rounded-xl glow-primary">FIND TOURNAMENT</Button></Link>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="glass border-white/5 bg-primary/5">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <Wallet className="w-5 h-5 text-primary" />
-                <Badge variant="outline" className="text-[10px] border-primary/20">WALLET</Badge>
-              </div>
+              <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary" /><Badge variant="outline" className="text-[10px] border-primary/20">WALLET</Badge></div>
               <p className="text-2xl font-black font-headline">🪙 {profile?.balance || 0}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Available Coins</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Coins</p>
             </CardContent>
           </Card>
           <Card className="glass border-white/5">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <Badge variant="outline" className="text-[10px] border-white/10">CAREER</Badge>
-              </div>
+              <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500" /><Badge variant="outline" className="text-[10px] border-white/10">CAREER</Badge></div>
               <p className="text-2xl font-black font-headline">{profile?.wins || 0}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Total Victories</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Victories</p>
             </CardContent>
           </Card>
           <Card className="glass border-white/5">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <TrendingUp className="w-5 h-5 text-green-500" />
-                <Badge variant="outline" className="text-[10px] border-white/10">STATUS</Badge>
-              </div>
+              <div className="flex justify-between items-start mb-4"><TrendingUp className="w-5 h-5 text-green-500" /><Badge variant="outline" className="text-[10px] border-white/10">STATUS</Badge></div>
               <p className="text-2xl font-black font-headline italic uppercase tracking-tighter">{profile?.rank || 'ROOKIE'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Current Standing</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Standing</p>
             </CardContent>
           </Card>
           <Card className="glass border-white/5">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <Zap className="text-blue-500 w-5 h-5" />
-                <Badge variant="outline" className="text-[10px] border-white/10">POWER</Badge>
-              </div>
+              <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5" /><Badge variant="outline" className="text-[10px] border-white/10">POWER</Badge></div>
               <p className="text-2xl font-black font-headline uppercase tracking-tighter">TH{profile?.townHall || '??'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Town Hall Level</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Town Hall</p>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <div className="flex items-center justify-between">
-              <h2 className="font-headline text-xl font-bold flex items-center gap-2">
-                <Swords className="text-primary w-5 h-5" /> HOT ARENAS
-              </h2>
-              <Link href="/arena" className="text-xs text-primary font-bold hover:underline">VIEW ALL</Link>
-            </div>
-
+            <div className="flex items-center justify-between"><h2 className="font-headline text-xl font-bold flex items-center gap-2"><Swords className="text-primary w-5 h-5" /> HOT ARENAS</h2></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {activeTournaments.map((t) => (
                 <Card key={t.id} className="overflow-hidden glass border-white/5 group hover:border-primary/30 transition-all">
                   <div className="relative h-40">
                     <Image src={t.image || ''} alt={t.name} fill className="object-cover group-hover:scale-105 transition-all duration-500" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-                    <div className="absolute bottom-3 left-4">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">{t.category}</p>
-                      <h3 className="font-headline font-bold text-lg">{t.name}</h3>
-                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent" />
+                    <div className="absolute bottom-3 left-4"><p className="text-[10px] font-black text-primary uppercase tracking-widest">{t.category}</p><h3 className="font-headline font-bold text-lg">{t.name}</h3></div>
                   </div>
                   <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Prize Pool</p>
-                      <p className="font-bold">🪙 {t.prize}</p>
-                    </div>
-                    <Link href={`/arena/tournament/${t.id}`}>
-                      <Button size="sm" className="bg-white text-black hover:bg-white/90 font-bold px-4 h-9">
-                        JOIN
-                      </Button>
-                    </Link>
+                    <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Prize Pool</p><p className="font-bold">🪙 {t.prize}</p></div>
+                    <Link href={`/arena/tournament/${t.id}`}><Button size="sm" className="bg-white text-black hover:bg-white/90 font-bold">JOIN</Button></Link>
                   </CardContent>
                 </Card>
               ))}
@@ -274,137 +216,22 @@ export default function Dashboard() {
       </div>
 
       <Dialog open={setupOpen} onOpenChange={() => {}}>
-        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[95vh] sm:max-h-[90vh] flex flex-col">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
-          
-          <DialogHeader className="pt-8 px-8 shrink-0">
-            <DialogTitle className="font-headline text-2xl sm:text-3xl font-black italic tracking-tighter uppercase text-center">
-              ARENA <span className="legendary-text">IDENTITY</span>
-            </DialogTitle>
-            <DialogDescription className="text-center font-medium text-xs sm:text-sm">
-              Complete your profile to unlock the global arenas.
-            </DialogDescription>
-          </DialogHeader>
-
+        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col">
+          <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="setup-form" onSubmit={handleSetupSubmit} className="space-y-8 pb-8">
               <div className="flex flex-col items-center gap-4">
-                <Avatar className="h-24 w-24 border-4 border-primary/20 p-1 bg-background glow-primary">
-                  <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
-                  <AvatarFallback className="bg-muted text-2xl font-black">??</AvatarFallback>
-                </Avatar>
-                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest text-center">
-                  Session Identity Verified via Clerk
-                </p>
+                <Avatar className="h-24 w-24 border-4 border-primary/20 p-1 bg-background glow-primary"><AvatarImage src={user?.imageUrl} className="rounded-full object-cover" /><AvatarFallback className="bg-muted">??</AvatarFallback></Avatar>
               </div>
-
-              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-start">
-                <ShieldAlert className="w-6 h-6 text-primary shrink-0 animate-pulse" />
-                <div className="text-[11px] space-y-1">
-                  <p className="font-black text-primary uppercase tracking-widest">SECURITY PROTOCOL</p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Username, Tag, and Town Hall will be locked for 72 hours once secured. Ensure accuracy for payouts.
-                  </p>
-                </div>
-              </div>
-
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-start"><ShieldAlert className="w-6 h-6 text-primary shrink-0 animate-pulse" /><div className="text-[11px]"><p className="font-black text-primary uppercase tracking-widest">SECURITY PROTOCOL</p><p className="text-muted-foreground">Username, Tag, and Town Hall will be locked for 72 hours.</p></div></div>
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label>
-                  <Input 
-                    disabled={isLocked}
-                    value={formData.username} 
-                    onChange={(e) => setFormData({...formData, username: e.target.value})} 
-                    className="bg-white/5 border-white/10 h-12 font-bold" 
-                    placeholder="E.g. SlayerX" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label>
-                  <Input 
-                    disabled={isLocked}
-                    value={formData.tag} 
-                    onChange={(e) => setFormData({...formData, tag: e.target.value})} 
-                    className="bg-white/5 border-white/10 h-12 font-mono uppercase" 
-                    placeholder="#ABC123" 
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label>
-                  <Select 
-                    disabled={isLocked}
-                    value={formData.townHall} 
-                    onValueChange={(val) => setFormData({...formData, townHall: val})}
-                  >
-                    <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold">
-                      <SelectValue placeholder="Select TH Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
-                        <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-white/5 space-y-6">
-                <div className="flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-primary" />
-                  <p className="text-[10px] uppercase font-black tracking-widest">Reward Information (Optional)</p>
-                </div>
-                
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID</Label>
-                    <Input 
-                      value={formData.upiId} 
-                      onChange={(e) => setFormData({...formData, upiId: e.target.value})} 
-                      className="bg-white/5 border-white/10 h-12" 
-                      placeholder="user@upi" 
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI QR Screenshot</Label>
-                    <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
-                      {formData.upiQrUrl ? (
-                        <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
-                          <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            {uploading ? <Loader2 className="w-8 h-8 animate-spin text-white" /> : <ImagePlus className="w-8 h-8 text-white opacity-80" />}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
-                          {uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground" />}
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase">Upload QR SS</p>
-                        </div>
-                      )}
-                      <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
-                    </div>
-                  </div>
-                </div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="bg-white/5 h-12 font-bold" /></div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="bg-white/5 h-12 font-mono uppercase" /></div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label><Select value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}><SelectTrigger className="bg-white/5 h-12 font-bold"><SelectValue placeholder="Select TH Level" /></SelectTrigger><SelectContent>{[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (<SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>))}</SelectContent></Select></div>
               </div>
             </form>
           </ScrollArea>
-
-          <div className="p-6 sm:p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
-            <Button 
-              form="setup-form"
-              type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary shadow-xl"
-              disabled={uploading || isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2" />}
-              {isLocked ? 'UPDATE UPI INFO' : 'SECURE ARENA IDENTITY'}
-            </Button>
-            {isLocked && (
-              <p className="text-[9px] text-center mt-3 text-muted-foreground uppercase font-bold">
-                Main Identity is locked. Payout info remains editable.
-              </p>
-            )}
-          </div>
+          <div className="p-6 border-t border-white/5 bg-background/50"><Button form="setup-form" type="submit" className="w-full bg-primary font-black h-14 rounded-2xl" disabled={uploading || isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : <ShieldCheck className="mr-2" />}SECURE IDENTITY</Button></div>
         </DialogContent>
       </Dialog>
     </PageWrapper>
