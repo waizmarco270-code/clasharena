@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -34,24 +33,24 @@ export function Header() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link href="/wallet" className="hidden sm:flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full border border-white/5 hover:bg-primary/10 transition-colors group">
-            <span className="text-sm font-bold">🪙 {profile?.balance || 0}</span>
-            <div className="h-6 w-6 rounded-full flex items-center justify-center bg-transparent group-hover:scale-110 transition-transform">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/wallet" className="flex items-center gap-2 bg-muted/50 px-2 sm:px-3 py-1.5 rounded-full border border-white/5 hover:bg-primary/10 transition-colors group">
+            <span className="text-xs sm:text-sm font-black">🪙 {profile?.balance || 0}</span>
+            <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center bg-transparent group-hover:scale-110 transition-transform">
               <Wallet className="h-3 w-3 text-primary" />
             </div>
           </Link>
 
           {isAdmin && (
             <Link href="/admin">
-              <Button variant="outline" size="sm" className="hidden lg:flex gap-2 border-primary/20 hover:bg-primary/10">
-                <Shield className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold">ADMIN</span>
+              <Button variant="outline" size="sm" className="flex gap-1 sm:gap-2 border-primary/20 hover:bg-primary/10 h-8 sm:h-10 px-2 sm:px-4">
+                <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                <span className="text-[10px] sm:text-xs font-black uppercase italic">ADMIN</span>
               </Button>
             </Link>
           )}
 
-          <div className="flex items-center gap-3 ml-2 border-l border-white/10 pl-3">
+          <div className="flex items-center gap-2 sm:gap-3 ml-1 sm:ml-2 border-l border-white/10 pl-2 sm:pl-3">
             <div className="flex flex-col items-end hidden xs:flex">
               <div className="flex items-center gap-1">
                 <span className="text-xs font-black leading-none uppercase tracking-tight">

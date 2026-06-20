@@ -7,6 +7,9 @@ import { Toaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: 'CLASH ARENA | Compete. Win. Rise.',
   description: 'The ultimate Clash of Clans tournament platform.',
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({

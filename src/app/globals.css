@@ -145,3 +145,15 @@ body {
 canvas {
   display: block;
 }
+
+.sidebar-glow-item {
+  @apply relative transition-all duration-300;
+}
+
+.sidebar-glow-item:hover {
+  @apply bg-white/[0.03];
+}
+
+.sidebar-glow-item:hover svg {
+  filter: drop-shadow(0 0 8px currentColor);
+}

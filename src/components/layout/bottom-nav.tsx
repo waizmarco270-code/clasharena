@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -9,26 +8,26 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md md:hidden">
-      <nav className="glass rounded-2xl flex items-center justify-around py-3 px-2 shadow-2xl border border-white/10">
-        <Link href="/dashboard" className="flex flex-col items-center gap-1 group">
-          <LayoutDashboard className={`h-5 w-5 ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-tighter ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground'}`}>Hub</span>
+    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-white/5 bg-black/90 backdrop-blur-xl">
+      <nav className="flex items-center justify-around py-3 px-2 shadow-2xl">
+        <Link href="/dashboard" className="flex flex-col items-center gap-1 group transition-all">
+          <LayoutDashboard className={`h-5 w-5 transition-colors ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground/60'}`} />
+          <span className={`text-[10px] font-black uppercase tracking-tighter ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground/60'}`}>Hub</span>
         </Link>
         
-        <Link href="/arena" className="flex flex-col items-center gap-1 group">
-          <Swords className={`h-5 w-5 ${pathname === '/arena' ? 'text-primary' : 'text-muted-foreground'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-tighter ${pathname === '/arena' ? 'text-primary' : 'text-muted-foreground'}`}>Arena</span>
+        <Link href="/arena" className="flex flex-col items-center gap-1 group transition-all">
+          <Swords className={`h-5 w-5 transition-colors ${pathname === '/arena' ? 'text-primary' : 'text-muted-foreground/60'}`} />
+          <span className={`text-[10px] font-black uppercase tracking-tighter ${pathname === '/arena' ? 'text-primary' : 'text-muted-foreground/60'}`}>Arena</span>
         </Link>
 
-        <Link href="/hall-of-champions" className="flex flex-col items-center gap-1 group">
-          <Trophy className={`h-5 w-5 ${pathname === '/hall-of-champions' ? 'text-primary' : 'text-muted-foreground'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-tighter ${pathname === '/hall-of-champions' ? 'text-primary' : 'text-muted-foreground'}`}>Hall</span>
+        <Link href="/hall-of-champions" className="flex flex-col items-center gap-1 group transition-all">
+          <Trophy className={`h-5 w-5 transition-colors ${pathname === '/hall-of-champions' ? 'text-primary' : 'text-muted-foreground/60'}`} />
+          <span className={`text-[10px] font-black uppercase tracking-tighter ${pathname === '/hall-of-champions' ? 'text-primary' : 'text-muted-foreground/60'}`}>Hall</span>
         </Link>
 
-        <Link href="/profile" className="flex flex-col items-center gap-1 group">
-          <User className={`h-5 w-5 ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-tighter ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground'}`}>Profile</span>
+        <Link href="/profile" className="flex flex-col items-center gap-1 group transition-all">
+          <User className={`h-5 w-5 transition-colors ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground/60'}`} />
+          <span className={`text-[10px] font-black uppercase tracking-tighter ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground/60'}`}>Profile</span>
         </Link>
       </nav>
     </div>
