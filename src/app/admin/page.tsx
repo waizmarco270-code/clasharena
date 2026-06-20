@@ -1,17 +1,18 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2 } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2, Settings, QrCode, ImagePlus, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCollection, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useDoc } from '@/firebase';
+import { collection, query, orderBy, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -24,8 +25,27 @@ export default function AdminPanel() {
   const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc')), [db]);
   const { data: rechargeRequests, loading: rechargeLoading } = useCollection(rechargeQuery);
 
+  // Fetch Payment Settings
+  const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
+  const { data: paymentSettings, loading: settingsLoading } = useDoc(settingsRef);
+
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  
+  // Settings State
+  const [upiId, setUpiId] = useState('');
+  const [qrUrl, setQrUrl] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync settings when loaded
+  useMemo(() => {
+    if (paymentSettings) {
+      setUpiId(paymentSettings.adminUpiId || '');
+      setQrUrl(paymentSettings.adminQrUrl || '');
+    }
+  }, [paymentSettings]);
 
   const handleApproveRecharge = async (request: any) => {
     if (processingId) return;
@@ -35,15 +55,8 @@ export default function AdminPanel() {
       const userRef = doc(db, 'users', request.userId);
       const requestRef = doc(db, 'recharge-requests', request.id);
 
-      // 1. Credit the balance
-      await updateDoc(userRef, {
-        balance: increment(request.amount)
-      });
-
-      // 2. Mark request as approved
-      await updateDoc(requestRef, {
-        status: 'approved'
-      });
+      await updateDoc(userRef, { balance: increment(request.amount) });
+      await updateDoc(requestRef, { status: 'approved' });
 
       toast({ title: "RECHARGE APPROVED", description: `🪙 ${request.amount} credited to ${request.username}.` });
     } catch (err: any) {
@@ -53,14 +66,41 @@ export default function AdminPanel() {
     }
   };
 
-  const handleRejectRecharge = async (requestId: string) => {
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
     try {
-      await updateDoc(doc(db, 'recharge-requests', requestId), {
-        status: 'rejected'
-      });
-      toast({ title: "RECHARGE REJECTED" });
+      await setDoc(settingsRef, {
+        adminUpiId: upiId,
+        adminQrUrl: qrUrl,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "GATEWAY SECURED", description: "Payment settings updated globally." });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: err.message });
+      toast({ variant: "destructive", title: "Save Failed", description: err.message });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (data.secure_url) {
+        setQrUrl(data.secure_url);
+        toast({ title: "QR Updated" });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed" });
+    } finally {
+      setUploadingQr(false);
     }
   };
 
@@ -72,40 +112,13 @@ export default function AdminPanel() {
             <h1 className="font-headline text-3xl font-black mb-1 uppercase">COMMAND <span className="text-primary italic">CENTER</span></h1>
             <p className="text-muted-foreground font-medium">Tournament management & financial oversight.</p>
           </div>
-          <div className="hidden sm:flex gap-2">
-            <Button className="bg-primary hover:bg-primary/90 font-black">CREATE TOURNAMENT</Button>
-          </div>
-        </div>
-
-        {/* Quick Stats Placeholder */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="glass border-white/5 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Total Users</p>
-              <p className="text-2xl font-black">1.2k</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Pending Requests</p>
-              <p className="text-2xl font-black text-primary">
-                {rechargeRequests?.filter((r: any) => r.status === 'pending').length || 0}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         <Tabs defaultValue="wallets" className="w-full">
           <TabsList className="bg-muted/50 border border-white/10 w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="wallets" className="data-[state=active]:bg-primary">
-              <Wallet className="w-4 h-4 mr-2" /> Wallet Logs
-            </TabsTrigger>
-            <TabsTrigger value="verifications">
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Match Results
-            </TabsTrigger>
-            <TabsTrigger value="tournaments">
-              <Swords className="w-4 h-4 mr-2" /> Tournaments
-            </TabsTrigger>
+            <TabsTrigger value="wallets"><Wallet className="w-4 h-4 mr-2" /> Wallet Logs</TabsTrigger>
+            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" /> Gateway Settings</TabsTrigger>
+            <TabsTrigger value="tournaments"><Swords className="w-4 h-4 mr-2" /> Tournaments</TabsTrigger>
           </TabsList>
 
           <TabsContent value="wallets" className="mt-6">
@@ -127,8 +140,6 @@ export default function AdminPanel() {
                   <TableBody>
                     {rechargeLoading ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : rechargeRequests?.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No recharge requests found.</TableCell></TableRow>
                     ) : (
                       rechargeRequests?.map((req: any) => (
                         <TableRow key={req.id} className="border-white/5">
@@ -149,24 +160,14 @@ export default function AdminPanel() {
                                 <Eye className="w-3 h-3 mr-1" /> PROOF
                               </Button>
                               {req.status === 'pending' && (
-                                <>
-                                  <Button 
-                                    size="sm" 
-                                    disabled={!!processingId}
-                                    className="h-8 bg-green-600 hover:bg-green-500"
-                                    onClick={() => handleApproveRecharge(req)}
-                                  >
-                                    {processingId === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'APPROVE'}
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="destructive" 
-                                    className="h-8"
-                                    onClick={() => handleRejectRecharge(req.id)}
-                                  >
-                                    REJECT
-                                  </Button>
-                                </>
+                                <Button 
+                                  size="sm" 
+                                  disabled={!!processingId}
+                                  className="h-8 bg-green-600 hover:bg-green-500"
+                                  onClick={() => handleApproveRecharge(req)}
+                                >
+                                  {processingId === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'APPROVE'}
+                                </Button>
                               )}
                             </div>
                           </TableCell>
@@ -179,10 +180,54 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="verifications" className="mt-6 text-center py-20 bg-white/5 rounded-2xl border border-dashed border-white/10">
-            <CheckCircle2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-bold">Match Verification System</h3>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-black">AI Scanners Online</p>
+          <TabsContent value="settings" className="mt-6">
+            <Card className="glass border-white/5 max-w-2xl">
+              <CardHeader>
+                <CardTitle className="font-headline text-xl">Payment Gateway Protocol</CardTitle>
+                <CardDescription>Configure the official receiver details for manual recharges.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Master UPI ID</Label>
+                  <Input 
+                    value={upiId} 
+                    onChange={(e) => setUpiId(e.target.value)}
+                    className="bg-white/5 border-white/10 h-12 font-mono" 
+                    placeholder="e.g. owner@upi"
+                  />
+                  <p className="text-[9px] text-muted-foreground italic">This UPI ID will be used for all deep-link payment intents.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Official QR Code</Label>
+                  <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
+                    {qrUrl ? (
+                      <div className="relative h-48 w-48 rounded-2xl overflow-hidden border-2 border-primary/40 bg-white p-2">
+                        <Image src={qrUrl} alt="Admin QR" fill className="object-contain p-2" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {uploadingQr ? <Loader2 className="animate-spin text-white" /> : <ImagePlus className="text-white" />}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-48 w-48 rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
+                        {uploadingQr ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-muted-foreground" />}
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Upload Master QR</p>
+                      </div>
+                    )}
+                    <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings || uploadingQr}
+                  className="w-full h-12 bg-primary hover:bg-primary/90 font-black gap-2"
+                >
+                  {savingSettings ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
+                  SECURE PAYMENT SETTINGS
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
