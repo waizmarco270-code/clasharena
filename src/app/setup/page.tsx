@@ -85,7 +85,6 @@ export default function ProfileSetup() {
           let width = img.width;
           let height = img.height;
 
-          // Resize if too large
           const maxDim = 1200;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -121,7 +120,7 @@ export default function ProfileSetup() {
 
       const formDataCld = new FormData();
       formDataCld.append('file', uploadFile);
-      formDataCld.append('upload_preset', 'ml_default'); // You may need to create this in Cloudinary
+      formDataCld.append('upload_preset', 'ml_default');
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
@@ -134,7 +133,7 @@ export default function ProfileSetup() {
         toast({ title: "Photo Updated!", description: "Looking sharp, warrior." });
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload to Cloudinary." });
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload photo." });
     } finally {
       setUploading(false);
     }
@@ -145,7 +144,7 @@ export default function ProfileSetup() {
     if (!user || isLocked) return;
 
     if (!formData.username || !formData.tag || !formData.townHall) {
-      toast({ variant: "destructive", title: "Wait!", description: "All fields are required." });
+      toast({ variant: "destructive", title: "Missing Intel!", description: "All fields are required to enter the arena." });
       return;
     }
 
@@ -158,7 +157,7 @@ export default function ProfileSetup() {
       townHall: parseInt(formData.townHall),
       avatarUrl: formData.avatarUrl,
       profileLockedUntil: lockDate.toISOString(),
-      balance: profile?.balance ?? 0,
+      balance: profile?.balance ?? 250,
       wins: profile?.wins ?? 0,
       losses: profile?.losses ?? 0,
       earnings: profile?.earnings ?? 0,
@@ -166,8 +165,8 @@ export default function ProfileSetup() {
     };
 
     try {
-      await setDoc(doc(db, 'users', user.uid), newProfile);
-      toast({ title: "Profile Secured!", description: "Your details are locked for the next 3 days." });
+      setDoc(doc(db, 'users', user.uid), newProfile);
+      toast({ title: "Identity Secured!", description: "Redirecting to the Command Center..." });
       router.push('/arena');
     } catch (err) {
       console.error(err);
@@ -175,43 +174,40 @@ export default function ProfileSetup() {
   };
 
   if (authLoading || profileLoading) return null;
-  if (!user) {
-    router.push('/');
-    return null;
-  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background/50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background/50 selection:bg-primary selection:text-white">
       <Card className="glass w-full max-w-xl border-white/5 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
         <CardHeader className="space-y-1 text-center pt-8">
-          <CardTitle className="font-headline text-4xl font-black italic tracking-tighter">
-            ARENA <span className="text-primary">IDENTITY</span>
+          <CardTitle className="font-headline text-4xl font-black italic tracking-tighter uppercase">
+            ARENA <span className="legendary-text">IDENTITY</span>
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Establish your presence in the competitive ecosystem.
+          <CardDescription className="text-muted-foreground font-medium">
+            Complete your profile to unlock competitive access.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-8">
-            {/* Avatar Upload */}
             <div className="flex flex-col items-center gap-4">
               <div className="relative group">
-                <Avatar className="h-28 w-28 border-4 border-primary/20 p-1 bg-background glow-primary transition-transform group-hover:scale-105">
+                <Avatar className="h-32 w-32 border-4 border-primary/20 p-1 bg-background glow-primary transition-transform group-hover:scale-105 duration-500">
                   <AvatarImage src={formData.avatarUrl} className="rounded-full object-cover" />
-                  <AvatarFallback className="bg-muted text-2xl font-black">
+                  <AvatarFallback className="bg-muted text-3xl font-black">
                     {formData.username?.substring(0, 2).toUpperCase() || '??'}
                   </AvatarFallback>
                 </Avatar>
-                <Button 
-                  type="button"
-                  size="icon"
-                  className="absolute bottom-0 right-0 rounded-full bg-primary hover:bg-primary/90 shadow-xl border-2 border-background h-8 w-8"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-                </Button>
+                {!isLocked && (
+                  <Button 
+                    type="button"
+                    size="icon"
+                    className="absolute bottom-1 right-1 rounded-full bg-primary hover:bg-primary/90 shadow-2xl border-2 border-background h-10 w-10 animate-pulse"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
+                  </Button>
+                )}
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -220,32 +216,34 @@ export default function ProfileSetup() {
                   onChange={handleImageUpload} 
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Profile Photo</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.3em]">War Portrait</p>
             </div>
 
-            {/* Security Protocol */}
-            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5 flex gap-4">
-              <ShieldAlert className="w-6 h-6 text-primary shrink-0" />
-              <div className="text-xs space-y-2">
-                <p className="font-bold text-primary uppercase tracking-wider">Security Protocol Level 1</p>
+            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex gap-4 items-start">
+              <ShieldAlert className="w-8 h-8 text-primary shrink-0 animate-pulse" />
+              <div className="text-xs space-y-3">
+                <p className="font-black text-primary uppercase tracking-widest text-sm">SECURITY PROTOCOL</p>
                 <p className="text-muted-foreground leading-relaxed font-medium">
-                  To prevent <span className="text-white font-bold underline decoration-primary/40">tournament fraud</span>, your details will be <span className="text-white font-bold">LOCKED for 3 days</span> after confirmation. Ensure your Clash Tag and Town Hall are 100% accurate.
+                  To maintain <span className="text-white font-bold underline decoration-primary/40 underline-offset-2">competitive integrity</span>, your identity details will be <span className="text-white font-bold">LOCKED for 72 hours</span> after confirmation. Fake IDs will lead to a permanent ban.
                 </p>
               </div>
             </div>
 
             {isLocked && (
-              <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Timer className="w-5 h-5 text-yellow-500" />
-                  <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest">Modification Cooldown</p>
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-4">
+                  <Timer className="w-6 h-6 text-yellow-500 animate-spin-slow" style={{ animationDuration: '3s' }} />
+                  <div>
+                    <p className="text-xs font-black text-yellow-500 uppercase tracking-widest">Identity Cooldown</p>
+                    <p className="text-[10px] text-muted-foreground font-bold">SECURED AGAINST CHANGES</p>
+                  </div>
                 </div>
-                <p className="font-mono text-sm font-black text-yellow-500">{timeLeft}</p>
+                <p className="font-headline text-xl font-black text-yellow-500 glow-text">{timeLeft}</p>
               </div>
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label htmlFor="username" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">In-game Name</Label>
                 <Input 
                   id="username" 
@@ -253,10 +251,10 @@ export default function ProfileSetup() {
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
                   disabled={isLocked}
-                  className="bg-white/5 border-white/10 h-12 focus:border-primary/50 transition-all font-bold"
+                  className="bg-white/5 border-white/10 h-14 focus:border-primary/50 transition-all font-bold text-lg"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label htmlFor="tag" className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label>
                 <Input 
                   id="tag" 
@@ -264,24 +262,24 @@ export default function ProfileSetup() {
                   value={formData.tag}
                   onChange={(e) => setFormData({...formData, tag: e.target.value})}
                   disabled={isLocked}
-                  className="bg-white/5 border-white/10 h-12 focus:border-primary/50 transition-all font-mono font-bold"
+                  className="bg-white/5 border-white/10 h-14 focus:border-primary/50 transition-all font-mono font-bold text-lg"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall Level</Label>
               <Select 
                 disabled={isLocked} 
                 value={formData.townHall}
                 onValueChange={(val) => setFormData({...formData, townHall: val})}
               >
-                <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold focus:ring-primary/20">
+                <SelectTrigger className="bg-white/5 border-white/10 h-14 font-bold text-lg focus:ring-primary/20">
                   <SelectValue placeholder="Select your TH level" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-white/10">
                   {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
-                    <SelectItem key={th} value={th.toString()} className="font-bold hover:bg-primary/10">Town Hall {th}</SelectItem>
+                    <SelectItem key={th} value={th.toString()} className="font-bold hover:bg-primary/10 py-3">Town Hall {th}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -290,13 +288,13 @@ export default function ProfileSetup() {
           <CardFooter className="pb-8">
             <Button 
               type="submit" 
-              className="w-full bg-primary hover:bg-primary/90 font-black h-14 rounded-2xl glow-primary text-lg tracking-tighter"
+              className="w-full bg-primary hover:bg-primary/90 font-black h-16 rounded-2xl glow-primary text-xl tracking-tighter transition-transform active:scale-95"
               disabled={isLocked || uploading}
             >
               {isLocked ? (
-                <span className="flex items-center gap-2">IDENTITY SECURED <CheckCircle2 className="w-5 h-5" /></span>
+                <span className="flex items-center gap-3">IDENTITY SECURED <CheckCircle2 className="w-6 h-6" /></span>
               ) : uploading ? (
-                <span className="flex items-center gap-2 italic">SYNCHRONIZING... <Loader2 className="w-5 h-5 animate-spin" /></span>
+                <span className="flex items-center gap-3 italic">SYNCHRONIZING... <Loader2 className="w-6 h-6 animate-spin" /></span>
               ) : (
                 'SECURE ARENA IDENTITY'
               )}
