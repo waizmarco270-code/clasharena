@@ -16,7 +16,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Home, Swords, Trophy, User, Shield, LayoutDashboard, Settings, Wallet } from 'lucide-react';
+import { Home, Swords, Trophy, User, Shield, LayoutDashboard, Settings, Wallet, History } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
@@ -32,6 +32,7 @@ export function AppSidebar() {
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Tournament Arena', href: '/arena', icon: Swords },
     { name: 'Coin Vault', href: '/wallet', icon: Wallet },
+    { name: 'Transaction Logs', href: '/wallet/history', icon: History },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy },
   ];
 

@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2, Settings, QrCode, ImagePlus, Save } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Search, Eye, Loader2, Settings, QrCode, ImagePlus, Save, Ban } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +15,8 @@ import { useCollection, useFirestore, useDoc, errorEmitter, FirestorePermissionE
 import { collection, query, orderBy, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AdminPanel() {
   const db = useFirestore();
@@ -31,6 +32,10 @@ export default function AdminPanel() {
 
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  
+  // Rejection State
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   
   // Settings State
   const [upiId, setUpiId] = useState('');
@@ -67,6 +72,36 @@ export default function AdminPanel() {
     updateDoc(requestRef, { status: 'approved' })
       .then(() => {
         toast({ title: "RECHARGE APPROVED", description: `🪙 ${request.amount} credited to ${request.username}.` });
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: requestRef.path,
+          operation: 'update',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setProcessingId(null);
+      });
+  };
+
+  const handleRejectRecharge = () => {
+    if (!rejectId || !rejectReason.trim()) {
+      toast({ variant: "destructive", title: "Reason Required", description: "Provide a reason for rejection." });
+      return;
+    }
+
+    setProcessingId(rejectId);
+    const requestRef = doc(db, 'recharge-requests', rejectId);
+
+    updateDoc(requestRef, { 
+      status: 'rejected',
+      rejectionReason: rejectReason 
+    })
+      .then(() => {
+        toast({ title: "RECHARGE REJECTED", description: "User has been notified." });
+        setRejectId(null);
+        setRejectReason('');
       })
       .catch(async (err) => {
         const permissionError = new FirestorePermissionError({
@@ -148,7 +183,7 @@ export default function AdminPanel() {
             <Card className="glass border-white/5">
               <CardHeader>
                 <CardTitle className="font-headline">Recharge Verification</CardTitle>
-                <CardDescription>Manually approve coin top-up requests from warriors.</CardDescription>
+                <CardDescription>Manually approve or reject coin top-up requests.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -176,6 +211,9 @@ export default function AdminPanel() {
                               className={req.status === 'pending' ? 'border-yellow-500 text-yellow-500' : ''}>
                               {req.status.toUpperCase()}
                             </Badge>
+                            {req.rejectionReason && (
+                              <p className="text-[9px] text-destructive mt-1 italic max-w-[150px] truncate">{req.rejectionReason}</p>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -183,14 +221,25 @@ export default function AdminPanel() {
                                 <Eye className="w-3 h-3 mr-1" /> PROOF
                               </Button>
                               {req.status === 'pending' && (
-                                <Button 
-                                  size="sm" 
-                                  disabled={!!processingId}
-                                  className="h-8 bg-green-600 hover:bg-green-500"
-                                  onClick={() => handleApproveRecharge(req)}
-                                >
-                                  {processingId === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'APPROVE'}
-                                </Button>
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    disabled={!!processingId}
+                                    className="h-8 bg-green-600 hover:bg-green-500"
+                                    onClick={() => handleApproveRecharge(req)}
+                                  >
+                                    {processingId === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'APPROVE'}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    disabled={!!processingId}
+                                    className="h-8"
+                                    onClick={() => setRejectId(req.id)}
+                                  >
+                                    REJECT
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </TableCell>
@@ -265,6 +314,35 @@ export default function AdminPanel() {
               <Image src={selectedProof} alt="Proof" fill className="object-contain" />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
+        <DialogContent className="glass max-w-md border-destructive/20">
+          <DialogHeader>
+            <DialogTitle className="font-headline uppercase italic text-destructive">Protocol Violation</DialogTitle>
+            <DialogDescription>Provide a reason for rejecting this request. The user will see this message.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-[10px] font-black uppercase mb-2 block">Rejection Reason</Label>
+            <Textarea 
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Fake screenshot detected, Amount mismatch, Transaction not found."
+              className="bg-white/5 border-white/10 h-32"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectId(null)}>CANCEL</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectRecharge}
+              disabled={!rejectReason.trim() || !!processingId}
+            >
+              {processingId ? <Loader2 className="animate-spin mr-2" /> : <Ban className="mr-2" />}
+              REJECT REQUEST
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageWrapper>

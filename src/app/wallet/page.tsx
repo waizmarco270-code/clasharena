@@ -53,11 +53,18 @@ export default function WalletPage() {
     <PageWrapper>
       <div className="max-w-4xl mx-auto space-y-8 pb-20">
         {/* Header Section */}
-        <div className="text-center md:text-left">
-          <h1 className="font-headline text-4xl font-black mb-2 tracking-tight uppercase italic">
-            COIN <span className="text-primary">VAULT</span>
-          </h1>
-          <p className="text-muted-foreground font-medium">Recharge your balance to enter high-stakes arenas.</p>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <h1 className="font-headline text-4xl font-black mb-2 tracking-tight uppercase italic">
+              COIN <span className="text-primary">VAULT</span>
+            </h1>
+            <p className="text-muted-foreground font-medium">Recharge your balance to enter high-stakes arenas.</p>
+          </div>
+          <Link href="/wallet/history">
+            <Button variant="outline" className="border-white/10 glass font-bold gap-2 h-12 rounded-xl">
+              <History className="w-4 h-4 text-primary" /> VIEW HISTORY
+            </Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

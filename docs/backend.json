@@ -49,6 +49,7 @@
         "transactionId": { "type": "string" },
         "screenshotUrl": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rejectionReason": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "amount", "transactionId", "screenshotUrl", "status"]
