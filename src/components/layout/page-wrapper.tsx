@@ -16,7 +16,6 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Memoize the document reference to prevent infinite re-renders
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
@@ -33,7 +32,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Handle Authenticated Users - Direct to dashboard if on landing page
+    // Handle Authenticated Users - Always go to dashboard if on landing page
     if (pathname === '/') {
       router.push('/dashboard');
     }
