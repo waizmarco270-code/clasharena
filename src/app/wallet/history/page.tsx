@@ -16,26 +16,28 @@ import {
   Loader2,
   Calendar
 } from 'lucide-react';
-import { useUser, useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
+import { useUser } from "@clerk/nextjs";
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function WalletHistoryPage() {
-  const { user } = useUser();
+  const { user, isLoaded: authLoaded } = useUser();
   const db = useFirestore();
 
   const historyQuery = useMemo(() => {
-    if (!user?.id) return null;
+    if (!authLoaded || !user?.id) return null;
     return query(
       collection(db, 'recharge-requests'),
       where('userId', '==', user.id),
       orderBy('createdAt', 'desc')
     );
-  }, [db, user?.id]);
+  }, [db, user?.id, authLoaded]);
 
-  const { data: logs, loading } = useCollection(historyQuery);
+  const { data: logs, loading: logsLoading } = useCollection(historyQuery);
+  const loading = !authLoaded || logsLoading;
 
   const getStatusIcon = (status: string) => {
     switch (status) {

@@ -20,17 +20,19 @@ import {
   ChevronRight,
   AlertCircle
 } from 'lucide-react';
-import { useUser, useDoc, useFirestore } from '@/firebase';
+import { useDoc, useFirestore } from '@/firebase';
+import { useUser } from "@clerk/nextjs";
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 
 export default function WalletPage() {
-  const { user } = useUser();
+  const { user, isLoaded: authLoaded } = useUser();
   const db = useFirestore();
   const router = useRouter();
-  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
+  
+  const userRef = useMemo(() => (authLoaded && user) ? doc(db, 'users', user.id) : null, [db, user?.id, authLoaded]);
   const { data: profile } = useDoc(userRef);
 
   const [amount, setAmount] = useState<number>(50);
