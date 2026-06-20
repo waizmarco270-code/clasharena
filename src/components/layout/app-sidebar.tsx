@@ -16,7 +16,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Home, Swords, Trophy, User, Shield, LayoutDashboard, Settings } from 'lucide-react';
+import { Home, Swords, Trophy, User, Shield, LayoutDashboard, Settings, Wallet } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
@@ -31,12 +31,12 @@ export function AppSidebar() {
   const mainNav = [
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Tournament Arena', href: '/arena', icon: Swords },
+    { name: 'Coin Vault', href: '/wallet', icon: Wallet },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy },
   ];
 
   const userNav = [
     { name: 'My Profile', href: '/profile', icon: User },
-    { name: 'Arena Identity', href: '/setup', icon: Shield },
   ];
 
   return (

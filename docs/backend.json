@@ -38,6 +38,21 @@
       },
       "required": ["username", "tag", "townHall", "balance"]
     },
+    "RechargeRequest": {
+      "title": "Recharge Request",
+      "description": "A request for a manual balance top-up.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "amount": { "type": "number" },
+        "transactionId": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "transactionId", "screenshotUrl", "status"]
+    },
     "MatchRecord": {
       "title": "Match Record",
       "description": "Represents a single match result for verification.",
@@ -64,6 +79,10 @@
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Private user profiles."
+    },
+    "/recharge-requests/{requestId}": {
+      "schema": "RechargeRequest",
+      "description": "Pending and past manual recharge requests."
     },
     "/matches/{matchId}": {
       "schema": "MatchRecord",
