@@ -178,7 +178,7 @@ export default function ProfileSetup() {
       townHall: parseInt(formData.townHall),
       avatarUrl: formData.avatarUrl,
       profileLockedUntil: lockDate.toISOString(),
-      balance: profile?.balance ?? 250,
+      balance: profile?.balance ?? 0,
       wins: profile?.wins ?? 0,
       losses: profile?.losses ?? 0,
       earnings: profile?.earnings ?? 0,
@@ -189,7 +189,6 @@ export default function ProfileSetup() {
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
         toast({ title: "Identity Secured!", description: "Welcome to the Arena." });
-        // The PageWrapper or the useEffect will handle the redirect once the data syncs
         setTimeout(() => router.push('/arena'), 500);
       })
       .catch(async (serverError) => {

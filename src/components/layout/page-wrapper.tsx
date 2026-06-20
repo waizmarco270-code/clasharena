@@ -37,21 +37,24 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     } 
     // IF LOGGED IN
     else {
-      // 1. If the user is on the landing page, push them to setup
+      // 1. Force to setup if on landing page
       if (pathname === '/') {
         router.push('/setup');
         return;
       }
       
-      const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
-      
-      // 2. If profile is missing and they aren't on setup, force them to setup
-      if (isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
-        router.push('/setup');
+      // 2. Gatekeeping: Only check profile completion if we aren't already on setup or a public route
+      if (pathname !== '/setup' && !isPublicRoute) {
+        // If we know for sure the profile is incomplete, push to setup
+        const isIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
+        if (isIncomplete) {
+          router.push('/setup');
+        }
       }
       
       // 3. If profile is complete and they ARE on setup, force them to arena
-      if (!profileLoading && !isProfileIncomplete && pathname === '/setup') {
+      const isComplete = !profileLoading && profile && profile.username && profile.tag;
+      if (isComplete && pathname === '/setup') {
         router.push('/arena');
       }
     }
