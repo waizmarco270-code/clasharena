@@ -26,13 +26,13 @@ export default function Home() {
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
   
   return (
-    <div className="flex flex-col bg-black selection:bg-primary selection:text-white overflow-x-hidden">
+    <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden">
       {/* Neural Node Particle Background */}
       <NeuralBackground />
       
       {/* Dynamic Glowing Blobs for Ambient Depth */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
@@ -41,11 +41,11 @@ export default function Home() {
             src={heroBg?.imageUrl || ''} 
             alt="Hero Background" 
             fill 
-            className="object-cover opacity-20 scale-105 saturate-150"
+            className="object-cover opacity-30 scale-105 saturate-150"
             priority
             data-ai-hint="gaming fire"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/90 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black" />
         </div>
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center">
@@ -80,7 +80,7 @@ export default function Home() {
       </section>
 
       {/* Why Clash Arena - Neon Cards */}
-      <section className="py-32 container mx-auto px-4">
+      <section className="py-32 container mx-auto px-4 relative z-10">
         <div className="text-center mb-24 relative">
           <h2 className="font-headline text-4xl md:text-6xl font-black mb-6 uppercase tracking-tighter">
             BUILT FOR <span className="text-primary italic glow-neon">CHAMPIONS</span>
@@ -122,7 +122,7 @@ export default function Home() {
       </section>
 
       {/* How It Works - Premium Dark Mode */}
-      <section className="py-32 bg-black/60 border-y border-white/5 relative">
+      <section className="py-32 bg-black/40 border-y border-white/5 relative z-10">
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-20">
             <div className="flex-1 space-y-16">
@@ -166,7 +166,7 @@ export default function Home() {
       </section>
 
       {/* Arenas - Glowing Cards */}
-      <section className="py-32 container mx-auto px-4">
+      <section className="py-32 container mx-auto px-4 relative z-10">
         <div className="text-center mb-24">
           <h2 className="font-headline text-4xl md:text-6xl font-black mb-4 uppercase">THE <span className="text-primary italic glow-text">ARENAS</span></h2>
         </div>
@@ -196,7 +196,7 @@ export default function Home() {
       </section>
 
       {/* Trust Section - Neon Highlight */}
-      <section className="py-32 container mx-auto px-4">
+      <section className="py-32 container mx-auto px-4 relative z-10">
         <div className="glass bg-gradient-to-r from-primary/10 to-transparent border-primary/20 rounded-[3rem] p-16 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-16 opacity-10 -rotate-12 translate-x-20 -translate-y-20 scale-150">
             <Verified className="w-64 h-64 text-primary" />
@@ -230,9 +230,9 @@ export default function Home() {
       </section>
 
       {/* Final CTA - The Core Section */}
-      <section className="py-40 container mx-auto px-4">
+      <section className="py-40 container mx-auto px-4 relative z-10">
         <div className="relative rounded-[4rem] overflow-hidden bg-primary p-[2px] glow-primary animate-float">
-          <div className="bg-black rounded-[3.9rem] py-28 px-8 flex flex-col items-center text-center relative overflow-hidden group">
+          <div className="bg-black/90 rounded-[3.9rem] py-28 px-8 flex flex-col items-center text-center relative overflow-hidden group">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/30 via-transparent to-transparent opacity-50" />
             
             <h2 className="relative z-10 font-headline text-6xl md:text-8xl font-black mb-10 uppercase tracking-tighter leading-none">
@@ -252,7 +252,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-16 border-t border-white/5 bg-black/90 text-center">
+      <footer className="py-16 border-t border-white/5 bg-black/90 text-center relative z-10">
         <p className="text-muted-foreground text-[10px] uppercase tracking-[0.4em] font-black opacity-60 flex items-center justify-center gap-3">
           <Star className="w-3 h-3 fill-primary text-primary" /> 
           ESTABLISHED 2024 • THE COMPETITIVE ECOSYSTEM

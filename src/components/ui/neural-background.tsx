@@ -17,13 +17,13 @@ export function NeuralBackground() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     containerRef.current.appendChild(renderer.domElement);
 
-    const particlesCount = 150;
+    const particlesCount = 200;
     const positions = new Float32Array(particlesCount * 3);
     const velocities = new Float32Array(particlesCount * 3);
 
     for (let i = 0; i < particlesCount * 3; i++) {
-      positions[i] = (Math.random() - 0.5) * 10;
-      velocities[i] = (Math.random() - 0.5) * 0.01;
+      positions[i] = (Math.random() - 0.5) * 15;
+      velocities[i] = (Math.random() - 0.5) * 0.015;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -31,9 +31,9 @@ export function NeuralBackground() {
 
     const material = new THREE.PointsMaterial({
       color: 0xff4500,
-      size: 0.05,
+      size: 0.08,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       blending: THREE.AdditiveBlending
     });
 
@@ -44,13 +44,13 @@ export function NeuralBackground() {
     const lineMaterial = new THREE.LineBasicMaterial({
       color: 0xff4500,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.2,
       blending: THREE.AdditiveBlending
     });
 
     let lineMesh: THREE.LineSegments | null = null;
 
-    camera.position.z = 5;
+    camera.position.z = 7;
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -64,9 +64,9 @@ export function NeuralBackground() {
         posArray[i3 + 2] += velocities[i3 + 2];
 
         // Bounds checking
-        if (Math.abs(posArray[i3]) > 5) velocities[i3] *= -1;
-        if (Math.abs(posArray[i3 + 1]) > 5) velocities[i3 + 1] *= -1;
-        if (Math.abs(posArray[i3 + 2]) > 5) velocities[i3 + 2] *= -1;
+        if (Math.abs(posArray[i3]) > 10) velocities[i3] *= -1;
+        if (Math.abs(posArray[i3 + 1]) > 10) velocities[i3 + 1] *= -1;
+        if (Math.abs(posArray[i3 + 2]) > 10) velocities[i3 + 2] *= -1;
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -80,7 +80,7 @@ export function NeuralBackground() {
           const dz = posArray[i * 3 + 2] - posArray[j * 3 + 2];
           const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-          if (dist < 1.5) {
+          if (dist < 2.5) {
             linePositions.push(posArray[i * 3], posArray[i * 3 + 1], posArray[i * 3 + 2]);
             linePositions.push(posArray[j * 3], posArray[j * 3 + 1], posArray[j * 3 + 2]);
           }
@@ -112,5 +112,5 @@ export function NeuralBackground() {
     };
   }, []);
 
-  return <div ref={containerRef} className="fixed inset-0 -z-20 pointer-events-none opacity-40" />;
+  return <div ref={containerRef} className="fixed inset-0 z-[-1] pointer-events-none opacity-60" />;
 }
