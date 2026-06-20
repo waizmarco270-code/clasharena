@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUser, useFirestore, useDoc } from '@/firebase';
+import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
+import Link from 'next/link';
 
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useUser();
@@ -28,6 +29,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     }
 
     // Force setup if user is logged in but profile is incomplete
+    // Don't force redirect if they are already on the setup or login page
     if (!authLoading && user && !profileLoading && pathname !== '/setup' && pathname !== '/login') {
       if (!profile || !profile.username || !profile.tag || !profile.townHall) {
         router.push('/setup');
@@ -46,12 +48,12 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Handle specialized pages (login/setup)
+  // Handle specialized pages (login/setup) separately to avoid sidebar/header wrapping if desired
   if (pathname === '/login' || pathname === '/setup') {
     return <>{children}</>;
   }
 
-  // If unauthenticated on a public route, show children with header but no sidebar
+  // If unauthenticated on a public route, show children with a guest-friendly header but no sidebar
   if (!user && isPublicRoute) {
     return (
       <div className="flex min-h-screen w-full bg-background/95 flex-col">
@@ -78,6 +80,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Authenticated layout with Sidebar
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background/95">
@@ -93,5 +96,3 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-import Link from 'next/link';

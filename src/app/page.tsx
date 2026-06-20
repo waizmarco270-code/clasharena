@@ -1,24 +1,22 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
   Swords, 
   Trophy, 
   Users, 
   Zap, 
   ShieldCheck, 
-  Search, 
   Verified, 
-  Medal, 
   ArrowRight,
-  Flame,
-  LayoutDashboard
+  Flame
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
+import { Badge } from '@/components/ui/badge';
 
 export default function Home() {
   const { user } = useUser();
@@ -35,6 +33,7 @@ export default function Home() {
             fill 
             className="object-cover opacity-30 scale-110 animate-pulse-slow"
             priority
+            data-ai-hint="gaming fire"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/80 to-background" />
         </div>
@@ -180,7 +179,9 @@ export default function Home() {
                 <Badge className="mb-3 bg-primary/20 text-primary border-primary/30">{item.th} CATEGORY</Badge>
                 <h3 className="font-headline text-2xl font-bold mb-2">{item.title}</h3>
                 <p className="text-xs text-muted-foreground mb-8">Competitive matches for elite {item.th} players only.</p>
-                <Button variant="secondary" className="w-full font-black rounded-xl uppercase tracking-wider group-hover:bg-primary group-hover:text-white">Join Arena</Button>
+                <Link href="/login" className="w-full">
+                  <Button variant="secondary" className="w-full font-black rounded-xl uppercase tracking-wider group-hover:bg-primary group-hover:text-white">Join Arena</Button>
+                </Link>
               </CardContent>
             </Card>
           ))}
@@ -249,7 +250,7 @@ export default function Home() {
             </div>
 
             <h2 className="relative z-10 font-headline text-5xl md:text-7xl font-black mb-8 uppercase tracking-tighter leading-none">
-              READY TO <span className="text-primary italic italic">DOMINATE?</span>
+              READY TO <span className="text-primary italic">DOMINATE?</span>
             </h2>
             <p className="relative z-10 text-muted-foreground text-lg md:text-xl max-w-xl mb-12">
               The arena is waiting. Your journey to the Hall of Champions starts with a single strike.
@@ -266,5 +267,3 @@ export default function Home() {
     </div>
   );
 }
-
-import { Badge } from '@/components/ui/badge';

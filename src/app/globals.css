@@ -73,7 +73,8 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('https://picsum.photos/seed/legendary-arena/1920/1080');
+  /* Using a legendary arena inspired background */
+  background-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('https://picsum.photos/seed/legendary-arena-clash/1920/1080');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
