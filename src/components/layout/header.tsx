@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -30,12 +29,12 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full border border-white/5">
+          <Link href="/wallet" className="hidden sm:flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full border border-white/5 hover:bg-primary/10 transition-colors group">
             <span className="text-sm font-bold">🪙 {profile?.balance || 0}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-primary/20">
+            <div className="h-6 w-6 rounded-full flex items-center justify-center bg-transparent group-hover:scale-110 transition-transform">
               <Wallet className="h-3 w-3 text-primary" />
-            </Button>
-          </div>
+            </div>
+          </Link>
 
           <Link href="/admin">
             <Button variant="outline" size="sm" className="hidden lg:flex gap-2 border-primary/20 hover:bg-primary/10">

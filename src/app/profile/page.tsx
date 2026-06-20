@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -103,7 +102,6 @@ export default function ProfilePage() {
     try {
       const formDataCld = new FormData();
       formDataCld.append('file', file);
-      // Ensure 'ml_default' or your specific preset is set to 'Unsigned' in Cloudinary Settings
       formDataCld.append('upload_preset', 'ml_default');
 
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -216,9 +214,11 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-3xl font-headline font-black">🪙 {profile?.balance || 0}</span>
                 </div>
-                <Button className="w-full bg-white text-black hover:bg-gray-100 font-black h-10 shadow-lg">
-                  <Wallet className="w-4 h-4 mr-2" /> RECHARGE
-                </Button>
+                <Link href="/wallet" className="w-full">
+                  <Button className="w-full bg-white text-black hover:bg-gray-100 font-black h-10 shadow-lg">
+                    <Wallet className="w-4 h-4 mr-2" /> RECHARGE
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
