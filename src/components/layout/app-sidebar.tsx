@@ -63,7 +63,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
       <SidebarHeader className="h-20 flex flex-col justify-center px-4 border-b border-white/5">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden">
+          <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0">
              <Image 
                 src="/logo.png" 
                 alt="Logo" 
@@ -75,11 +75,11 @@ export function AppSidebar() {
              />
              <span className="relative z-10">C</span>
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-headline font-black text-xl tracking-tight uppercase leading-none">
-              CLASH <span className="text-primary italic">ARENA</span>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
+            <span className="font-headline font-black text-lg tracking-tight uppercase leading-none truncate whitespace-nowrap">
+              CLASH <span className="legendary-text italic">ARENA</span>
             </span>
-            <span className="text-[9px] font-black text-muted-foreground tracking-[0.3em] uppercase opacity-60">Elite Ecosystem</span>
+            <span className="text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase opacity-60 truncate">Elite Ecosystem</span>
           </div>
         </Link>
       </SidebarHeader>
