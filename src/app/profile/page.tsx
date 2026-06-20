@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageWrapper } from '@/components/layout/page-wrapper';
@@ -5,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Wallet, Trophy, Swords, Zap, ExternalLink, Timer, ShieldAlert } from 'lucide-react';
+import { Settings, Wallet, Trophy, Swords, Zap, ExternalLink, Timer, ShieldAlert, QrCode } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -25,23 +26,23 @@ export default function ProfilePage() {
         {/* Profile Banner */}
         <div className="relative rounded-3xl overflow-hidden glass border-white/5 p-6 md:p-10">
           <div className="absolute top-0 right-0 p-4 flex gap-2">
-            <Link href="/setup">
+            <Link href="/dashboard">
               <Button variant="ghost" size="sm" className="rounded-full hover:bg-white/5 gap-2 text-xs">
                 <Settings className="w-4 h-4" /> 
-                {isLocked ? 'VIEW LOCK' : 'EDIT'}
+                EDIT PROFILE
               </Button>
             </Link>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
               <Avatar className="h-32 w-32 border-4 border-primary/20 p-1 bg-background">
-                <AvatarImage src={profile?.avatarUrl || user?.imageUrl || ''} className="rounded-full object-cover" />
+                <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
                 <AvatarFallback className="bg-muted text-2xl font-black">
                   {profile?.username?.substring(0, 2).toUpperCase() || '??'}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute -bottom-2 -right-2 bg-primary px-3 py-1 rounded-full text-[10px] font-black italic shadow-lg">
-                LEVEL {profile?.townHall || '??'}
+                TH {profile?.townHall || '??'}
               </div>
             </div>
             <div className="text-center md:text-left flex-1">
@@ -52,6 +53,11 @@ export default function ProfilePage() {
                 {isLocked && (
                   <Badge variant="outline" className="bg-yellow-500/10 border-yellow-500/20 text-yellow-500 py-1.5 px-4 font-bold flex gap-2">
                     <Timer className="w-3 h-3" /> IDENTITY LOCKED
+                  </Badge>
+                )}
+                {profile?.upiId && (
+                  <Badge variant="outline" className="bg-green-500/10 border-green-500/20 text-green-500 py-1.5 px-4 font-bold flex gap-2">
+                    <QrCode className="w-3 h-3" /> UPI READY
                   </Badge>
                 )}
               </div>
@@ -73,10 +79,10 @@ export default function ProfilePage() {
         {/* Career Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Tournaments', value: '42', icon: <Swords className="text-blue-500 w-4 h-4" /> },
+            { label: 'Tournaments', value: '0', icon: <Swords className="text-blue-500 w-4 h-4" /> },
             { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> },
-            { label: 'Win Rate', value: '42%', icon: <Zap className="text-orange-500 w-4 h-4" /> },
-            { label: 'Rank', value: '#12', icon: <Trophy className="text-primary w-4 h-4" /> },
+            { label: 'Win Rate', value: '0%', icon: <Zap className="text-orange-500 w-4 h-4" /> },
+            { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <Trophy className="text-primary w-4 h-4" /> },
           ].map((stat) => (
             <Card key={stat.label} className="glass border-white/5 text-center p-6 hover:border-primary/20 transition-all">
               <div className="flex justify-center mb-3">
@@ -84,7 +90,7 @@ export default function ProfilePage() {
                   {stat.icon}
                 </div>
               </div>
-              <p className="text-2xl font-headline font-black">{stat.value}</p>
+              <p className="text-2xl font-headline font-black uppercase">{stat.value}</p>
               <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{stat.label}</p>
             </Card>
           ))}

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Tournament": {
@@ -31,6 +32,8 @@
         "wins": { "type": "number" },
         "losses": { "type": "number" },
         "earnings": { "type": "number" },
+        "upiId": { "type": "string" },
+        "upiQrUrl": { "type": "string" },
         "profileLockedUntil": { "type": "string", "format": "date-time" }
       },
       "required": ["username", "tag", "townHall", "balance"]
