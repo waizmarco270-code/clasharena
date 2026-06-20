@@ -17,13 +17,24 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { NeuralBackground } from '@/components/ui/neural-background';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 export default function Home() {
   const { user } = useUser();
+  const auth = useAuth();
   const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
+
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
   
   return (
     <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden">
@@ -56,7 +67,7 @@ export default function Home() {
           
           <h1 className="font-headline text-7xl md:text-[11rem] font-black mb-8 tracking-tighter leading-[0.8] uppercase flex flex-col">
             <span className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">CLASH</span>
-            <span className="text-primary italic animate-pulse-neon glow-text tracking-[-0.05em]">ARENA</span>
+            <span className="legendary-text italic tracking-[-0.05em]">ARENA</span>
           </h1>
           
           <p className="text-xl md:text-2xl font-bold text-white/90 mb-4 tracking-tight">
@@ -69,12 +80,23 @@ export default function Home() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center items-center">
-            <Link href={user ? "/arena" : "/login"} className="w-full">
-              <Button size="lg" className="w-full h-20 text-xl bg-primary hover:bg-primary/90 text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20">
-                {user ? "ENTER THE ARENA" : "JOIN THE CLAN"}
+            {user ? (
+              <Link href="/arena" className="w-full">
+                <Button size="lg" className="w-full h-20 text-xl bg-primary hover:bg-primary/90 text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20">
+                  ENTER THE ARENA
+                  <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                </Button>
+              </Link>
+            ) : (
+              <Button 
+                onClick={handleLogin}
+                size="lg" 
+                className="w-full h-20 text-xl animate-shimmer text-white font-black rounded-2xl glow-primary transition-all hover:scale-105 group border-t border-white/20"
+              >
+                LOGIN TO CLASH ARENA
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
               </Button>
-            </Link>
+            )}
           </div>
         </div>
       </section>
@@ -83,7 +105,7 @@ export default function Home() {
       <section className="py-32 container mx-auto px-4 relative z-10">
         <div className="text-center mb-24 relative">
           <h2 className="font-headline text-4xl md:text-6xl font-black mb-6 uppercase tracking-tighter">
-            BUILT FOR <span className="text-primary italic glow-neon">CHAMPIONS</span>
+            BUILT FOR <span className="legendary-text italic glow-neon">CHAMPIONS</span>
           </h2>
           <div className="h-1.5 w-32 bg-primary mx-auto rounded-full glow-primary" />
         </div>
@@ -128,7 +150,7 @@ export default function Home() {
             <div className="flex-1 space-y-16">
               <div className="space-y-6">
                 <h2 className="font-headline text-5xl font-black uppercase tracking-tighter leading-none">
-                  THE <span className="text-primary italic glow-text">BATTLE</span> PATH
+                  THE <span className="legendary-text italic">BATTLE</span> PATH
                 </h2>
                 <p className="text-muted-foreground text-lg">Your journey to legendary status starts here.</p>
               </div>
@@ -168,7 +190,7 @@ export default function Home() {
       {/* Arenas - Glowing Cards */}
       <section className="py-32 container mx-auto px-4 relative z-10">
         <div className="text-center mb-24">
-          <h2 className="font-headline text-4xl md:text-6xl font-black mb-4 uppercase">THE <span className="text-primary italic glow-text">ARENAS</span></h2>
+          <h2 className="font-headline text-4xl md:text-6xl font-black mb-4 uppercase">THE <span className="legendary-text italic">ARENAS</span></h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {[
@@ -186,9 +208,13 @@ export default function Home() {
                 <Badge className="mb-4 bg-primary/20 text-primary border-primary/30 font-black tracking-widest uppercase text-[10px]">{item.th} CATEGORY</Badge>
                 <h3 className="font-headline text-3xl font-bold mb-3 text-white">{item.title}</h3>
                 <p className="text-xs text-muted-foreground mb-10 font-medium">Competitive matches for elite {item.th} players only.</p>
-                <Link href={user ? "/arena" : "/login"} className="w-full">
-                  <Button variant="secondary" className="w-full font-black rounded-xl uppercase tracking-widest py-6 group-hover:bg-primary group-hover:text-white transition-all">Join Arena</Button>
-                </Link>
+                {user ? (
+                  <Link href="/arena" className="w-full">
+                    <Button variant="secondary" className="w-full font-black rounded-xl uppercase tracking-widest py-6 group-hover:bg-primary group-hover:text-white transition-all">Join Arena</Button>
+                  </Link>
+                ) : (
+                  <Button onClick={handleLogin} variant="secondary" className="w-full font-black rounded-xl uppercase tracking-widest py-6 group-hover:bg-primary group-hover:text-white transition-all">Login & Join</Button>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -203,7 +229,7 @@ export default function Home() {
           </div>
           <div className="max-w-3xl relative z-10">
             <h2 className="font-headline text-5xl md:text-6xl font-black mb-8 uppercase italic leading-[0.9] tracking-tighter">
-              RADICAL <br /><span className="text-primary glow-text">TRANSPARENCY</span>
+              RADICAL <br /><span className="legendary-text">TRANSPARENCY</span>
             </h2>
             <div className="space-y-8">
               <p className="text-muted-foreground text-lg leading-relaxed font-medium">
@@ -236,17 +262,28 @@ export default function Home() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/30 via-transparent to-transparent opacity-50" />
             
             <h2 className="relative z-10 font-headline text-6xl md:text-8xl font-black mb-10 uppercase tracking-tighter leading-none">
-              READY TO <br /><span className="text-primary italic glow-text">DOMINATE?</span>
+              READY TO <br /><span className="legendary-text italic">DOMINATE?</span>
             </h2>
             <p className="relative z-10 text-muted-foreground text-xl max-w-xl mb-16 font-medium">
               The arena is waiting. Your journey to the Hall of Champions starts with a single strike.
             </p>
-            <Link href={user ? "/arena" : "/login"} className="relative z-10 w-full max-w-md">
-              <Button size="lg" className="w-full h-24 text-2xl font-black bg-primary hover:bg-primary transition-all glow-primary rounded-3xl group border-t border-white/30 py-8 shadow-[0_0_60px_rgba(255,69,0,0.5)]">
-                {user ? "ENTER THE ARENA" : "LOGIN & DOMINATE"}
+            {user ? (
+              <Link href="/arena" className="relative z-10 w-full max-w-md">
+                <Button size="lg" className="w-full h-24 text-2xl font-black bg-primary hover:bg-primary transition-all glow-primary rounded-3xl group border-t border-white/30 py-8 shadow-[0_0_60px_rgba(255,69,0,0.5)]">
+                  ENTER THE ARENA
+                  <Flame className="ml-4 w-8 h-8 animate-pulse group-hover:scale-125 transition-transform" />
+                </Button>
+              </Link>
+            ) : (
+              <Button 
+                onClick={handleLogin}
+                size="lg" 
+                className="relative z-10 w-full max-w-md h-24 text-2xl font-black animate-shimmer transition-all glow-primary rounded-3xl group border-t border-white/30 py-8 shadow-[0_0_60px_rgba(255,69,0,0.5)]"
+              >
+                LOGIN & DOMINATE
                 <Flame className="ml-4 w-8 h-8 animate-pulse group-hover:scale-125 transition-transform" />
               </Button>
-            </Link>
+            )}
           </div>
         </div>
       </section>

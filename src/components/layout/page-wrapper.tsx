@@ -20,17 +20,17 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   // Define public routes that don't require authentication
-  const isPublicRoute = pathname === '/' || pathname === '/login' || pathname === '/hall-of-champions';
+  const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // Only redirect to login if it's not a public route and user is not authenticated
+    // Only redirect to home if it's not a public route and user is not authenticated
     if (!authLoading && !user && !isPublicRoute) {
-      router.push('/login');
+      router.push('/');
     }
 
     // Force setup if user is logged in but profile is incomplete
-    // Don't force redirect if they are already on the setup or login page
-    if (!authLoading && user && !profileLoading && pathname !== '/setup' && pathname !== '/login') {
+    // Don't force redirect if they are already on the setup page
+    if (!authLoading && user && !profileLoading && pathname !== '/setup') {
       if (!profile || !profile.username || !profile.tag || !profile.townHall) {
         router.push('/setup');
       }
@@ -48,12 +48,12 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Handle specialized pages (login/setup) separately to avoid sidebar/header wrapping if desired
-  if (pathname === '/login' || pathname === '/setup') {
+  // Handle setup page separately
+  if (pathname === '/setup') {
     return <>{children}</>;
   }
 
-  // If unauthenticated on a public route, show children with a guest-friendly header but no sidebar
+  // If unauthenticated on a public route, show children with guest-friendly layout
   if (!user && isPublicRoute) {
     return (
       <div className="flex min-h-screen w-full bg-background/95 flex-col">
@@ -63,19 +63,11 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3">C</div>
               <span className="font-headline font-bold text-xl tracking-tight">CLASH <span className="text-primary italic">ARENA</span></span>
             </Link>
-            <Link href="/login">
-              <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-bold text-sm transition-all glow-primary hover:scale-105">
-                ENTER ARENA
-              </button>
-            </Link>
           </div>
         </header>
-        <main className="flex-1 pt-16">
+        <main className="flex-1">
           {children}
         </main>
-        <footer className="py-12 border-t border-white/5 bg-black/40 text-center">
-          <p className="text-muted-foreground text-xs uppercase tracking-[0.2em] font-bold">© 2024 CLASH ARENA • COMPETITIVE ECOSYSTEM</p>
-        </footer>
       </div>
     );
   }
