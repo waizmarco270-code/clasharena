@@ -106,6 +106,8 @@ export default function ProfilePage() {
       formDataCld.append('upload_preset', 'ml_default');
 
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) throw new Error("Cloudinary not configured.");
+
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
         { method: 'POST', body: formDataCld }
@@ -115,9 +117,11 @@ export default function ProfilePage() {
       if (data.secure_url) {
         setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url }));
         toast({ title: "QR Updated!" });
+      } else {
+        throw new Error(data.error?.message || "Upload failed");
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally {
       setUploading(false);
     }
@@ -129,7 +133,6 @@ export default function ProfilePage() {
 
     setIsSubmitting(true);
     
-    // Only set new lock if fields were actually changeable and changed
     const baseProfile = {
       upiId: formData.upiId,
       upiQrUrl: formData.upiQrUrl,
@@ -167,16 +170,6 @@ export default function ProfilePage() {
       <div className="max-w-6xl mx-auto space-y-8 pb-20">
         {/* Profile Banner */}
         <div className="relative rounded-3xl overflow-hidden glass border-white/5 p-6 md:p-10 bg-gradient-to-br from-primary/5 to-transparent">
-          <div className="absolute top-6 right-6 z-10">
-            <Button 
-              onClick={() => setEditOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-white font-black px-6 h-11 rounded-xl shadow-lg glow-primary border-t border-white/20 gap-2"
-            >
-              <Edit3 className="w-4 h-4" /> 
-              EDIT PROFILE
-            </Button>
-          </div>
-
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
               <Avatar className="h-32 w-32 border-4 border-primary/20 p-1 bg-background glow-primary">
@@ -190,11 +183,13 @@ export default function ProfilePage() {
               </div>
             </div>
             
-            <div className="text-center md:text-left flex-1">
-              <h1 className="font-headline text-4xl font-black mb-1 uppercase tracking-tight">{profile?.username || 'WARRIOR'}</h1>
-              <p className="text-primary font-bold text-sm mb-4 tracking-widest">{profile?.tag || '#0000000'} • TOWN HALL {profile?.townHall}</p>
+            <div className="text-center md:text-left flex-1 space-y-4">
+              <div>
+                <h1 className="font-headline text-4xl font-black mb-1 uppercase tracking-tight">{profile?.username || 'WARRIOR'}</h1>
+                <p className="text-primary font-bold text-sm tracking-widest">{profile?.tag || '#0000000'} • TOWN HALL {profile?.townHall}</p>
+              </div>
               
-              <div className="flex flex-wrap justify-center md:justify-start gap-2">
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
                 <Badge variant="outline" className="bg-white/5 border-white/10 py-1.5 px-4 font-bold uppercase tracking-widest text-[10px]">
                   {profile?.rank || 'ROOKIE'}
                 </Badge>
@@ -205,6 +200,14 @@ export default function ProfilePage() {
                     <span className="text-[10px] uppercase font-black">LOCKED: {countdown}</span>
                   </Badge>
                 )}
+
+                <Button 
+                  onClick={() => setEditOpen(true)}
+                  className="bg-primary hover:bg-primary/90 text-white font-black h-9 rounded-xl shadow-lg glow-primary border-t border-white/20 gap-2 px-3 md:px-6"
+                >
+                  <Edit3 className="w-4 h-4" /> 
+                  <span className="hidden md:inline">EDIT PROFILE</span>
+                </Button>
               </div>
             </div>
 
@@ -247,7 +250,7 @@ export default function ProfilePage() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="glass border-white/10 max-w-xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
           <DialogHeader className="pt-8 px-8 shrink-0">
-            <DialogTitle className="font-headline text-3xl font-black italic tracking-tighter uppercase text-center">
+            <DialogTitle className="font-headline text-2xl sm:text-3xl font-black italic tracking-tighter uppercase text-center">
               EDIT <span className="text-primary">IDENTITY</span>
             </DialogTitle>
             <DialogDescription className="text-center font-medium text-xs">
@@ -329,7 +332,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5">
+                      <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
                         {uploading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-muted-foreground" />}
                         <p className="text-[10px] font-bold uppercase">Upload New QR</p>
                       </div>
@@ -341,7 +344,7 @@ export default function ProfilePage() {
             </form>
           </ScrollArea>
 
-          <div className="p-8 shrink-0 border-t border-white/5">
+          <div className="p-8 shrink-0 border-t border-white/5 bg-background/50 backdrop-blur-md">
             <Button 
               form="edit-form"
               type="submit" 
