@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -50,13 +51,18 @@ export default function ProfileSetup() {
       } else {
         setIsLocked(false);
       }
+
+      // If profile is already complete and not recently updated, redirect to arena
+      if (profile.username && profile.tag && profile.townHall && !isSubmitting) {
+        // router.push('/arena');
+      }
     } else if (user) {
       setFormData(prev => ({
         ...prev,
         avatarUrl: prev.avatarUrl || user.imageUrl || ''
       }));
     }
-  }, [profile, user]);
+  }, [profile, user, isSubmitting]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -130,8 +136,13 @@ export default function ProfileSetup() {
       formDataCld.append('file', uploadFile);
       formDataCld.append('upload_preset', 'ml_default');
 
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) {
+        throw new Error("Cloudinary Cloud Name is not configured.");
+      }
+
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
         { method: 'POST', body: formDataCld }
       );
 
@@ -178,8 +189,8 @@ export default function ProfileSetup() {
     const docRef = doc(db, 'users', user.id);
     setDoc(docRef, newProfile, { merge: true })
       .then(() => {
-        toast({ title: "Identity Secured!", description: "Redirecting to the Command Center..." });
-        router.push('/arena');
+        toast({ title: "Identity Secured!", description: "Welcome to the Arena." });
+        setTimeout(() => router.push('/arena'), 1000);
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -192,11 +203,11 @@ export default function ProfileSetup() {
       });
   };
 
-  if (!userLoaded || profileLoading) return null;
+  if (!userLoaded) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background/50 selection:bg-primary selection:text-white">
-      <Card className="glass w-full max-w-xl border-white/5 overflow-hidden">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-background selection:bg-primary selection:text-white">
+      <Card className="glass w-full max-w-xl border-white/5 overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
         <CardHeader className="space-y-1 text-center pt-8">
           <CardTitle className="font-headline text-4xl font-black italic tracking-tighter uppercase">
@@ -257,7 +268,7 @@ export default function ProfileSetup() {
                     <p className="text-[10px] text-muted-foreground font-bold">SECURED AGAINST CHANGES</p>
                   </div>
                 </div>
-                <p className="font-headline text-xl font-black text-yellow-500 glow-text">{timeLeft}</p>
+                <p className="font-headline text-xl font-black text-yellow-500 glow-text">{timeLeft || 'SECURED'}</p>
               </div>
             )}
 

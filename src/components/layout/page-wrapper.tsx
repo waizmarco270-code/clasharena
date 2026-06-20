@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -10,42 +11,47 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 import { useAuth } from "@clerk/nextjs";
 
+/**
+ * PageWrapper handles the global authentication and profile state.
+ * It ensures that users are redirected to the correct location based on their auth status.
+ */
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
 
+  // We fetch the profile here, but we don't let it block the initial navigation logic
   const userRef = userId ? doc(db, 'users', userId) : null;
-  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
     if (!authLoaded) return;
 
-    // IF LOGGED IN
-    if (userId) {
-      // Check if profile is missing critical data
-      // If there's an error fetching (like network error), we don't treat it as incomplete yet to avoid loops
-      const isProfileIncomplete = !profileError && (!profile || !profile.username || !profile.tag || !profile.townHall);
-
-      // Force to setup if profile is incomplete
-      if (!profileLoading && !profileError && isProfileIncomplete && pathname !== '/setup') {
-        router.push('/setup');
-      } 
-      // If they have a profile but are stuck on landing or setup, send to arena
-      else if (!profileLoading && !isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
-        router.push('/arena');
+    // IF NOT LOGGED IN
+    if (!userId) {
+      if (!isPublicRoute) {
+        router.push('/');
       }
     } 
-    // IF NOT LOGGED IN and trying to access restricted page
-    else if (!isPublicRoute && authLoaded) {
-      router.push('/');
+    // IF LOGGED IN
+    else {
+      // If the user is on the landing page, push them into the app (Setup first)
+      if (pathname === '/') {
+        router.push('/setup');
+      }
+      
+      // If we are in the app (not setup/landing) and we finally know the profile is missing
+      const isProfileIncomplete = !profileLoading && (!profile || !profile.username || !profile.tag);
+      if (isProfileIncomplete && pathname !== '/setup' && !isPublicRoute) {
+        router.push('/setup');
+      }
     }
-  }, [userId, authLoaded, profile, profileLoading, profileError, pathname, router, isPublicRoute]);
+  }, [userId, authLoaded, profile, profileLoading, pathname, router, isPublicRoute]);
 
-  // Global Loading State (Initial Auth)
+  // Global Loading State (Initial Auth Check)
   if (!authLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -60,25 +66,23 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Setup page is full screen
+  // Setup page is full screen and handled independently
   if (pathname === '/setup') {
     return <div className="bg-background min-h-screen flex items-center justify-center w-full overflow-hidden">{children}</div>;
   }
 
-  // Guests on Landing Page
+  // Guests on Landing Page / Public Pages
   if (!userId && isPublicRoute) {
     return <div className="min-w-0 w-full bg-background">{children}</div>;
   }
 
-  // Auth'd User with incomplete profile (prevent flicker while redirecting)
-  // If there's a profile error, we show the children anyway so the user can see what's happening or try again
-  if (userId && pathname !== '/setup' && (!profile || !profile.username) && !profileError) {
+  // Prevent flicker for logged in users on landing page while redirecting
+  if (userId && pathname === '/') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs">Synchronizing Identity...</p>
-          {profileLoading && <p className="text-[10px] text-muted-foreground animate-pulse">Connecting to Arena Data...</p>}
+          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs">Entering the Arena...</p>
         </div>
       </div>
     );
