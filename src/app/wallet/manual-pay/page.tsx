@@ -16,9 +16,11 @@ import {
   ShieldAlert, 
   Loader2,
   Copy,
-  ChevronLeft
+  ChevronLeft,
+  AlertTriangle,
+  ShieldAlert as ShieldIcon
 } from 'lucide-react';
-import { useUser, useFirestore, useDoc } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -26,7 +28,7 @@ import Link from 'next/link';
 
 function ManualPayContent() {
   const searchParams = useSearchParams();
-  const { user } = useUser();
+  const { user, loading: authLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
@@ -61,40 +63,54 @@ function ManualPayContent() {
       formData.append('file', file);
       formData.append('upload_preset', 'ml_default');
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) throw new Error("Cloudinary configuration missing");
+      
       const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
       const data = await response.json();
-      if (data.secure_url) setScreenshotUrl(data.secure_url);
+      if (data.secure_url) {
+        setScreenshotUrl(data.secure_url);
+        toast({ title: "SCREENSHOT VERIFIED", description: "Proof uploaded successfully." });
+      }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload proof to cloud." });
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!screenshotUrl || !user || submitting) return;
+    
     setSubmitting(true);
     const requestRef = doc(db, 'recharge-requests', txId);
     const requestData = {
-      userId: user.id,
-      username: user.displayName || 'Warrior',
+      userId: user.uid,
+      username: user.displayName || user.email?.split('@')[0] || 'Warrior',
       amount: amount,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
       status: 'pending',
       createdAt: new Date().toISOString()
     };
-    try {
-      await setDoc(requestRef, requestData);
-      setShowSuccess(true);
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Request Failed" });
-    } finally {
-      setSubmitting(false);
-    }
+
+    setDoc(requestRef, requestData)
+      .then(() => {
+        setShowSuccess(true);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: requestRef.path,
+          operation: 'create',
+          requestResourceData: requestData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
   };
 
-  if (settingsLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
+  if (settingsLoading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
 
   if (showSuccess) {
     return (
@@ -127,6 +143,7 @@ function ManualPayContent() {
           <h1 className="font-headline text-3xl font-black italic uppercase">MANUAL <span className="text-primary">GATEWAY</span></h1>
           <p className="text-muted-foreground text-sm font-medium">Follow the protocols below to secure your coins.</p>
         </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <Card className="glass border-white/5 p-6 bg-gradient-to-br from-primary/5 to-transparent">
@@ -145,13 +162,22 @@ function ManualPayContent() {
                 </div>
               </div>
             </Card>
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 flex gap-3">
-              <ShieldAlert className="w-6 h-6 text-yellow-500 shrink-0" />
+
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex gap-3">
+              <ShieldIcon className="w-6 h-6 text-primary shrink-0 animate-pulse" />
               <div className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
                 <span className="text-white">PROTOCOL:</span> PAYMENT SS ZARUR UPLOAD KAREIN VERIFICATION KE LIYE.
               </div>
             </div>
+
+            <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex gap-3">
+              <AlertTriangle className="w-6 h-6 text-destructive shrink-0" />
+              <div className="text-[10px] font-black text-destructive uppercase leading-relaxed tracking-wider">
+                <span className="underline">SECURITY WARNING:</span> FAKE SCREENSHOT UPLOAD KARNE PAR ACCOUNT 3-7 WORKING DAYS KE LIYE BANNED HO SAKTA HAI. FAIR PLAY ENSURE KAREIN.
+              </div>
+            </div>
           </div>
+
           <div className="space-y-6">
             <Card className="glass border-white/5 p-4 flex flex-col items-center">
               <div className="relative p-2 bg-white rounded-2xl mb-4 group h-40 w-40">
@@ -160,11 +186,17 @@ function ManualPayContent() {
               <p className="text-[10px] font-black uppercase tracking-widest text-center text-primary">Dynamic Amount QR</p>
               <p className="text-[8px] text-muted-foreground uppercase text-center mt-1">Scan with GPay, PhonePe or Paytm</p>
             </Card>
+
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Upload SS Proof</Label>
               <div className="relative cursor-pointer group" onClick={() => document.getElementById('ss-upload')?.click()}>
                 {screenshotUrl ? (
-                  <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-2 border-primary/40"><Image src={screenshotUrl} alt="Proof" fill className="object-cover opacity-60" /></div>
+                  <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-2 border-primary/40">
+                    <Image src={screenshotUrl} alt="Proof" fill className="object-cover opacity-60" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                       <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                    </div>
+                  </div>
                 ) : (
                   <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
                     {uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground" />}
@@ -176,9 +208,14 @@ function ManualPayContent() {
             </div>
           </div>
         </div>
-        <Button onClick={handleSubmit} disabled={!screenshotUrl || uploading || submitting} className="w-full h-16 bg-primary hover:bg-primary/90 font-black text-xl rounded-2xl glow-primary shadow-2xl">
+
+        <Button 
+          onClick={handleSubmit} 
+          disabled={!screenshotUrl || uploading || submitting} 
+          className="w-full h-16 bg-primary hover:bg-primary/90 font-black text-xl rounded-2xl glow-primary shadow-2xl transition-all active:scale-95"
+        >
           {submitting ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <CheckCircle2 className="w-6 h-6 mr-2" />}
-          CONFIRM RECHARGE REQUEST
+          {submitting ? 'RESERVING COINS...' : 'CONFIRM RECHARGE REQUEST'}
         </Button>
       </div>
     </PageWrapper>

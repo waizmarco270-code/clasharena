@@ -11,7 +11,7 @@ import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, XCircle, Sear
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCollection, useFirestore, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -47,39 +47,62 @@ export default function AdminPanel() {
     }
   }, [paymentSettings]);
 
-  const handleApproveRecharge = async (request: any) => {
+  const handleApproveRecharge = (request: any) => {
     if (processingId) return;
     setProcessingId(request.id);
 
-    try {
-      const userRef = doc(db, 'users', request.userId);
-      const requestRef = doc(db, 'recharge-requests', request.id);
+    const userRef = doc(db, 'users', request.userId);
+    const requestRef = doc(db, 'recharge-requests', request.id);
 
-      await updateDoc(userRef, { balance: increment(request.amount) });
-      await updateDoc(requestRef, { status: 'approved' });
+    // Update user balance and request status
+    updateDoc(userRef, { balance: increment(request.amount) })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'update',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
 
-      toast({ title: "RECHARGE APPROVED", description: `🪙 ${request.amount} credited to ${request.username}.` });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: err.message });
-    } finally {
-      setProcessingId(null);
-    }
+    updateDoc(requestRef, { status: 'approved' })
+      .then(() => {
+        toast({ title: "RECHARGE APPROVED", description: `🪙 ${request.amount} credited to ${request.username}.` });
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: requestRef.path,
+          operation: 'update',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setProcessingId(null);
+      });
   };
 
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = () => {
     setSavingSettings(true);
-    try {
-      await setDoc(settingsRef, {
-        adminUpiId: upiId,
-        adminQrUrl: qrUrl,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      toast({ title: "GATEWAY SECURED", description: "Payment settings updated globally." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Save Failed", description: err.message });
-    } finally {
-      setSavingSettings(false);
-    }
+    const data = {
+      adminUpiId: upiId,
+      adminQrUrl: qrUrl,
+      updatedAt: new Date().toISOString()
+    };
+
+    setDoc(settingsRef, data, { merge: true })
+      .then(() => {
+        toast({ title: "GATEWAY SECURED", description: "Payment settings updated globally." });
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: settingsRef.path,
+          operation: 'write',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setSavingSettings(false);
+      });
   };
 
   const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
