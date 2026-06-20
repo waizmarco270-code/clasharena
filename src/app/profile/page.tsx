@@ -23,7 +23,9 @@ import {
   Clock, 
   ShieldCheck,
   Loader2,
-  ImagePlus
+  ImagePlus,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -225,30 +227,101 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Career Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Tournaments', value: '0', icon: <Swords className="text-blue-500 w-4 h-4" /> },
-            { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> },
-            { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> },
-            { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <ShieldCheck className="text-primary w-4 h-4" /> },
-          ].map((stat) => (
-            <Card key={stat.label} className="glass border-white/5 text-center p-6 hover:border-primary/20 transition-all group">
-              <div className="flex justify-center mb-3">
-                <div className="p-2 bg-white/5 rounded-xl border border-white/5 group-hover:scale-110 transition-transform">
-                  {stat.icon}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Career Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Tournaments', value: '0', icon: <Swords className="text-blue-500 w-4 h-4" /> },
+                { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> },
+                { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> },
+                { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <ShieldCheck className="text-primary w-4 h-4" /> },
+              ].map((stat) => (
+                <Card key={stat.label} className="glass border-white/5 text-center p-6 hover:border-primary/20 transition-all group">
+                  <div className="flex justify-center mb-3">
+                    <div className="p-2 bg-white/5 rounded-xl border border-white/5 group-hover:scale-110 transition-transform">
+                      {stat.icon}
+                    </div>
+                  </div>
+                  <p className="text-2xl font-headline font-black uppercase tracking-tight">{stat.value}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">{stat.label}</p>
+                </Card>
+              ))}
+            </div>
+
+            {/* Payout Protocol Section */}
+            <Card className="glass border-white/5 overflow-hidden">
+              <CardHeader className="border-b border-white/5 bg-white/5">
+                <CardTitle className="font-headline text-lg font-bold flex items-center gap-2 uppercase tracking-tighter">
+                  <CreditCard className="w-5 h-5 text-primary" /> Payout Protocol
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                  <div className="space-y-6">
+                    <div>
+                      <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-2 block">Active UPI ID</Label>
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex items-center justify-between">
+                        <span className="font-mono font-bold text-primary">{profile?.upiId || 'Not Configured'}</span>
+                        <QrCode className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 flex gap-3">
+                      <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0" />
+                      <p className="text-[10px] leading-relaxed text-muted-foreground uppercase font-bold">
+                        Payouts are processed to this ID within 24h of tournament completion. Ensure it is linked to your bank.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-2 block">Verification QR</Label>
+                    {profile?.upiQrUrl ? (
+                      <div className="relative aspect-square w-full max-w-[200px] mx-auto rounded-2xl overflow-hidden border-2 border-white/10 glow-primary/20">
+                        <Image src={profile.upiQrUrl} alt="UPI QR" fill className="object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-2 left-0 right-0 text-center">
+                          <p className="text-[8px] font-black text-white uppercase tracking-widest">VALID PAYOUT QR</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="aspect-square w-full max-w-[200px] mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2">
+                        <ImagePlus className="w-8 h-8 text-muted-foreground/30" />
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">No QR Uploaded</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <p className="text-2xl font-headline font-black uppercase tracking-tight">{stat.value}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">{stat.label}</p>
+              </CardContent>
             </Card>
-          ))}
+          </div>
+
+          <div className="space-y-8">
+             <Card className="glass border-white/5">
+                <CardHeader>
+                  <CardTitle className="font-headline text-sm font-bold uppercase tracking-widest">Arena Rules</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    "One account per person",
+                    "Fair play vision scan enabled",
+                    "No modding or third-party tools",
+                    "Payouts require verified UPI"
+                  ].map((rule, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <ShieldAlert className="w-3 h-3 text-primary mt-0.5" />
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase leading-tight">{rule}</span>
+                    </div>
+                  ))}
+                </CardContent>
+             </Card>
+          </div>
         </div>
       </div>
 
       {/* Edit Profile Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="glass border-white/10 max-w-xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
+        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
           <DialogHeader className="pt-8 px-8 shrink-0">
             <DialogTitle className="font-headline text-2xl sm:text-3xl font-black italic tracking-tighter uppercase text-center">
               EDIT <span className="text-primary">IDENTITY</span>
@@ -270,7 +343,7 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label>
                   <Input 
@@ -289,55 +362,56 @@ export default function ProfilePage() {
                     className="bg-white/5 border-white/10 h-12 font-mono uppercase" 
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label>
-                <Select 
-                  disabled={isLocked}
-                  value={formData.townHall} 
-                  onValueChange={(val) => setFormData({...formData, townHall: val})}
-                >
-                  <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold">
-                    <SelectValue placeholder="Select TH Level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
-                      <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label>
+                  <Select 
+                    disabled={isLocked}
+                    value={formData.townHall} 
+                    onValueChange={(val) => setFormData({...formData, townHall: val})}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold">
+                      <SelectValue placeholder="Select TH Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
+                        <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-white/5 space-y-6">
-                <p className="text-[10px] uppercase font-black tracking-widest text-primary">Payout Information</p>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID</Label>
-                  <Input 
-                    value={formData.upiId} 
-                    onChange={(e) => setFormData({...formData, upiId: e.target.value})} 
-                    className="bg-white/5 border-white/10 h-12" 
-                    placeholder="user@upi" 
-                  />
-                </div>
+                <p className="text-[10px] uppercase font-black tracking-widest text-primary">Payout Information (Editable Anytime)</p>
+                <div className="grid gap-6 md:grid-cols-2">
+                   <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID</Label>
+                    <Input 
+                      value={formData.upiId} 
+                      onChange={(e) => setFormData({...formData, upiId: e.target.value})} 
+                      className="bg-white/5 border-white/10 h-12" 
+                      placeholder="user@upi" 
+                    />
+                  </div>
 
-                <div className="space-y-4">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Update QR Screenshot</Label>
-                  <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
-                    {formData.upiQrUrl ? (
-                      <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
-                        <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                  <div className="space-y-4">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Update QR Screenshot</Label>
+                    <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
+                      {formData.upiQrUrl ? (
+                        <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
+                          <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
-                        {uploading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-muted-foreground" />}
-                        <p className="text-[10px] font-bold uppercase">Upload New QR</p>
-                      </div>
-                    )}
-                    <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
+                      ) : (
+                        <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
+                          {uploading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-muted-foreground" />}
+                          <p className="text-[10px] font-bold uppercase">Upload New QR</p>
+                        </div>
+                      )}
+                      <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
+                    </div>
                   </div>
                 </div>
               </div>

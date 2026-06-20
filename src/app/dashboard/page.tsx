@@ -134,7 +134,7 @@ export default function Dashboard() {
       wins: profile?.wins ?? 0,
       losses: profile?.losses ?? 0,
       earnings: profile?.earnings ?? 0,
-      rank: profile?.rank ?? 'ROOKIE'
+      rank: profile?.rank || 'ROOKIE'
     };
 
     if (userRef) {
@@ -279,7 +279,7 @@ export default function Dashboard() {
 
       {/* Identity Setup Modal */}
       <Dialog open={setupOpen} onOpenChange={() => {}}>
-        <DialogContent className="glass border-white/10 max-w-xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
+        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden sm:rounded-3xl h-[90vh] sm:h-auto flex flex-col">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-shimmer" />
           
           <DialogHeader className="pt-8 px-8 shrink-0">
@@ -315,8 +315,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Identity Fields */}
-              <div className="grid gap-6 sm:grid-cols-2">
+              {/* Identity Fields - Horizontal on Desktop */}
+              <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label>
                   <Input 
@@ -337,24 +337,23 @@ export default function Dashboard() {
                     placeholder="#ABC123" 
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label>
-                <Select 
-                  disabled={isLocked}
-                  value={formData.townHall} 
-                  onValueChange={(val) => setFormData({...formData, townHall: val})}
-                >
-                  <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold">
-                    <SelectValue placeholder="Select TH Level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
-                      <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label>
+                  <Select 
+                    disabled={isLocked}
+                    value={formData.townHall} 
+                    onValueChange={(val) => setFormData({...formData, townHall: val})}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold">
+                      <SelectValue placeholder="Select TH Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
+                        <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Reward Information */}
@@ -364,33 +363,35 @@ export default function Dashboard() {
                   <p className="text-[10px] uppercase font-black tracking-widest">Reward Information (Optional)</p>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID</Label>
-                  <Input 
-                    value={formData.upiId} 
-                    onChange={(e) => setFormData({...formData, upiId: e.target.value})} 
-                    className="bg-white/5 border-white/10 h-12" 
-                    placeholder="user@upi" 
-                  />
-                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI ID</Label>
+                    <Input 
+                      value={formData.upiId} 
+                      onChange={(e) => setFormData({...formData, upiId: e.target.value})} 
+                      className="bg-white/5 border-white/10 h-12" 
+                      placeholder="user@upi" 
+                    />
+                  </div>
 
-                <div className="space-y-4">
-                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI QR Screenshot</Label>
-                  <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
-                    {formData.upiQrUrl ? (
-                      <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
-                        <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                  <div className="space-y-4">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">UPI QR Screenshot</Label>
+                    <div className="relative group cursor-pointer" onClick={() => qrInputRef.current?.click()}>
+                      {formData.upiQrUrl ? (
+                        <div className="relative h-40 w-full rounded-2xl overflow-hidden border-2 border-dashed border-primary/40">
+                          <Image src={formData.upiQrUrl} alt="UPI QR" fill className="object-cover opacity-60" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <ImagePlus className="w-8 h-8 text-white opacity-80" />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
-                        {uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground" />}
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Upload QR SS</p>
-                      </div>
-                    )}
-                    <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
+                      ) : (
+                        <div className="h-40 w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
+                          {uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground" />}
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase">Upload QR SS</p>
+                        </div>
+                      )}
+                      <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQrUpload} />
+                    </div>
                   </div>
                 </div>
               </div>
