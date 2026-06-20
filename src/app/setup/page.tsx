@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ export default function ProfileSetup() {
     avatarUrl: ''
   });
   const [uploading, setUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,9 +132,11 @@ export default function ProfileSetup() {
       if (data.secure_url) {
         setFormData(prev => ({ ...prev, avatarUrl: data.secure_url }));
         toast({ title: "Photo Updated!", description: "Looking sharp, warrior." });
+      } else {
+        throw new Error(data.error?.message || "Upload failed");
       }
-    } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload photo." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message || "Could not upload photo." });
     } finally {
       setUploading(false);
     }
@@ -141,13 +144,14 @@ export default function ProfileSetup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || isLocked) return;
+    if (!user || isLocked || isSubmitting) return;
 
     if (!formData.username || !formData.tag || !formData.townHall) {
       toast({ variant: "destructive", title: "Missing Intel!", description: "All fields are required to enter the arena." });
       return;
     }
 
+    setIsSubmitting(true);
     const lockDate = new Date();
     lockDate.setDate(lockDate.getDate() + 3);
 
@@ -164,13 +168,21 @@ export default function ProfileSetup() {
       rank: profile?.rank ?? 'Rookie'
     };
 
-    try {
-      setDoc(doc(db, 'users', user.uid), newProfile);
-      toast({ title: "Identity Secured!", description: "Redirecting to the Command Center..." });
-      router.push('/arena');
-    } catch (err) {
-      console.error(err);
-    }
+    const docRef = doc(db, 'users', user.uid);
+    setDoc(docRef, newProfile, { merge: true })
+      .then(() => {
+        toast({ title: "Identity Secured!", description: "Redirecting to the Command Center..." });
+        router.push('/arena');
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: newProfile,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
+      });
   };
 
   if (authLoading || profileLoading) return null;
@@ -289,11 +301,11 @@ export default function ProfileSetup() {
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary/90 font-black h-16 rounded-2xl glow-primary text-xl tracking-tighter transition-transform active:scale-95"
-              disabled={isLocked || uploading}
+              disabled={isLocked || uploading || isSubmitting}
             >
               {isLocked ? (
                 <span className="flex items-center gap-3">IDENTITY SECURED <CheckCircle2 className="w-6 h-6" /></span>
-              ) : uploading ? (
+              ) : uploading || isSubmitting ? (
                 <span className="flex items-center gap-3 italic">SYNCHRONIZING... <Loader2 className="w-6 h-6 animate-spin" /></span>
               ) : (
                 'SECURE ARENA IDENTITY'

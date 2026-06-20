@@ -48,7 +48,6 @@ export default function Home() {
     try {
       // In Cloud Workstations, signInWithPopup often returns 'auth/popup-closed-by-user' 
       // even if the user successfully selected an account. 
-      // We wait briefly to see if the Firebase Auth state updates in the background.
       await signInWithPopup(auth, provider);
       
       toast({
