@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -21,59 +21,70 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
   useEffect(() => {
-    // 1. If we are waiting for Firebase to tell us IF someone is logged in, do nothing.
+    // If auth is still loading, wait.
     if (authLoading) return;
 
-    // 2. If we ARE logged in
+    // IF LOGGED IN
     if (user) {
-      // If we are on the Landing Page or the Setup page itself, we need to check if profile is done.
-      // But we don't want to get STUCK if profileLoading is true due to slow Firestore.
-      
+      // Check if profile is missing critical data
       const isProfileIncomplete = !profile || !profile.username || !profile.tag || !profile.townHall;
 
-      // If they are logged in but have no profile, they MUST go to setup.
-      // We don't wait for profileLoading here if we already have a profile result or if we're on setup.
+      // Force to setup if profile is incomplete
       if (!profileLoading && isProfileIncomplete && pathname !== '/setup') {
         router.push('/setup');
       } 
-      // If they HAVE a profile and are hanging around on the landing page or setup, send them to arena.
+      // If they have a profile but are stuck on landing or setup, send to arena
       else if (!profileLoading && !isProfileIncomplete && (pathname === '/setup' || pathname === '/')) {
         router.push('/arena');
       }
     } 
-    // 3. If we are NOT logged in and trying to access a restricted page
-    else if (!isPublicRoute) {
+    // IF NOT LOGGED IN and trying to access restricted page
+    else if (!isPublicRoute && !authLoading) {
       router.push('/');
     }
   }, [user, authLoading, profile, profileLoading, pathname, router, isPublicRoute]);
 
-  // Loading state for the entire app initialization
+  // Global Loading State
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="relative w-20 h-20">
+        <div className="relative w-24 h-24">
           <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_hsla(var(--primary),0.5)]" />
-          <div className="absolute inset-0 flex items-center justify-center font-headline font-black text-primary text-xl">C</div>
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_30px_hsla(var(--primary),0.5)]" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="font-headline font-black text-primary text-2xl animate-pulse">C</span>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Setup page renders as a standalone full-screen experience
+  // Setup page is full screen
   if (pathname === '/setup') {
-    return <div className="bg-background min-h-screen flex items-center justify-center w-full">{children}</div>;
+    return <div className="bg-background min-h-screen flex items-center justify-center w-full overflow-hidden">{children}</div>;
   }
 
-  // Public/Marketing view for guest users
+  // Guests on Landing Page
   if (!user && isPublicRoute) {
-    return <div className="min-w-0 w-full">{children}</div>;
+    return <div className="min-w-0 w-full bg-background">{children}</div>;
   }
 
-  // Standard App Layout for authenticated users
+  // Auth'd User with incomplete profile (prevent flicker while redirecting)
+  if (user && pathname !== '/setup' && (!profile || !profile.username)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-headline font-bold text-primary animate-pulse tracking-widest uppercase text-xs">Synchronizing Identity...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard Protected Layout
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background/95">
+      <div className="flex min-h-screen w-full bg-background overflow-x-hidden">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent">
           <Header />
