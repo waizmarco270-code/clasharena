@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -51,7 +51,6 @@ export default function AdminPanel() {
 
   // States
   const [userSearch, setUserSearch] = useState('');
-  const [searching, setSearching] = useState(false);
   const [displayUsers, setDisplayUsers] = useState<any[]>([]);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -81,7 +80,15 @@ export default function AdminPanel() {
   });
 
   useEffect(() => {
-    if (!userSearch && allUsers) setDisplayUsers(allUsers);
+    if (!userSearch && allUsers) {
+      setDisplayUsers(allUsers);
+    } else if (userSearch && allUsers) {
+      const filtered = allUsers.filter(u => 
+        u.username?.toLowerCase().includes(userSearch.toLowerCase()) || 
+        u.tag?.toLowerCase().includes(userSearch.toLowerCase())
+      );
+      setDisplayUsers(filtered);
+    }
   }, [allUsers, userSearch]);
 
   useEffect(() => {
@@ -96,6 +103,75 @@ export default function AdminPanel() {
     const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
     return allUsers.filter(u => u.lastActive && new Date(u.lastActive).getTime() > fiveMinsAgo).length;
   }, [allUsers]);
+
+  const handleUpdateSettings = async () => {
+    if (!isAdmin || savingSettings) return;
+    setSavingSettings(true);
+    updateDoc(settingsRef, {
+      adminUpiId: upiId,
+      adminQrUrl: qrUrl,
+      updatedAt: new Date().toISOString()
+    }).then(() => {
+      toast({ title: "GATEWAY UPDATED", description: "Payment settings are now live." });
+    }).catch(() => {
+      toast({ variant: "destructive", title: "UPDATE FAILED" });
+    }).finally(() => {
+      setSavingSettings(false);
+    });
+  };
+
+  const handleAdminQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setQrUrl(data.secure_url);
+        toast({ title: "MASTER QR UPLOADED" });
+      }
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const handleApproveRecharge = async (req: any) => {
+    if (processingId) return;
+    setProcessingId(req.id);
+    try {
+      // 1. Update User Balance
+      const targetUserRef = doc(db, 'users', req.userId);
+      await updateDoc(targetUserRef, { balance: increment(req.amount) });
+      
+      // 2. Mark Request as Approved
+      await updateDoc(doc(db, 'recharge-requests', req.id), { status: 'approved' });
+      
+      toast({ title: "FUNDS CREDITED", description: `🪙 ${req.amount} added to ${req.username}'s vault.` });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRejectRecharge = async () => {
+    if (!rejectId || !rejectReason) return;
+    setProcessingId(rejectId);
+    try {
+      await updateDoc(doc(db, 'recharge-requests', rejectId), { 
+        status: 'rejected', 
+        rejectionReason: rejectReason 
+      });
+      toast({ title: "REQUEST REJECTED", description: "User has been notified of the rejection." });
+      setRejectId(null);
+      setRejectReason('');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const handleCreateTournament = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +233,15 @@ export default function AdminPanel() {
   if (profileLoading) return <PageWrapper><div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-primary" /></div></PageWrapper>;
 
   if (!isAdmin) {
-    return <PageWrapper><div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6"><Shield className="w-24 h-24 text-destructive animate-pulse" /><h1 className="font-headline text-4xl font-black text-destructive uppercase italic">UNAUTHORISED ACCESS</h1></div></PageWrapper>;
+    return (
+      <PageWrapper>
+        <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6">
+          <Shield className="w-24 h-24 text-destructive animate-pulse" />
+          <h1 className="font-headline text-4xl font-black text-destructive uppercase italic">UNAUTHORISED ACCESS</h1>
+          <p className="text-muted-foreground max-w-sm">This sector is restricted to authorized Command Center personnel only.</p>
+        </div>
+      </PageWrapper>
+    );
   }
 
   return (
@@ -175,9 +259,27 @@ export default function AdminPanel() {
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="glass border-white/5 bg-primary/5 relative overflow-hidden"><CardContent className="p-6"><p className="text-[10px] font-black text-primary uppercase mb-1">Total Recruits</p><h3 className="text-3xl font-headline font-black">{allUsers?.length || 0}</h3></CardContent></Card>
-          <Card className="glass border-white/5 bg-green-500/5 relative overflow-hidden"><CardContent className="p-6"><p className="text-[10px] font-black text-green-500 uppercase mb-1">Active Warriors</p><h3 className="text-3xl font-headline font-black">{onlineCount}</h3></CardContent></Card>
-          <Card className="glass border-white/5 bg-blue-500/5 relative overflow-hidden"><CardContent className="p-6"><p className="text-[10px] font-black text-blue-500 uppercase mb-1">Total Events</p><h3 className="text-3xl font-headline font-black">{tournaments?.length || 0}</h3></CardContent></Card>
+          <Card className="glass border-white/5 bg-primary/5 relative overflow-hidden">
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-primary uppercase mb-1">Total Recruits</p>
+              <h3 className="text-3xl font-headline font-black">{allUsers?.length || 0}</h3>
+              <Users className="absolute top-4 right-4 w-12 h-12 opacity-5" />
+            </CardContent>
+          </Card>
+          <Card className="glass border-white/5 bg-green-500/5 relative overflow-hidden">
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-green-500 uppercase mb-1">Active Warriors</p>
+              <h3 className="text-3xl font-headline font-black">{onlineCount}</h3>
+              <Activity className="absolute top-4 right-4 w-12 h-12 opacity-5" />
+            </CardContent>
+          </Card>
+          <Card className="glass border-white/5 bg-blue-500/5 relative overflow-hidden">
+            <CardContent className="p-6">
+              <p className="text-[10px] font-black text-blue-500 uppercase mb-1">Total Events</p>
+              <h3 className="text-3xl font-headline font-black">{tournaments?.length || 0}</h3>
+              <Trophy className="absolute top-4 right-4 w-12 h-12 opacity-5" />
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="tournaments" className="w-full">
@@ -219,18 +321,45 @@ export default function AdminPanel() {
             <Card className="glass border-white/5">
               <CardContent className="p-0">
                 <Table>
-                  <TableHeader><TableRow className="border-white/5"><TableHead>User</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow className="border-white/5">
+                      <TableHead>User</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {rechargeRequests?.map((req: any) => (
                       <TableRow key={req.id} className="border-white/5">
-                        <TableCell><p className="font-bold text-sm uppercase">{req.username}</p></TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-bold text-sm uppercase">{req.username}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{req.transactionId}</p>
+                          </div>
+                        </TableCell>
                         <TableCell className="font-black text-primary">🪙 {req.amount}</TableCell>
                         <TableCell><Badge variant={req.status === 'pending' ? 'outline' : 'default'}>{req.status.toUpperCase()}</Badge></TableCell>
-                        <TableCell className="text-right flex justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}><Eye className="w-3 h-3 mr-1" /> PROOF</Button>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(req.createdAt).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}><Eye className="w-3 h-3 mr-1" /> PROOF</Button>
+                            {req.status === 'pending' && (
+                              <>
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>
+                                  {processingId === req.id ? <Loader2 className="animate-spin w-3 h-3" /> : 'APPROVE'}
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => setRejectId(req.id)}>REJECT</Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
+                    {rechargeRequests?.length === 0 && (
+                      <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No recharge requests found.</TableCell></TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -239,42 +368,119 @@ export default function AdminPanel() {
 
           {isSuperAdmin && (
             <TabsContent value="users" className="mt-6">
-              <Card className="glass border-white/5"><CardContent className="p-6">
-                <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search by username..." className="mb-6 h-12 bg-white/5" />
-                <div className="space-y-4">
-                  {displayUsers.map(u => (
-                    <div key={u.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-muted overflow-hidden relative">
-                          {u.avatarUrl && <Image src={u.avatarUrl} alt="avatar" fill />}
+              <Card className="glass border-white/5">
+                <CardContent className="p-6">
+                  <div className="relative mb-6">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search by username or clash tag..." className="pl-10 h-12 bg-white/5" />
+                  </div>
+                  <div className="space-y-4">
+                    {displayUsers.map(u => (
+                      <div key={u.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-muted overflow-hidden relative border border-white/10">
+                            {u.avatarUrl && <Image src={u.avatarUrl} alt="avatar" fill className="object-cover" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-black uppercase text-sm">{u.username}</p>
+                              {u.isSuperAdmin ? <CheckCircle2 className="w-3 h-3 text-yellow-500" /> : u.isAdmin && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-black">{u.tag} • 🪙 {u.balance} • TH{u.townHall}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-black uppercase text-sm">{u.username}</p>
-                          <p className="text-[10px] text-muted-foreground">{u.tag} • 🪙{u.balance}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1 border-r border-white/10 pr-2 mr-2">
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-green-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(50) })} tooltip="Add 50 Coins"><Plus className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-red-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(-50) })} tooltip="Remove 50 Coins"><UserMinus className="w-4 h-4" /></Button>
+                          </div>
+                          {u.id !== MASTER_SUPER_ADMIN_ID && (
+                            u.isAdmin ? (
+                              <Button size="sm" variant="destructive" className="h-8 text-[10px] font-black" onClick={() => updateDoc(doc(db, 'users', u.id), { isAdmin: false })}>DISMISS ADMIN</Button>
+                            ) : (
+                              <Button size="sm" variant="outline" className="h-8 text-[10px] font-black text-green-500 border-green-500/20" onClick={() => updateDoc(doc(db, 'users', u.id), { isAdmin: true })}>PROMOTE ADMIN</Button>
+                            )
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="h-8 text-green-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(50) })}>+50</Button>
-                        <Button size="sm" variant="outline" className="h-8 text-red-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(-50) })}>-50</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent></Card>
+                    ))}
+                    {displayUsers.length === 0 && <p className="text-center py-10 text-muted-foreground">No warriors found.</p>}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
 
           <TabsContent value="settings" className="mt-6">
-            {/* Payment settings logic here (truncated for brevity) */}
-            <p className="text-muted-foreground text-center py-10">Payment gateway configuration active.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="glass border-white/5">
+                <CardHeader>
+                  <CardTitle className="font-headline text-xl font-bold uppercase">PAYMENT GATEWAY</CardTitle>
+                  <CardDescription>Configure your official UPI and QR details for manual recharges.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Official UPI ID</Label>
+                    <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="e.g. boss@okaxis" className="h-12 bg-white/5" />
+                  </div>
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase">Master QR Code</Label>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative h-48 w-48 rounded-2xl overflow-hidden border-2 border-dashed border-white/10 bg-black/20 flex items-center justify-center">
+                        {qrUrl ? <Image src={qrUrl} alt="QR" fill className="object-contain" /> : <QrCode className="w-12 h-12 text-muted-foreground opacity-20" />}
+                        {uploadingQr && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
+                      </div>
+                      <Button variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => qrInputRef.current?.click()}>
+                        {qrUrl ? 'CHANGE QR CODE' : 'UPLOAD QR CODE'}
+                      </Button>
+                      <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleAdminQrUpload} />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t border-white/5 pt-6">
+                  <Button className="w-full h-12 bg-primary font-black uppercase shadow-lg glow-primary" onClick={handleUpdateSettings} disabled={savingSettings}>
+                    {savingSettings ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE CONFIGURATION
+                  </Button>
+                </CardFooter>
+              </Card>
+              <div className="bg-primary/5 border border-primary/20 rounded-3xl p-8 flex flex-col justify-center gap-4">
+                <Shield className="w-12 h-12 text-primary animate-pulse" />
+                <h3 className="font-headline text-2xl font-black uppercase italic">GATEWAY PROTOCOL</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  The UPI ID and QR code you set here will be visible to all users in the **Coin Vault**. Ensure these details are correct to avoid payment discrepancies. 
+                  <br /><br />
+                  For every manual recharge, our system generates a dynamic link using these credentials.
+                </p>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
 
+      {/* Proof Viewer */}
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="glass border-white/10 max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="p-6 border-b border-white/5"><DialogTitle className="uppercase font-black italic">PAYMENT PROOF</DialogTitle></DialogHeader>
+          <div className="relative aspect-auto min-h-[400px] w-full bg-black/40">
+            {selectedProof && <Image src={selectedProof} alt="Proof" fill className="object-contain" />}
+          </div>
+          <DialogFooter className="p-4 bg-black/20"><Button onClick={() => setSelectedProof(null)} className="w-full font-black">CLOSE VIEWER</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
+        <DialogContent className="glass border-white/10">
+          <DialogHeader><DialogTitle className="uppercase font-black">REJECT REQUEST</DialogTitle><DialogDescription>Explain to the warrior why their request was denied.</DialogDescription></DialogHeader>
+          <div className="py-4"><Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="e.g. Fake screenshot, Amount mismatch..." className="h-32 bg-white/5" /></div>
+          <DialogFooter><Button variant="ghost" onClick={() => setRejectId(null)}>CANCEL</Button><Button variant="destructive" onClick={handleRejectRecharge}>CONFIRM REJECTION</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create Tournament Dialog */}
       <Dialog open={tOpen} onOpenChange={setTOpen}>
         <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-headline text-2xl font-black italic uppercase italic">DEPLOY NEW <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-headline text-2xl font-black italic uppercase">DEPLOY NEW <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
           <form onSubmit={handleCreateTournament} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Arena Name</Label><Input value={tForm.name} onChange={e => setTForm({...tForm, name: e.target.value})} placeholder="e.g. Titan Clash" required /></div>
