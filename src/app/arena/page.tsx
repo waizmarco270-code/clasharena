@@ -62,8 +62,9 @@ function TournamentCard({ t }: { t: any }) {
     <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative">
       <div className="relative h-48">
         <Image src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} alt={t.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-60" />
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4 flex gap-2">
           <Badge className="bg-primary/80 backdrop-blur-md uppercase font-black text-[10px] tracking-widest">{t.subCategory.replace('_', ' ')}</Badge>
+          {t.townHall > 0 && <Badge variant="secondary" className="backdrop-blur-md font-black text-[10px]">TH {t.townHall}</Badge>}
         </div>
         <div className="absolute top-4 right-4">
           <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
@@ -88,8 +89,8 @@ function TournamentCard({ t }: { t: any }) {
             <p className="text-sm font-black text-primary">🪙 {t.entryFee}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Registration</p>
-            <p className="text-[10px] font-bold text-white">{format(new Date(t.registrationStartTime), 'MMM dd, HH:mm')}</p>
+            <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Requirement</p>
+            <p className="text-[10px] font-bold text-white">{t.townHall > 0 ? `TH ${t.townHall} ONLY` : 'ALL TH LEVELS'}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">War Start</p>
@@ -175,11 +176,6 @@ export default function ArenaPage() {
             <div className="space-y-2">
               <h2 className="font-headline text-4xl font-black uppercase italic legendary-text">Legendary World Championship</h2>
               <p className="text-muted-foreground font-bold tracking-[0.3em] text-xs uppercase animate-pulse">Coming Soon - Prepare for Ultimate Glory</p>
-            </div>
-            <div className="max-w-md bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
-              <p className="text-[10px] text-muted-foreground leading-relaxed uppercase font-black">
-                The championship arena is currently being forged. Only the top ranked warriors will receive an invitation to the grandest clash in history.
-              </p>
             </div>
           </div>
         )}

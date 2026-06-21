@@ -74,6 +74,7 @@ export default function AdminPanel() {
     prizePool: '',
     rules: '',
     imageUrl: '',
+    townHall: 0,
     registrationStartTime: '',
     registrationEndTime: '',
     startTime: ''
@@ -144,13 +145,9 @@ export default function AdminPanel() {
     if (processingId) return;
     setProcessingId(req.id);
     try {
-      // 1. Update User Balance
       const targetUserRef = doc(db, 'users', req.userId);
       await updateDoc(targetUserRef, { balance: increment(req.amount) });
-      
-      // 2. Mark Request as Approved
       await updateDoc(doc(db, 'recharge-requests', req.id), { status: 'approved' });
-      
       toast({ title: "FUNDS CREDITED", description: `🪙 ${req.amount} added to ${req.username}'s vault.` });
     } finally {
       setProcessingId(null);
@@ -196,7 +193,7 @@ export default function AdminPanel() {
         setTOpen(false);
         setTForm({
           name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
-          entryFee: 0, prizePool: '', rules: '', imageUrl: '',
+          entryFee: 0, prizePool: '', rules: '', imageUrl: '', townHall: 0,
           registrationStartTime: '', registrationEndTime: '', startTime: ''
         });
       })
@@ -308,7 +305,7 @@ export default function AdminPanel() {
                     <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
                     <div className="grid grid-cols-2 text-[10px] gap-2 text-muted-foreground uppercase font-black">
                       <div className="flex items-center gap-1"><Users className="w-3 h-3" /> {t.currentPlayers}/{t.maxPlayers}</div>
-                      <div className="flex items-center gap-1"><Trophy className="w-3 h-3" /> {t.prizePool}</div>
+                      <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /> TH {t.townHall || 'ANY'}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -357,9 +354,6 @@ export default function AdminPanel() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {rechargeRequests?.length === 0 && (
-                      <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No recharge requests found.</TableCell></TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -391,8 +385,8 @@ export default function AdminPanel() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex gap-1 border-r border-white/10 pr-2 mr-2">
-                            <Button size="icon" variant="outline" className="h-8 w-8 text-green-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(50) })} tooltip="Add 50 Coins"><Plus className="w-4 h-4" /></Button>
-                            <Button size="icon" variant="outline" className="h-8 w-8 text-red-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(-50) })} tooltip="Remove 50 Coins"><UserMinus className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-green-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(50) })}><Plus className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-red-500" onClick={() => updateDoc(doc(db, 'users', u.id), { balance: increment(-50) })}><UserMinus className="w-4 h-4" /></Button>
                           </div>
                           {u.id !== MASTER_SUPER_ADMIN_ID && (
                             u.isAdmin ? (
@@ -404,7 +398,6 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     ))}
-                    {displayUsers.length === 0 && <p className="text-center py-10 text-muted-foreground">No warriors found.</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -414,15 +407,9 @@ export default function AdminPanel() {
           <TabsContent value="settings" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card className="glass border-white/5">
-                <CardHeader>
-                  <CardTitle className="font-headline text-xl font-bold uppercase">PAYMENT GATEWAY</CardTitle>
-                  <CardDescription>Configure your official UPI and QR details for manual recharges.</CardDescription>
-                </CardHeader>
+                <CardHeader><CardTitle className="font-headline text-xl font-bold uppercase">PAYMENT GATEWAY</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase">Official UPI ID</Label>
-                    <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="e.g. boss@okaxis" className="h-12 bg-white/5" />
-                  </div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Official UPI ID</Label><Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="e.g. boss@okaxis" className="h-12 bg-white/5" /></div>
                   <div className="space-y-4">
                     <Label className="text-[10px] font-black uppercase">Master QR Code</Label>
                     <div className="flex flex-col items-center gap-4">
@@ -430,58 +417,22 @@ export default function AdminPanel() {
                         {qrUrl ? <Image src={qrUrl} alt="QR" fill className="object-contain" /> : <QrCode className="w-12 h-12 text-muted-foreground opacity-20" />}
                         {uploadingQr && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
                       </div>
-                      <Button variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => qrInputRef.current?.click()}>
-                        {qrUrl ? 'CHANGE QR CODE' : 'UPLOAD QR CODE'}
-                      </Button>
+                      <Button variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => qrInputRef.current?.click()}>{qrUrl ? 'CHANGE QR CODE' : 'UPLOAD QR CODE'}</Button>
                       <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleAdminQrUpload} />
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="border-t border-white/5 pt-6">
-                  <Button className="w-full h-12 bg-primary font-black uppercase shadow-lg glow-primary" onClick={handleUpdateSettings} disabled={savingSettings}>
-                    {savingSettings ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE CONFIGURATION
-                  </Button>
-                </CardFooter>
+                <CardFooter><Button className="w-full h-12 bg-primary font-black uppercase" onClick={handleUpdateSettings} disabled={savingSettings}>{savingSettings ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE CONFIGURATION</Button></CardFooter>
               </Card>
-              <div className="bg-primary/5 border border-primary/20 rounded-3xl p-8 flex flex-col justify-center gap-4">
-                <Shield className="w-12 h-12 text-primary animate-pulse" />
-                <h3 className="font-headline text-2xl font-black uppercase italic">GATEWAY PROTOCOL</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  The UPI ID and QR code you set here will be visible to all users in the **Coin Vault**. Ensure these details are correct to avoid payment discrepancies. 
-                  <br /><br />
-                  For every manual recharge, our system generates a dynamic link using these credentials.
-                </p>
-              </div>
             </div>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Proof Viewer */}
-      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
-        <DialogContent className="glass border-white/10 max-w-lg p-0 overflow-hidden">
-          <DialogHeader className="p-6 border-b border-white/5"><DialogTitle className="uppercase font-black italic">PAYMENT PROOF</DialogTitle></DialogHeader>
-          <div className="relative aspect-auto min-h-[400px] w-full bg-black/40">
-            {selectedProof && <Image src={selectedProof} alt="Proof" fill className="object-contain" />}
-          </div>
-          <DialogFooter className="p-4 bg-black/20"><Button onClick={() => setSelectedProof(null)} className="w-full font-black">CLOSE VIEWER</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rejection Dialog */}
-      <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
-        <DialogContent className="glass border-white/10">
-          <DialogHeader><DialogTitle className="uppercase font-black">REJECT REQUEST</DialogTitle><DialogDescription>Explain to the warrior why their request was denied.</DialogDescription></DialogHeader>
-          <div className="py-4"><Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="e.g. Fake screenshot, Amount mismatch..." className="h-32 bg-white/5" /></div>
-          <DialogFooter><Button variant="ghost" onClick={() => setRejectId(null)}>CANCEL</Button><Button variant="destructive" onClick={handleRejectRecharge}>CONFIRM REJECTION</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Tournament Dialog */}
       <Dialog open={tOpen} onOpenChange={setTOpen}>
-        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-headline text-2xl font-black italic uppercase">DEPLOY NEW <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
-          <form onSubmit={handleCreateTournament} className="space-y-6">
+        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase">DEPLOY NEW <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
+          <form onSubmit={handleCreateTournament} className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Arena Name</Label><Input value={tForm.name} onChange={e => setTForm({...tForm, name: e.target.value})} placeholder="e.g. Titan Clash" required /></div>
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Category</Label>
@@ -494,15 +445,26 @@ export default function AdminPanel() {
                   <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
+                <Select value={tForm.townHall.toString()} onValueChange={val => setTForm({...tForm, townHall: parseInt(val)})}>
+                  <SelectTrigger><SelectValue placeholder="NONE (ALL LEVELS)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">NONE (ANY LEVEL)</SelectItem>
+                    {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(th => (
+                      <SelectItem key={th} value={th.toString()}>TOWN HALL {th}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} /></div>
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label><Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} /></div>
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Prize Pool / Rewards</Label><Input value={tForm.prizePool} onChange={e => setTForm({...tForm, prizePool: e.target.value})} placeholder="e.g. 1000 Coins + Gold Pass" /></div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase"><Clock className="w-3 h-3 inline mr-1" /> Reg Start (IST)</Label><Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase"><Clock className="w-3 h-3 inline mr-1" /> Reg End (IST)</Label><Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase"><Calendar className="w-3 h-3 inline mr-1" /> Battle Start (IST)</Label><Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required /></div>
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg Start (IST)</Label><Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required /></div>
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg End (IST)</Label><Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required /></div>
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Battle Start (IST)</Label><Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required /></div>
             </div>
 
             <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Rules (One per line)</Label><Textarea value={tForm.rules} onChange={e => setTForm({...tForm, rules: e.target.value})} placeholder="Rule 1&#10;Rule 2" className="h-24" /></div>
@@ -510,9 +472,7 @@ export default function AdminPanel() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase">Arena Thumbnail</Label>
               <div className="flex items-center gap-4">
-                <Button type="button" variant="outline" onClick={() => document.getElementById('t-thumb')?.click()} className="w-full h-12 border-dashed border-white/20">
-                  {tForm.imageUrl ? 'CHANGE IMAGE' : 'UPLOAD THUMBNAIL'}
-                </Button>
+                <Button type="button" variant="outline" onClick={() => document.getElementById('t-thumb')?.click()} className="w-full h-12 border-dashed border-white/20">{tForm.imageUrl ? 'CHANGE IMAGE' : 'UPLOAD THUMBNAIL'}</Button>
                 <input id="t-thumb" type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
                 {tForm.imageUrl && <div className="h-12 w-20 relative rounded overflow-hidden border border-white/10"><Image src={tForm.imageUrl} alt="preview" fill className="object-cover" /></div>}
               </div>
@@ -522,6 +482,21 @@ export default function AdminPanel() {
               {tLoading ? <Loader2 className="animate-spin" /> : 'DEPLOY ARENA'}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="glass border-white/10 max-w-lg p-0 overflow-hidden">
+          <div className="relative aspect-auto min-h-[400px] w-full bg-black/40">{selectedProof && <Image src={selectedProof} alt="Proof" fill className="object-contain" />}</div>
+          <DialogFooter className="p-4 bg-black/20"><Button onClick={() => setSelectedProof(null)} className="w-full font-black">CLOSE VIEWER</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
+        <DialogContent className="glass border-white/10">
+          <DialogHeader><DialogTitle className="uppercase font-black">REJECT REQUEST</DialogTitle></DialogHeader>
+          <div className="py-4"><Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..." className="h-32 bg-white/5" /></div>
+          <DialogFooter><Button variant="ghost" onClick={() => setRejectId(null)}>CANCEL</Button><Button variant="destructive" onClick={handleRejectRecharge}>CONFIRM REJECTION</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </PageWrapper>

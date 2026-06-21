@@ -71,15 +71,31 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
 
   const handleRegister = async () => {
     if (!user || !profile || !t) return;
+    
+    // Check if already registered
     if (registration) {
       toast({ title: "ALREADY REGISTERED", description: "You are already in the arena." });
       return;
     }
+
+    // Check Town Hall Requirement
+    if (t.townHall > 0 && profile.townHall !== t.townHall) {
+      toast({ 
+        variant: "destructive", 
+        title: "LEVEL MISMATCH", 
+        description: `This arena is restricted to Town Hall ${t.townHall} warriors only. You are TH ${profile.townHall}.` 
+      });
+      return;
+    }
+
+    // Check Balance
     if (profile.balance < t.entryFee) {
       toast({ variant: "destructive", title: "INSUFFICIENT COINS", description: "Recharge your vault to join." });
       router.push('/wallet');
       return;
     }
+
+    // Check Slot Availability
     if (t.currentPlayers >= t.maxPlayers) {
       toast({ variant: "destructive", title: "ARENA FULL", description: "No more slots available." });
       return;
@@ -87,13 +103,9 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
 
     setRegistering(true);
     try {
-      // 1. Deduct Coins
       await updateDoc(userRef!, { balance: increment(-t.entryFee) });
-
-      // 2. Increment Tournament Players
       await updateDoc(tRef, { currentPlayers: increment(1) });
 
-      // 3. Create Registration Record
       const regData = {
         tournamentId: id,
         userId: user.id,
@@ -131,6 +143,7 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                   <div className="flex items-center gap-3 mb-4">
                     <Badge className="bg-primary uppercase font-black px-4 py-1">{t.type}</Badge>
                     <Badge variant="outline" className="border-white/20 text-white uppercase font-black px-4 py-1">{t.subCategory.replace('_', ' ')}</Badge>
+                    {t.townHall > 0 && <Badge className="bg-yellow-500 text-black font-black">TH {t.townHall} ONLY</Badge>}
                   </div>
                   <h1 className="font-headline text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white drop-shadow-xl">{t.name}</h1>
                 </div>
@@ -154,8 +167,8 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
                     <Zap className="w-5 h-5 text-orange-500 mx-auto mb-2" />
-                    <p className="text-[10px] text-muted-foreground uppercase font-black">Format</p>
-                    <p className="text-lg font-black text-white uppercase">{t.subCategory}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black">Requirement</p>
+                    <p className="text-lg font-black text-white uppercase">{t.townHall > 0 ? `TH ${t.townHall}` : 'ANY TH'}</p>
                   </div>
                 </div>
 
@@ -194,18 +207,9 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-[10px] uppercase font-black text-muted-foreground px-2">
-                    <Calendar className="w-4 h-4 text-primary" /> War Date: {format(new Date(t.startTime), 'MMM dd, yyyy')}
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] uppercase font-black text-muted-foreground px-2">
-                    <Clock className="w-4 h-4 text-primary" /> War Time: {format(new Date(t.startTime), 'HH:mm')} IST
-                  </div>
-                </div>
-
                 {registration ? (
                   <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center space-y-4">
-                    <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
+                    <ShieldCheck className="w-12 h-12 text-green-500 mx-auto" />
                     <div className="space-y-1">
                       <p className="font-black text-green-500 uppercase tracking-tighter text-xl">WARRIOR VERIFIED</p>
                       <p className="text-[10px] text-muted-foreground font-bold">You are registered for this arena. Prepare your troops.</p>
@@ -224,38 +228,11 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                     )}
                   </Button>
                 )}
-
-                <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex gap-3">
-                  <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0" />
-                  <p className="text-[9px] text-muted-foreground uppercase font-black leading-relaxed">
-                    Fair play engine active. Real-time anti-cheat scanning enabled for this tournament.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
     </PageWrapper>
-  );
-}
-
-function CheckCircle2(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   );
 }

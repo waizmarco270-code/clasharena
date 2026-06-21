@@ -13,6 +13,7 @@
         "prizePool": { "type": "string" },
         "currentPlayers": { "type": "number" },
         "maxPlayers": { "type": "number" },
+        "townHall": { "type": "number", "description": "Required Town Hall level (0 for None)" },
         "startTime": { "type": "string", "format": "date-time" },
         "registrationStartTime": { "type": "string", "format": "date-time" },
         "registrationEndTime": { "type": "string", "format": "date-time" },
