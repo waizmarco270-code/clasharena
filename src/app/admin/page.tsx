@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode, Zap, Edit3 } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode, Zap, Edit3, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -66,6 +66,7 @@ export default function AdminPanel() {
   const [tOpen, setTOpen] = useState(false);
   const [tLoading, setTLoading] = useState(false);
   const [editTId, setEditTId] = useState<string | null>(null);
+  const [newRule, setNewRule] = useState('');
   const [tForm, setTForm] = useState({
     name: '',
     type: 'paid',
@@ -73,7 +74,7 @@ export default function AdminPanel() {
     maxPlayers: 8,
     entryFee: 0,
     prizePool: '',
-    rules: '',
+    rules: [] as string[],
     imageUrl: '',
     townHall: 0,
     registrationStartTime: '',
@@ -109,10 +110,11 @@ export default function AdminPanel() {
   const resetTForm = () => {
     setTForm({
       name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
-      entryFee: 0, prizePool: '', rules: '', imageUrl: '', townHall: 0,
+      entryFee: 0, prizePool: '', rules: [], imageUrl: '', townHall: 0,
       registrationStartTime: '', registrationEndTime: '', startTime: ''
     });
     setEditTId(null);
+    setNewRule('');
   };
 
   const handleUpdateSettings = async () => {
@@ -189,7 +191,7 @@ export default function AdminPanel() {
       maxPlayers: t.maxPlayers,
       entryFee: t.entryFee,
       prizePool: t.prizePool,
-      rules: t.rules?.join('\n') || '',
+      rules: t.rules || [],
       imageUrl: t.imageUrl || '',
       townHall: t.townHall || 0,
       registrationStartTime: t.registrationStartTime || '',
@@ -199,18 +201,25 @@ export default function AdminPanel() {
     setTOpen(true);
   };
 
+  const handleAddRule = () => {
+    if (!newRule.trim()) return;
+    setTForm(prev => ({ ...prev, rules: [...prev.rules, newRule.trim()] }));
+    setNewRule('');
+  };
+
+  const handleRemoveRule = (index: number) => {
+    setTForm(prev => ({ ...prev, rules: prev.rules.filter((_, i) => i !== index) }));
+  };
+
   const handleCreateTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     setTLoading(true);
 
-    const rulesArray = tForm.rules.split('\n').filter(r => r.trim() !== '');
-
     if (editTId) {
       const tRef = doc(db, 'tournaments', editTId);
       const payload = {
         ...tForm,
-        rules: rulesArray,
         updatedAt: new Date().toISOString()
       };
       updateDoc(tRef, payload)
@@ -229,7 +238,6 @@ export default function AdminPanel() {
       const payload = {
         ...tForm,
         currentPlayers: 0,
-        rules: rulesArray,
         status: 'upcoming',
         createdAt: new Date().toISOString()
       };
@@ -528,7 +536,26 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Rules (One per line)</Label><Textarea value={tForm.rules} onChange={e => setTForm({...tForm, rules: e.target.value})} placeholder="Rule 1&#10;Rule 2" className="h-24" /></div>
+            <div className="space-y-4">
+              <Label className="text-[10px] font-black uppercase">Arena Rules</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value={newRule} 
+                  onChange={e => setNewRule(e.target.value)} 
+                  placeholder="Enter a legendary rule..." 
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddRule())}
+                />
+                <Button type="button" onClick={handleAddRule} className="bg-primary px-3"><Plus className="w-5 h-5" /></Button>
+              </div>
+              <div className="space-y-2">
+                {tForm.rules.map((rule, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <p className="text-sm font-medium">{idx + 1}. {rule}</p>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveRule(idx)} className="h-8 w-8 text-destructive"><X className="w-4 h-4" /></Button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase">Arena Thumbnail</Label>
@@ -563,4 +590,3 @@ export default function AdminPanel() {
     </PageWrapper>
   );
 }
-
