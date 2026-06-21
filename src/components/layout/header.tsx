@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -9,6 +10,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { UserButton, useUser } from "@clerk/nextjs";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -22,7 +24,7 @@ export function Header() {
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-white/5">
+    <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-border/10">
       <div className="container mx-auto h-full px-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="hover:bg-primary/10 hover:text-primary" />
@@ -34,7 +36,9 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link href="/wallet" className="flex items-center gap-2 bg-muted/50 px-2 sm:px-3 py-1.5 rounded-full border border-white/5 hover:bg-primary/10 transition-colors group">
+          <ThemeToggle />
+          
+          <Link href="/wallet" className="flex items-center gap-2 bg-muted/50 px-2 sm:px-3 py-1.5 rounded-full border border-border/10 hover:bg-primary/10 transition-colors group">
             <span className="text-xs sm:text-sm font-black">🪙 {profile?.balance || 0}</span>
             <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center bg-transparent group-hover:scale-110 transition-transform">
               <Wallet className="h-3 w-3 text-primary" />
@@ -50,7 +54,7 @@ export function Header() {
             </Link>
           )}
 
-          <div className="flex items-center gap-2 sm:gap-3 ml-1 sm:ml-2 border-l border-white/10 pl-2 sm:pl-3">
+          <div className="flex items-center gap-2 sm:gap-3 ml-1 sm:ml-2 border-l border-border/10 pl-2 sm:pl-3">
             <div className="flex flex-col items-end hidden xs:flex">
               <div className="flex items-center gap-1">
                 <span className="text-xs font-black leading-none uppercase tracking-tight">
