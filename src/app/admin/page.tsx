@@ -32,7 +32,8 @@ import {
   Monitor,
   Camera,
   Calendar,
-  Clock
+  Clock,
+  Trophy
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,15 +61,15 @@ export default function AdminPanel() {
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
-  // Stats Queries - Memoized to prevent infinite loops
+  // Stats Queries
   const allUsersQuery = useMemo(() => query(collection(db, 'users')), [db]);
   const { data: allUsers } = useCollection(allUsersQuery);
   
   const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc')), [db]);
-  const { data: rechargeRequests, loading: rechargeLoading } = useCollection(rechargeQuery);
+  const { data: rechargeRequests } = useCollection(rechargeQuery);
 
   const tournamentsQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc')), [db]);
-  const { data: tournaments, loading: tournamentsLoading } = useCollection(tournamentsQuery);
+  const { data: tournaments } = useCollection(tournamentsQuery);
 
   const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
   const { data: paymentSettings } = useDoc(settingsRef);
@@ -152,12 +153,6 @@ export default function AdminPanel() {
     }
   }, [paymentSettings]);
 
-  const onlineCount = useMemo(() => {
-    if (!allUsers) return 0;
-    const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
-    return allUsers.filter(u => u.lastActive && new Date(u.lastActive).getTime() > fiveMinsAgo).length;
-  }, [allUsers]);
-
   const resetTForm = () => {
     setTForm({
       name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
@@ -176,9 +171,7 @@ export default function AdminPanel() {
       adminQrUrl: qrUrl,
       updatedAt: new Date().toISOString()
     }, { merge: true }).then(() => {
-      toast({ title: "GATEWAY UPDATED", description: "Payment settings are now live." });
-    }).catch(() => {
-      toast({ variant: "destructive", title: "UPDATE FAILED" });
+      toast({ title: "GATEWAY UPDATED" });
     }).finally(() => {
       setSavingSettings(false);
     });
@@ -201,12 +194,9 @@ export default function AdminPanel() {
           ...updatedBgs,
           updatedAt: new Date().toISOString()
         }, { merge: true });
-        
         setBgs(updatedBgs);
-        toast({ title: "VISUAL DEPLOYED", description: `${section.toUpperCase()} background is now live.` });
+        toast({ title: "VISUAL DEPLOYED" });
       }
-    } catch (err) {
-      toast({ variant: "destructive", title: "DEPLOY FAILED" });
     } finally {
       setSavingBgs(false);
     }
@@ -225,10 +215,8 @@ export default function AdminPanel() {
       const data = await res.json();
       if (data.secure_url) {
         setTForm(prev => ({ ...prev, imageUrl: data.secure_url }));
-        toast({ title: "BANNER READY", description: "Thumbnail uploaded successfully." });
+        toast({ title: "BANNER READY" });
       }
-    } catch (err) {
-      toast({ variant: "destructive", title: "UPLOAD FAILED" });
     } finally {
       setUploadingThumbnail(false);
     }
@@ -261,23 +249,7 @@ export default function AdminPanel() {
       const targetUserRef = doc(db, 'users', req.userId);
       await updateDoc(targetUserRef, { balance: increment(req.amount) });
       await updateDoc(doc(db, 'recharge-requests', req.id), { status: 'approved' });
-      toast({ title: "FUNDS CREDITED", description: `🪙 ${req.amount} added to ${req.username}'s vault.` });
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleRejectRecharge = async () => {
-    if (!rejectId || !rejectReason) return;
-    setProcessingId(rejectId);
-    try {
-      await updateDoc(doc(db, 'recharge-requests', rejectId), { 
-        status: 'rejected', 
-        rejectionReason: rejectReason 
-      });
-      toast({ title: "REQUEST REJECTED" });
-      setRejectId(null);
-      setRejectReason('');
+      toast({ title: "FUNDS CREDITED" });
     } finally {
       setProcessingId(null);
     }
@@ -343,27 +315,6 @@ export default function AdminPanel() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="glass border-white/5 bg-primary/5">
-            <CardContent className="p-6">
-              <p className="text-[10px] font-black text-primary uppercase mb-1">Total Recruits</p>
-              <h3 className="text-3xl font-headline font-black">{allUsers?.length || 0}</h3>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5 bg-green-500/5">
-            <CardContent className="p-6">
-              <p className="text-[10px] font-black text-green-500 uppercase mb-1">Active Warriors</p>
-              <h3 className="text-3xl font-headline font-black">{onlineCount}</h3>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5 bg-blue-500/5">
-            <CardContent className="p-6">
-              <p className="text-[10px] font-black text-blue-500 uppercase mb-1">Total Arenas</p>
-              <h3 className="text-3xl font-headline font-black">{tournaments?.length || 0}</h3>
-            </CardContent>
-          </Card>
-        </div>
-
         <Tabs defaultValue="tournaments" className="w-full">
           <TabsList className="bg-muted/50 border border-white/10 w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="tournaments"><Swords className="w-4 h-4 mr-2" /> Arena Hub</TabsTrigger>
@@ -396,31 +347,6 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
-          <TabsContent value="backgrounds" className="mt-6">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="glass border-white/5">
-                  <CardHeader><CardTitle className="font-headline text-xl font-bold uppercase">Dynamic Backgrounds</CardTitle></CardHeader>
-                  <CardContent className="space-y-6">
-                    {Object.keys(bgs).map((section) => (
-                      <div key={section} className="space-y-3">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground">{section} Section</Label>
-                        <div className="flex items-center gap-4">
-                           <div className="h-16 w-32 relative rounded-xl overflow-hidden border border-white/10 bg-black/20">
-                             {bgs[section as keyof typeof bgs] && <Image src={bgs[section as keyof typeof bgs]} alt={section} fill className="object-cover" />}
-                           </div>
-                           <Button variant="outline" size="sm" onClick={() => document.getElementById(`bg-${section}`)?.click()} className="flex-1">CHANGE IMAGE</Button>
-                           <input id={`bg-${section}`} type="file" className="hidden" accept="image/*" onChange={(e) => handleBgUpload(section as any, e)} />
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                  <CardFooter>
-                    <p className="text-[10px] text-muted-foreground italic uppercase">Images are automatically deployed on upload.</p>
-                  </CardFooter>
-                </Card>
-             </div>
-          </TabsContent>
-
           <TabsContent value="wallets" className="mt-6">
             <Card className="glass border-white/5 overflow-hidden">
               <Table>
@@ -442,10 +368,7 @@ export default function AdminPanel() {
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}><Eye className="w-3 h-3" /></Button>
                           {req.status === 'pending' && (
-                            <>
-                              <Button size="sm" className="bg-green-600" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>APPROVE</Button>
-                              <Button size="sm" variant="destructive" onClick={() => setRejectId(req.id)}>REJECT</Button>
-                            </>
+                            <Button size="sm" className="bg-green-600" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>APPROVE</Button>
                           )}
                         </div>
                       </TableCell>
@@ -512,6 +435,23 @@ export default function AdminPanel() {
               <CardFooter><Button className="w-full h-12 bg-primary font-black uppercase" onClick={handleUpdateSettings} disabled={savingSettings}>{savingSettings ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE CONFIG</Button></CardFooter>
             </Card>
           </TabsContent>
+
+          <TabsContent value="backgrounds" className="mt-6">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {Object.keys(bgs).map((section) => (
+                  <Card key={section} className="glass border-white/5">
+                    <CardHeader><CardTitle className="text-sm font-black uppercase">{section} VISUAL</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="h-32 relative rounded-xl overflow-hidden border border-white/10 bg-black/20">
+                        {bgs[section as keyof typeof bgs] && <Image src={bgs[section as keyof typeof bgs]} alt={section} fill className="object-cover" />}
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => document.getElementById(`bg-${section}`)?.click()}>CHANGE IMAGE</Button>
+                      <input id={`bg-${section}`} type="file" className="hidden" accept="image/*" onChange={(e) => handleBgUpload(section as any, e)} />
+                    </CardContent>
+                  </Card>
+                ))}
+             </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -522,27 +462,9 @@ export default function AdminPanel() {
               {editTId ? 'RECONFIGURE' : 'DEPLOY'} <span className="text-primary">ARENA</span>
             </DialogTitle>
           </DialogHeader>
+          
           <ScrollArea className="flex-1 p-6">
             <form onSubmit={handleCreateTournament} id="t-form" className="space-y-8">
-              {/* Thumbnail Section */}
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase">Arena Banner</Label>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-dashed border-white/10 bg-black/20 flex items-center justify-center">
-                    {tForm.imageUrl ? (
-                      <Image src={tForm.imageUrl} alt="Banner" fill className="object-cover" />
-                    ) : (
-                      <Camera className="w-12 h-12 text-muted-foreground opacity-20" />
-                    )}
-                  </div>
-                  <Button type="button" variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => tThumbInputRef.current?.click()}>
-                    {uploadingThumbnail ? <Loader2 className="animate-spin mr-2" /> : <ImagePlus className="w-4 h-4 mr-2" />}
-                    {tForm.imageUrl ? 'CHANGE BANNER' : 'UPLOAD BANNER'}
-                  </Button>
-                  <input type="file" ref={tThumbInputRef} className="hidden" accept="image/*" onChange={handleTournamentImageUpload} />
-                </div>
-              </div>
-
               {/* Core Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -635,13 +557,47 @@ export default function AdminPanel() {
                   ))}
                 </div>
               </div>
+
+              {/* Thumbnail Section - Bottom & Compact */}
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <Label className="text-[10px] font-black uppercase">Arena Banner</Label>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-24 w-40 rounded-xl overflow-hidden border border-dashed border-white/10 bg-black/20 flex items-center justify-center shrink-0">
+                    {tForm.imageUrl ? (
+                      <Image src={tForm.imageUrl} alt="Banner" fill className="object-cover" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-muted-foreground opacity-20" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Recommended: 800x400 JPG/PNG</p>
+                    <Button type="button" variant="outline" size="sm" className="w-full h-10 border-dashed border-white/20" onClick={() => tThumbInputRef.current?.click()}>
+                      {uploadingThumbnail ? <Loader2 className="animate-spin mr-2" /> : <ImagePlus className="w-4 h-4 mr-2" />}
+                      {tForm.imageUrl ? 'CHANGE BANNER' : 'UPLOAD BANNER'}
+                    </Button>
+                  </div>
+                  <input type="file" ref={tThumbInputRef} className="hidden" accept="image/*" onChange={handleTournamentImageUpload} />
+                </div>
+              </div>
             </form>
           </ScrollArea>
+
           <div className="p-6 border-t border-white/5 bg-background/50 shrink-0">
             <Button type="submit" form="t-form" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary rounded-2xl">
               {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE BATTLEFIELD' : 'DEPLOY TOURNAMENT'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="glass border-white/10 max-w-2xl">
+          <DialogHeader><DialogTitle className="font-headline text-xl uppercase">Payment Proof</DialogTitle></DialogHeader>
+          {selectedProof && (
+            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10">
+              <Image src={selectedProof} alt="Proof" fill className="object-contain bg-black" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </PageWrapper>
