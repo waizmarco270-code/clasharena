@@ -1,21 +1,51 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, Swords, Trophy, User } from 'lucide-react';
+import { LayoutDashboard, Swords, Trophy, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-primary/20 bg-gradient-to-t from-black via-black/95 to-black/90 backdrop-blur-2xl px-6 pb-6 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.8)]">
-      <nav className="flex items-center justify-around relative">
+    <div 
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-primary/20 bg-gradient-to-t from-black via-black/95 to-black/90 backdrop-blur-2xl transition-all duration-500 ease-in-out shadow-[0_-10px_30px_rgba(0,0,0,0.8)]",
+        isCollapsed ? "translate-y-[calc(100%-12px)] h-20" : "px-6 pb-6 pt-3 translate-y-0"
+      )}
+    >
+      {/* Smart Toggle Tab */}
+      <button 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className={cn(
+          "absolute -top-7 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-xl border border-primary/20 rounded-t-2xl px-6 py-1.5 flex items-center justify-center transition-all hover:bg-primary/20 group",
+          isCollapsed ? "border-b-0 shadow-[0_-5px_15px_rgba(255,69,0,0.3)]" : ""
+        )}
+      >
+        {isCollapsed ? (
+          <ChevronUp className="w-5 h-5 text-primary animate-bounce" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-primary/60 group-hover:text-primary transition-colors" />
+        )}
+      </button>
+
+      {/* Navigation Content */}
+      <nav className={cn(
+        "flex items-center justify-around relative transition-opacity duration-300",
+        isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
+      )}>
         {/* Glow effect for active link */}
         <div className="absolute inset-0 flex justify-around pointer-events-none">
           {['/dashboard', '/arena', '/hall-of-champions', '/profile'].map((route, i) => (
             <div 
               key={i} 
-              className={`w-12 h-12 bg-primary/20 rounded-full blur-xl transition-opacity duration-300 ${pathname === route ? 'opacity-100' : 'opacity-0'}`} 
+              className={cn(
+                "w-12 h-12 bg-primary/20 rounded-full blur-xl transition-opacity duration-500",
+                pathname === route ? 'opacity-100' : 'opacity-0'
+              )} 
             />
           ))}
         </div>
