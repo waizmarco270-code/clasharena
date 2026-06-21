@@ -26,10 +26,11 @@ import {
   Settings,
   ShieldAlert,
   Crown,
-  ArrowRight
+  ArrowRight,
+  Move
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, serverTimestamp, increment, deleteDoc, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, serverTimestamp, increment, deleteDoc, getDocs, where } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -59,8 +60,9 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const regQuery = useMemo(() => query(collection(db, 'tournaments', id, 'registrations')), [db, id]);
   const { data: registrations } = useCollection(regQuery);
 
-  const matchesQuery = useMemo(() => query(collection(db, 'tournaments', id, 'matches'), orderBy('round', 'asc'), orderBy('matchIndex', 'asc')), [db, id]);
-  const { data: matches } = useCollection(matchesQuery);
+  // Simplified query to avoid index issues, we'll sort in memory
+  const matchesQuery = useMemo(() => query(collection(db, 'tournaments', id, 'matches')), [db, id]);
+  const { data: rawMatches } = useCollection(matchesQuery);
 
   const messagesQuery = useMemo(() => query(collection(db, 'tournaments', id, 'messages'), orderBy('createdAt', 'asc')), [db, id]);
   const { data: messages } = useCollection(messagesQuery);
@@ -73,6 +75,15 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
   const isRegistered = registrations?.some((r: any) => r.userId === user?.id);
+
+  // Sort matches in memory
+  const matches = useMemo(() => {
+    if (!rawMatches) return [];
+    return [...rawMatches].sort((a, b) => {
+      if (a.round !== b.round) return a.round - b.round;
+      return a.matchIndex - b.matchIndex;
+    });
+  }, [rawMatches]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -135,6 +146,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             nextMatchId: r < rounds ? `r${r + 1}-m${Math.floor(m / 2)}` : ''
           };
 
+          // Auto-advance byes in Round 1
           if (r === 1) {
             if (matchData.player1Id === 'bye') matchData.winnerId = matchData.player2Id;
             else if (matchData.player2Id === 'bye') matchData.winnerId = matchData.player1Id;
@@ -154,6 +166,8 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         }
       }
       toast({ title: "FIXTURES DEPLOYED" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "GENERATION FAILED" });
     } finally {
       setGenerating(false);
     }
@@ -255,63 +269,106 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           </TabsList>
 
           <TabsContent value="fixtures" className="mt-4 outline-none">
-            <Card className="glass border-white/5 h-[70vh] relative overflow-hidden bg-black/40 rounded-[2rem]">
-               <div className="absolute inset-0 cursor-grab active:cursor-grabbing overflow-auto p-12 no-scrollbar scroll-smooth">
-                 <div className="flex gap-16 min-w-max h-full items-center">
-                   {Array.from({ length: totalRounds }).map((_, rIdx) => {
-                     const roundNum = rIdx + 1;
-                     const roundMatches = matches?.filter((m: any) => m.round === roundNum) || [];
-                     return (
-                       <div key={roundNum} className="flex flex-col justify-around gap-12 h-full">
-                         <div className="text-center mb-4">
-                           <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.2em] border-primary/20 text-primary px-4 py-1">
-                             {roundNum === totalRounds ? 'GRAND FINAL' : roundNum === totalRounds - 1 ? 'SEMI FINALS' : `ROUND ${roundNum}`}
-                           </Badge>
-                         </div>
-                         {roundMatches.map((m: any) => (
-                           <div key={m.id} className="relative">
-                             <div className="w-64 space-y-1 z-10 relative">
-                               {[1, 2].map(pIdx => {
-                                 const pId = pIdx === 1 ? m.player1Id : m.player2Id;
-                                 const pName = pIdx === 1 ? m.player1Name : m.player2Name;
-                                 const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
-                                 const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-                                 const isBye = pId === 'bye';
+            <Card className="glass border-white/5 h-[75vh] relative overflow-hidden bg-black/40 rounded-[2rem]">
+               {/* White Grid Background Layer */}
+               <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+               
+               <ScrollArea className="h-full w-full">
+                 <div className="p-12 min-w-max min-h-full flex items-center">
+                    <div className="flex gap-20 items-stretch">
+                      {Array.from({ length: totalRounds }).map((_, rIdx) => {
+                        const roundNum = rIdx + 1;
+                        const roundMatches = matches?.filter((m: any) => m.round === roundNum) || [];
+                        
+                        // If no matches generated yet for this round, show skeletons or empty space
+                        if (roundMatches.length === 0 && isAdmin) return null;
 
-                                 return (
-                                   <div 
-                                     key={pIdx} 
-                                     onClick={() => isAdmin && pId !== 'bye' && handleMatchWinner(m, pId, pName)}
-                                     className={cn(
-                                       "p-4 rounded-xl border transition-all flex justify-between items-center",
-                                       isAdmin && pId !== 'bye' && !t?.status?.includes('completed') ? "cursor-pointer hover:scale-[1.02]" : "cursor-default",
-                                       isWinner ? "bg-green-600/30 border-green-500/50 text-white shadow-[0_0_15px_rgba(34,197,94,0.2)]" : 
-                                       isLoser ? "bg-red-600/10 border-red-500/20 text-muted-foreground opacity-50" : 
-                                       isBye ? "bg-muted/20 border-white/5 opacity-30 italic" :
-                                       "bg-white/5 border-white/10"
-                                     )}
-                                   >
-                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-black uppercase truncate max-w-[140px] tracking-tight">{pName || 'TBD'}</span>
-                                     </div>
-                                     {isWinner && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                                     {isLoser && <XCircle className="w-4 h-4 text-red-500" />}
-                                   </div>
-                                 );
-                               })}
-                             </div>
-                             {roundNum < totalRounds && (
-                               <div className="absolute left-full top-1/2 -translate-y-1/2 h-[2px] w-16 bg-white/10" />
-                             )}
+                        return (
+                          <div key={roundNum} className="flex flex-col justify-around gap-12">
+                            <div className="text-center mb-6">
+                              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.2em] border-primary/20 text-primary bg-primary/5 px-6 py-1.5 rounded-full">
+                                {roundNum === totalRounds ? 'GRAND FINAL' : roundNum === totalRounds - 1 ? 'SEMI FINALS' : `ROUND ${roundNum}`}
+                              </Badge>
+                            </div>
+                            
+                            {roundMatches.map((m: any) => (
+                              <div key={m.id} className="relative flex items-center">
+                                <div className="w-64 space-y-1.5 z-10 relative">
+                                  {[1, 2].map(pIdx => {
+                                    const pId = pIdx === 1 ? m.player1Id : m.player2Id;
+                                    const pName = pIdx === 1 ? m.player1Name : m.player2Name;
+                                    const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
+                                    const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
+                                    const isBye = pId === 'bye';
+
+                                    return (
+                                      <div 
+                                        key={pIdx} 
+                                        onClick={() => isAdmin && pId !== 'bye' && !isBye && handleMatchWinner(m, pId, pName)}
+                                        className={cn(
+                                          "p-4 rounded-xl border transition-all flex justify-between items-center group/player",
+                                          isAdmin && pId !== 'bye' && !isBye && !t?.status?.includes('completed') ? "cursor-pointer hover:border-primary/50 hover:bg-white/10" : "cursor-default",
+                                          isWinner ? "bg-green-600/20 border-green-500/50 text-white shadow-[0_0_20px_rgba(34,197,94,0.1)]" : 
+                                          isLoser ? "bg-red-600/10 border-red-500/20 text-muted-foreground opacity-50" : 
+                                          isBye ? "bg-muted/10 border-white/5 opacity-30 italic" :
+                                          "bg-white/5 border-white/10"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                           <div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-green-500" : isLoser ? "bg-red-500" : "bg-primary/20")} />
+                                           <span className="text-xs font-black uppercase truncate max-w-[140px] tracking-tight">{pName || 'TBD'}</span>
+                                        </div>
+                                        {isWinner && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                                        {isLoser && <XCircle className="w-4 h-4 text-red-500" />}
+                                        {isAdmin && !isWinner && !isLoser && !isBye && pId && (
+                                          <ArrowRight className="w-3 h-3 text-primary opacity-0 group-hover/player:opacity-100 transition-opacity" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                
+                                {/* Connection lines */}
+                                {roundNum < totalRounds && (
+                                  <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center">
+                                    <div className="w-10 h-[2px] bg-white/10" />
+                                    <div className={cn(
+                                      "h-full w-[2px] bg-white/10",
+                                      m.matchIndex % 2 === 0 ? "translate-y-1/2" : "-translate-y-1/2"
+                                    )} style={{ height: '100px' }} />
+                                    <div className="w-10 h-[2px] bg-white/10" />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Empty State when no matches generated */}
+                      {matches.length === 0 && (
+                        <div className="flex flex-col items-center justify-center w-[80vw] py-20 text-center gap-6">
+                           <Swords className="w-20 h-20 text-muted-foreground/20 animate-pulse" />
+                           <div className="space-y-2">
+                              <h3 className="font-headline text-2xl font-black uppercase text-muted-foreground/40">Arena Ready for Deployment</h3>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/30">Admin must generate fixtures to initialize the bracket</p>
                            </div>
-                         ))}
-                       </div>
-                     );
-                   })}
+                           {isAdmin && (
+                             <Button onClick={generateFixtures} className="bg-primary glow-primary font-black uppercase h-12 px-10 rounded-2xl">
+                               DEPLOY FIXTURES NOW
+                             </Button>
+                           )}
+                        </div>
+                      )}
+                    </div>
                  </div>
-               </div>
-               <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
-                 <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-none">Movable Arena Canvas</Badge>
+                 <ScrollBar orientation="horizontal" />
+                 <ScrollBar orientation="vertical" />
+               </ScrollArea>
+
+               <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-black/60 px-5 py-2.5 rounded-full border border-white/10 backdrop-blur-md shadow-2xl">
+                 <Move className="w-3.5 h-3.5 text-primary" />
+                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Movable Arena Canvas</span>
                </div>
             </Card>
           </TabsContent>
