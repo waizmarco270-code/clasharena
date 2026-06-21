@@ -30,7 +30,9 @@ import {
   CheckCircle2,
   ImagePlus,
   Monitor,
-  Camera
+  Camera,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,7 +60,7 @@ export default function AdminPanel() {
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
-  // Stats Queries
+  // Stats Queries - Memoized to prevent infinite loops
   const allUsersQuery = useMemo(() => query(collection(db, 'users')), [db]);
   const { data: allUsers } = useCollection(allUsersQuery);
   
@@ -286,23 +288,35 @@ export default function AdminPanel() {
     if (!isAdmin) return;
     setTLoading(true);
 
+    const tournamentData = {
+      ...tForm,
+      updatedAt: new Date().toISOString()
+    };
+
     if (editTId) {
       const tRef = doc(db, 'tournaments', editTId);
-      updateDoc(tRef, { ...tForm, updatedAt: new Date().toISOString() })
+      updateDoc(tRef, tournamentData)
         .then(() => {
           toast({ title: "ARENA UPDATED" });
           setTOpen(false);
           resetTForm();
-        }).finally(() => setTLoading(false));
+        })
+        .finally(() => setTLoading(false));
     } else {
       const tId = doc(collection(db, 'tournaments')).id;
       const tRef = doc(db, 'tournaments', tId);
-      setDoc(tRef, { ...tForm, currentPlayers: 0, status: 'upcoming', createdAt: new Date().toISOString() })
+      setDoc(tRef, { 
+        ...tournamentData, 
+        currentPlayers: 0, 
+        status: 'upcoming', 
+        createdAt: new Date().toISOString() 
+      })
         .then(() => {
           toast({ title: "ARENA DEPLOYED" });
           setTOpen(false);
           resetTForm();
-        }).finally(() => setTLoading(false));
+        })
+        .finally(() => setTLoading(false));
     }
   };
 
@@ -503,76 +517,129 @@ export default function AdminPanel() {
 
       <Dialog open={tOpen} onOpenChange={setTOpen}>
         <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-0 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase">DEPLOY <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 pb-0 shrink-0">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase">
+              {editTId ? 'RECONFIGURE' : 'DEPLOY'} <span className="text-primary">ARENA</span>
+            </DialogTitle>
+          </DialogHeader>
           <ScrollArea className="flex-1 p-6">
             <form onSubmit={handleCreateTournament} id="t-form" className="space-y-8">
+              {/* Thumbnail Section */}
               <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase">Arena Thumbnail</Label>
+                <Label className="text-[10px] font-black uppercase">Arena Banner</Label>
                 <div className="flex flex-col items-center gap-4">
                   <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-dashed border-white/10 bg-black/20 flex items-center justify-center">
                     {tForm.imageUrl ? (
-                      <Image src={tForm.imageUrl} alt="Thumbnail" fill className="object-cover" />
+                      <Image src={tForm.imageUrl} alt="Banner" fill className="object-cover" />
                     ) : (
                       <Camera className="w-12 h-12 text-muted-foreground opacity-20" />
                     )}
                   </div>
                   <Button type="button" variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => tThumbInputRef.current?.click()}>
                     {uploadingThumbnail ? <Loader2 className="animate-spin mr-2" /> : <ImagePlus className="w-4 h-4 mr-2" />}
-                    {tForm.imageUrl ? 'CHANGE THUMBNAIL' : 'UPLOAD THUMBNAIL'}
+                    {tForm.imageUrl ? 'CHANGE BANNER' : 'UPLOAD BANNER'}
                   </Button>
                   <input type="file" ref={tThumbInputRef} className="hidden" accept="image/*" onChange={handleTournamentImageUpload} />
                 </div>
               </div>
 
+              {/* Core Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Arena Name</Label><Input value={tForm.name} onChange={e => setTForm({...tForm, name: e.target.value})} required /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Category</Label>
-                  <Select value={tForm.type} onValueChange={val => setTForm({...tForm, type: val as any})}><SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="paid">PAID</SelectItem><SelectItem value="free">FREE</SelectItem><SelectItem value="championship">CHAMPIONSHIP</SelectItem></SelectContent>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Arena Name</Label>
+                  <Input value={tForm.name} onChange={e => setTForm({...tForm, name: e.target.value})} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Tournament Category</Label>
+                  <Select value={tForm.type} onValueChange={val => setTForm({...tForm, type: val as any})}>
+                    <SelectTrigger className="bg-white/5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paid">PAID</SelectItem>
+                      <SelectItem value="free">FREE</SelectItem>
+                      <SelectItem value="championship">CHAMPIONSHIP</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Sub Category</Label>
-                  <Select value={tForm.subCategory} onValueChange={val => setTForm({...tForm, subCategory: val as any})}><SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Sub Category</Label>
+                  <Select value={tForm.subCategory} onValueChange={val => setTForm({...tForm, subCategory: val as any})}>
+                    <SelectTrigger className="bg-white/5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="knockout">KNOCKOUT</SelectItem>
+                      <SelectItem value="1vs1">1 VS 1</SelectItem>
+                      <SelectItem value="tdm">TEAM DEATH MATCH</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
                   <Select value={tForm.townHall.toString()} onValueChange={val => setTForm({...tForm, townHall: parseInt(val)})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="0">NONE (ANY LEVEL)</SelectItem>{[9,10,11,12,13,14,15,16,17,18].map(th => (<SelectItem key={th} value={th.toString()}>TOWN HALL {th}</SelectItem>))}</SelectContent>
+                    <SelectTrigger className="bg-white/5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">NONE (ANY LEVEL)</SelectItem>
+                      {[9,10,11,12,13,14,15,16,17,18].map(th => (
+                        <SelectItem key={th} value={th.toString()}>TOWN HALL {th}</SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label><Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} /></div>
-                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-black uppercase">Prize Pool / Rewards</Label><Input value={tForm.prizePool} onChange={e => setTForm({...tForm, prizePool: e.target.value})} placeholder="e.g. 1000 Coins + Gold Pass" /></div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Max Players</Label>
+                  <Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label>
+                  <Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} className="bg-white/5" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-black uppercase">Prize Pool / Rewards</Label>
+                  <Input value={tForm.prizePool} onChange={e => setTForm({...tForm, prizePool: e.target.value})} placeholder="e.g. 1000 Coins + Gold Pass" className="bg-white/5" />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg Start (IST)</Label><Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required className="[color-scheme:dark]" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg End (IST)</Label><Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required className="[color-scheme:dark]" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Battle Start (IST)</Label><Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required className="[color-scheme:dark]" /></div>
+              {/* Timings */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase flex items-center gap-2"><Calendar className="w-3 h-3" /> Reg Start (IST)</Label>
+                  <Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required className="[color-scheme:dark] bg-black/20" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase flex items-center gap-2"><Clock className="w-3 h-3" /> Reg End (IST)</Label>
+                  <Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required className="[color-scheme:dark] bg-black/20" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase flex items-center gap-2"><Swords className="w-3 h-3" /> War Start (IST)</Label>
+                  <Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required className="[color-scheme:dark] bg-black/20" />
+                </div>
               </div>
 
+              {/* Arena Rules */}
               <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase">Arena Rules</Label>
+                <Label className="text-[10px] font-black uppercase">Battle Rules Protocol</Label>
                 <div className="flex gap-2">
-                  <Input value={newRule} onChange={e => setNewRule(e.target.value)} placeholder="Add a legendary rule..." />
+                  <Input value={newRule} onChange={e => setNewRule(e.target.value)} placeholder="Enter a rule and hit +" className="bg-white/5" onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (newRule.trim()) { setTForm(p => ({ ...p, rules: [...p.rules, newRule.trim()] })); setNewRule(''); } } }} />
                   <Button type="button" onClick={() => { if (newRule.trim()) { setTForm(p => ({ ...p, rules: [...p.rules, newRule.trim()] })); setNewRule(''); } }} className="bg-primary"><Plus className="w-5 h-5" /></Button>
                 </div>
                 <div className="space-y-2">
                   {tForm.rules.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-sm">{i+1}. {r}</p>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => setTForm(p => ({ ...p, rules: p.rules.filter((_, idx) => idx !== i) }))} className="text-destructive"><X className="w-4 h-4" /></Button>
+                    <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group">
+                      <p className="text-sm font-medium"><span className="text-primary mr-2"># {i+1}</span> {r}</p>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setTForm(p => ({ ...p, rules: p.rules.filter((_, idx) => idx !== i) }))} className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></Button>
                     </div>
                   ))}
                 </div>
               </div>
             </form>
           </ScrollArea>
-          <div className="p-6 border-t border-white/5 bg-background/50">
-            <Button type="submit" form="t-form" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary">
-              {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE ARENA' : 'DEPLOY ARENA'}
+          <div className="p-6 border-t border-white/5 bg-background/50 shrink-0">
+            <Button type="submit" form="t-form" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary rounded-2xl">
+              {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE BATTLEFIELD' : 'DEPLOY TOURNAMENT'}
             </Button>
           </div>
         </DialogContent>
