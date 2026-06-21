@@ -17,28 +17,30 @@ import {
   Loader2, 
   ChevronLeft, 
   Send, 
-  CheckCircle2,
-  XCircle,
-  ShieldAlert,
-  Crown,
-  Move,
-  Zap,
-  Layout,
-  Plus,
-  Minus,
-  Maximize2,
-  Minimize2,
-  Monitor,
-  Check,
-  Lock,
-  Pin,
-  Reply,
-  X,
-  Clock,
-  Camera,
-  ImagePlus,
-  AlertCircle,
-  ArrowRight
+  CheckCircle2, 
+  XCircle, 
+  ShieldAlert, 
+  Crown, 
+  Move, 
+  Zap, 
+  Layout, 
+  Plus, 
+  Minus, 
+  Maximize2, 
+  Minimize2, 
+  Monitor, 
+  Check, 
+  Lock, 
+  Pin, 
+  Reply, 
+  X, 
+  Clock, 
+  Camera, 
+  ImagePlus, 
+  AlertCircle, 
+  ArrowRight,
+  Save,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment } from 'firebase/firestore';
@@ -95,6 +97,11 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Protocol States
+  const [editClanUid, setEditClanUid] = useState('');
+  const [editClanLink, setEditClanLink] = useState('');
+  const [savingProtocol, setSavingProtocol] = useState(false);
+
   // Battle Log States
   const [logImageUrl, setLogImageUrl] = useState('');
   const [logCaption, setLogCaption] = useState('');
@@ -108,6 +115,13 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   
   const hasFullAccess = isRegistered || isAdmin;
   const isTournamentCompleted = t?.status === 'completed';
+
+  useEffect(() => {
+    if (t) {
+      setEditClanUid(t.clanUid || '');
+      setEditClanLink(t.clanLink || '');
+    }
+  }, [t]);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -149,6 +163,23 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, replyingTo]);
+
+  const handleSaveProtocol = async () => {
+    if (!isAdmin || savingProtocol) return;
+    setSavingProtocol(true);
+    try {
+      await updateDoc(tRef, {
+        clanUid: editClanUid,
+        clanLink: editClanLink,
+        updatedAt: new Date().toISOString()
+      });
+      toast({ title: "PROTOCOL UPDATED", description: "Clan intel secured and deployed." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "UPDATE FAILED" });
+    } finally {
+      setSavingProtocol(false);
+    }
+  };
 
   const triggerConfetti = () => {
     const duration = 5 * 1000;
@@ -471,7 +502,75 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             <>
               <TabsContent value="members" className="mt-4 outline-none"><Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40"><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{registrations?.map((r: any) => (<div key={r.userId} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all"><Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20"><AvatarImage src={r.avatarUrl} /><AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback></Avatar><div className="overflow-hidden"><p className="font-black uppercase text-sm truncate text-white">{r.username}</p><p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p></div></div>))}</div></Card></TabsContent>
               <TabsContent value="chat" className="mt-4 outline-none"><Card className="glass border-white/5 flex flex-col h-[75vh] rounded-[2rem] overflow-hidden bg-black/40">{pinnedMessages.length > 0 && (<div className="bg-primary/10 border-b border-primary/20 p-2 flex items-center gap-3 overflow-x-auto no-scrollbar"><Pin className="w-4 h-4 text-primary shrink-0 ml-2" />{pinnedMessages.map((pm: any) => (<div key={pm.id} className="bg-black/40 px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-2 shrink-0 max-w-[200px]"><p className="text-[10px] font-bold text-white truncate">{pm.text}</p><Button size="icon" variant="ghost" className="h-4 w-4 text-primary" onClick={() => togglePinMessage(pm)}><X className="w-2 h-2" /></Button></div>))}</div>)}<div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">{messages?.map((msg: any) => (<div key={msg.id} className={cn("flex items-start gap-3 group", msg.userId === user?.id ? "flex-row-reverse" : "")}><Avatar className="h-8 w-8 border-2 border-white/10"><AvatarImage src={msg.avatarUrl} /><AvatarFallback className="text-xs">{msg.username[0]}</AvatarFallback></Avatar><div className={cn("max-w-[80%] space-y-1", msg.userId === user?.id ? "items-end flex flex-col" : "")}><div className="flex items-center gap-2 px-1"><span className="text-[9px] font-black uppercase text-muted-foreground">{msg.username}</span>{msg.isAdmin && <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary">ADMIN</Badge>}</div><div className="relative">{msg.replyTo && (<div className="bg-black/30 border-l-4 border-primary/50 p-2 mb-1 rounded-t-lg text-[10px] opacity-80"><p className="font-black text-primary uppercase">{msg.replyTo.username}</p><p className="text-white truncate">{msg.replyTo.text}</p></div>)}<div className={cn("px-4 py-2.5 rounded-2xl text-sm relative", msg.userId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 text-white/90 border border-white/5 rounded-tl-none", msg.isPinned ? "border-primary/50 ring-1 ring-primary/20" : "")}>{msg.text}{msg.isPinned && <Pin className="w-3 h-3 text-primary absolute -top-1.5 -right-1.5 fill-primary" />}</div><div className={cn("absolute -top-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", msg.userId === user?.id ? "right-0" : "left-0")}><Button size="icon" variant="ghost" className="h-6 w-6 rounded-full bg-black/60" onClick={() => setReplyingTo(msg)}><Reply className="w-3 h-3" /></Button>{isAdmin && (<Button size="icon" variant="ghost" className={cn("h-6 w-6 rounded-full bg-black/60", msg.isPinned ? "text-primary" : "")} onClick={() => togglePinMessage(msg)}><Pin className="w-3 h-3" /></Button>)}</div></div></div></div>))}</div><div className="p-4 border-t border-white/5 bg-black/40 space-y-3">{replyingTo && (<div className="bg-white/5 border-l-4 border-primary p-3 rounded-lg flex items-center justify-between"><div className="overflow-hidden"><p className="text-[10px] font-black text-primary uppercase">Replying to {replyingTo.username}</p><p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p></div><Button size="icon" variant="ghost" onClick={() => setReplyingTo(null)}><X className="w-4 h-4" /></Button></div>)}<form onSubmit={handleSendMessage} className="flex gap-3 relative"><div className="flex-1 relative"><Input value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder={isTournamentCompleted && !isAdmin ? "Arena archived. Chat is locked." : cooldown > 0 && !isAdmin ? `Wait ${cooldown}s...` : "Type a message..."} className="bg-white/5 rounded-xl h-12 pr-12" disabled={(cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)} />{cooldown > 0 && !isAdmin && !isTournamentCompleted && (<div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-primary"><Clock className="w-3.5 h-3.5 animate-spin" /><span className="text-[10px] font-black">{cooldown}s</span></div>)}{isTournamentCompleted && !isAdmin && (<div className="absolute right-3 top-1/2 -translate-y-1/2"><Lock className="w-4 h-4 text-muted-foreground" /></div>)}</div><Button type="submit" size="icon" className="h-12 w-12 bg-primary rounded-xl shrink-0" disabled={!messageText.trim() || (cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}><Send className="w-5 h-5" /></Button></form></div></Card></TabsContent>
-              <TabsContent value="protocol" className="mt-4 outline-none"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Card className="glass border-white/5 rounded-[2rem] overflow-hidden bg-black/40 p-8 space-y-8"><h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><Monitor className="text-primary" /> War Clan Access</h3><div className="bg-black/60 rounded-2xl p-6 border border-white/5 space-y-6"><div className="flex justify-between items-center border-b border-white/5 pb-4"><span className="text-[10px] font-black uppercase text-muted-foreground">War Clan Tag</span><span className="text-lg font-black text-primary uppercase">{t?.clanUid || 'AWAITING ADMIN'}</span></div>{t?.clanLink && (<Button asChild className="w-full h-14 bg-green-600 font-black uppercase rounded-xl shadow-xl"><a href={t.clanLink} target="_blank">JOIN CLAN PROTOCOL <ArrowRight className="ml-2 w-4 h-4" /></a></Button>)}</div></Card><Card className="glass border-white/5 rounded-[2rem] bg-black/40 p-8 space-y-8"><h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><ShieldAlert className="text-primary" /> War Protocols</h3><div className="space-y-4">{t?.rules?.map((rule: string, i: number) => (<div key={i} className="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5"><span className="text-primary font-black">{(i+1)}</span><p className="text-sm font-medium text-white/80">{rule}</p></div>))}</div></Card></div></TabsContent>
+              <TabsContent value="protocol" className="mt-4 outline-none">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="glass border-white/5 rounded-[2rem] overflow-hidden bg-black/40 p-8 space-y-8">
+                    <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><Monitor className="text-primary" /> War Clan Access</h3>
+                    <div className="bg-black/60 rounded-2xl p-6 border border-white/5 space-y-6">
+                      {isAdmin ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">War Clan Tag</Label>
+                            <Input 
+                              value={editClanUid} 
+                              onChange={(e) => setEditClanUid(e.target.value)} 
+                              placeholder="e.g. #ABC123XY"
+                              className="bg-white/5 h-12 uppercase"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Invite Link</Label>
+                            <div className="relative">
+                              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                              <Input 
+                                value={editClanLink} 
+                                onChange={(e) => setEditClanLink(e.target.value)} 
+                                placeholder="https://link.clashofclans.com/..."
+                                className="bg-white/5 h-12 pl-10"
+                              />
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={handleSaveProtocol} 
+                            disabled={savingProtocol}
+                            className="w-full h-12 bg-primary font-black uppercase rounded-xl glow-primary"
+                          >
+                            {savingProtocol ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE PROTOCOL
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                            <span className="text-[10px] font-black uppercase text-muted-foreground">War Clan Tag</span>
+                            <span className="text-lg font-black text-primary uppercase">{t?.clanUid || 'AWAITING ADMIN'}</span>
+                          </div>
+                          {t?.clanLink && (
+                            <Button asChild className="w-full h-14 bg-green-600 font-black uppercase rounded-xl shadow-xl glow-primary">
+                              <a href={t.clanLink} target="_blank">JOIN CLAN PROTOCOL <ArrowRight className="ml-2 w-4 h-4" /></a>
+                            </Button>
+                          )}
+                          {!t?.clanLink && (
+                            <div className="text-center py-4 bg-white/5 rounded-xl border border-dashed border-white/10">
+                              <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">Waiting for clan link deployment</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                  <Card className="glass border-white/5 rounded-[2rem] bg-black/40 p-8 space-y-8">
+                    <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><ShieldAlert className="text-primary" /> War Protocols</h3>
+                    <div className="space-y-4">
+                      {t?.rules?.map((rule: string, i: number) => (
+                        <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5 group hover:border-primary/40 transition-all">
+                          <span className="text-primary font-black">{(i+1)}</span>
+                          <p className="text-sm font-medium text-white/80">{rule}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              </TabsContent>
             </>
           )}
         </Tabs>
