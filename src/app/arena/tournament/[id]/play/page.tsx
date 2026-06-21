@@ -35,7 +35,11 @@ import {
   Pin,
   Reply,
   X,
-  Clock
+  Clock,
+  Camera,
+  ImagePlus,
+  AlertCircle,
+  ChevronRight
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment } from 'firebase/firestore';
@@ -48,6 +52,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
+import Image from 'next/image';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -73,6 +79,9 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const messagesQuery = useMemo(() => query(collection(db, 'tournaments', id, 'messages'), orderBy('createdAt', 'asc')), [db, id]);
   const { data: messages } = useCollection(messagesQuery);
 
+  const logsQuery = useMemo(() => query(collection(db, 'tournaments', id, 'battle-logs'), orderBy('createdAt', 'desc')), [db, id]);
+  const { data: battleLogs } = useCollection(logsQuery);
+
   const pinnedMessages = useMemo(() => messages?.filter(m => m.isPinned) || [], [messages]);
 
   const [messageText, setMessageText] = useState('');
@@ -86,6 +95,12 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [demoMatches, setDemoMatches] = useState<any[]>([]);
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Battle Log States
+  const [logImageUrl, setLogImageUrl] = useState('');
+  const [logCaption, setLogCaption] = useState('');
+  const [uploadingLog, setUploadingLog] = useState(false);
+  const logInputRef = useRef<HTMLInputElement>(null);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
@@ -161,13 +176,11 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     e.preventDefault();
     if (!user || !messageText.trim() || !hasFullAccess) return;
 
-    // Lock chat for non-admins if tournament is completed
     if (isTournamentCompleted && !isAdmin) {
       toast({ variant: "destructive", title: "ARENA ARCHIVED", description: "Chat is locked for this battlefield." });
       return;
     }
 
-    // Check cooldown for non-admins
     if (!isAdmin) {
       const now = Date.now();
       if (now - lastSentTime < 10000) {
@@ -207,6 +220,40 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     const msgRef = doc(db, 'tournaments', id, 'messages', msg.id);
     await updateDoc(msgRef, { isPinned: !msg.isPinned });
     toast({ title: msg.isPinned ? "UNPINNED" : "PINNED" });
+  };
+
+  const handleLogUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !isAdmin) return;
+    setUploadingLog(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setLogImageUrl(data.secure_url);
+        toast({ title: "LOG PHOTO READY" });
+      }
+    } finally {
+      setUploadingLog(false);
+    }
+  };
+
+  const saveBattleLog = async () => {
+    if (!isAdmin || !logImageUrl || !logCaption.trim()) return;
+    const logData = {
+      imageUrl: logImageUrl,
+      caption: logCaption,
+      uploadedBy: profile?.username || user?.firstName || 'Admin',
+      createdAt: new Date().toISOString()
+    };
+    await addDoc(collection(db, 'tournaments', id, 'battle-logs'), logData);
+    setLogImageUrl('');
+    setLogCaption('');
+    toast({ title: "BATTLE LOG DEPLOYED" });
   };
 
   const generateFixtures = async () => {
@@ -252,7 +299,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           }
         }
       }
-      toast({ title: "BRACKET DEPLOYED", description: "Warriors matched." });
+      toast({ title: "BRACKET DEPLOYED" });
     } catch (e) {
       toast({ variant: "destructive", title: "GENERATION FAILED" });
     } finally {
@@ -268,20 +315,12 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         if (m.id === match.id) return { ...m, winnerId };
         if (m.id === match.nextMatchId) {
           const isP1 = match.matchIndex % 2 === 0;
-          return { 
-            ...m, 
-            [isP1 ? 'player1Id' : 'player2Id']: winnerId, 
-            [isP1 ? 'player1Name' : 'player2Name']: winnerName 
-          };
+          return { ...m, [isP1 ? 'player1Id' : 'player2Id']: winnerId, [isP1 ? 'player1Name' : 'player2Name']: winnerName };
         }
         return m;
       });
       setDemoMatches(updated);
-      
-      if (match.round === totalRounds) {
-        triggerConfetti();
-        toast({ title: "DEMO VICTORY", description: `${winnerName} is the Champion!` });
-      }
+      if (match.round === totalRounds) { triggerConfetti(); }
       return;
     }
 
@@ -292,13 +331,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       const isPlayer1 = match.matchIndex % 2 === 0;
       await updateDoc(nextRef, { [isPlayer1 ? 'player1Id' : 'player2Id']: winnerId, [isPlayer1 ? 'player1Name' : 'player2Name']: winnerName });
     }
-    
-    if (match.round === totalRounds) {
-      triggerConfetti();
-      toast({ title: "ARENA CHAMPION", description: `${winnerName} has claimed the crown!` });
-    } else {
-      toast({ title: "RESULT RECORDED", description: `${winnerName} advanced.` });
-    }
+    if (match.round === totalRounds) { triggerConfetti(); }
   };
 
   const endTournament = async () => {
@@ -390,6 +423,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           {!isFullscreen && (
             <TabsList className="bg-muted/30 border border-white/5 w-full justify-start overflow-x-auto no-scrollbar h-14 p-1">
               <TabsTrigger value="fixtures" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Swords className="w-4 h-4 mr-2" /> Bracket</TabsTrigger>
+              <TabsTrigger value="logs" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Camera className="w-4 h-4 mr-2" /> Battle Logs</TabsTrigger>
               
               {hasFullAccess ? (
                 <>
@@ -406,11 +440,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           )}
 
           <TabsContent value="fixtures" className={cn("mt-4 outline-none relative group", isFullscreen ? "m-0 h-full" : "h-[80vh]")}>
-            <Card className={cn(
-              "glass border-white/5 relative overflow-hidden bg-[#0a0a0a] shadow-2xl transition-all duration-300",
-              isFullscreen ? "h-full rounded-none border-0" : "h-full rounded-[2.5rem]"
-            )}>
-               {/* Controls Bar */}
+            <Card className={cn("glass border-white/5 relative overflow-hidden bg-[#0a0a0a] shadow-2xl transition-all duration-300", isFullscreen ? "h-full rounded-none border-0" : "h-full rounded-[2.5rem]")}>
                <div className="absolute top-6 left-6 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl">
                  <Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.max(0.4, prev - 0.2))}><Minus className="w-4 h-4" /></Button>
                  <span className="text-[10px] font-black text-white w-12 text-center">{Math.round(zoom * 100)}%</span>
@@ -418,41 +448,23 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                  <div className="w-[1px] h-4 bg-white/20 mx-1" />
                  <Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(1)}><Monitor className="w-4 h-4" /></Button>
                  <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                 <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className={cn("h-9 w-9 text-white hover:bg-white/10", isFullscreen ? "text-primary" : "")} 
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                  >
-                    {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                  </Button>
+                 <Button size="icon" variant="ghost" className={cn("h-9 w-9 text-white hover:bg-white/10", isFullscreen ? "text-primary" : "")} onClick={() => setIsFullscreen(!isFullscreen)}>{isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</Button>
                </div>
-
                <div className="absolute top-6 right-6 z-50">
                  <Badge variant="outline" className="bg-primary/20 border-primary/40 text-primary font-black uppercase tracking-widest px-4 py-2 flex items-center gap-2 shadow-xl backdrop-blur-md">
                    {demoSize ? `DEMO: ${demoSize} WARRIORS` : <><Move className="w-4 h-4 animate-pulse" /> Battlefield View</>}
                  </Badge>
                </div>
-
                <ScrollArea className="h-full w-full">
-                 <div 
-                   className="p-40 min-w-max min-h-full transition-transform duration-300 origin-top-left"
-                   style={{ transform: `scale(${zoom})` }}
-                 >
+                 <div className="p-40 min-w-max min-h-full transition-transform duration-300 origin-top-left" style={{ transform: `scale(${zoom})` }}>
                     <div className="flex gap-40 items-center relative z-10">
                       {Array.from({ length: totalRounds }).map((_, rIdx) => {
                         const roundNum = rIdx + 1;
                         const roundMatches = matches?.filter((m: any) => m.round === roundNum) || [];
                         if (roundMatches.length === 0 && matches.length > 0) return null;
-
                         return (
                           <div key={roundNum} className="flex flex-col justify-around gap-20 relative">
-                            <div className="text-center mb-10">
-                              <Badge className="bg-white/5 text-white/40 border-white/10 uppercase font-black text-[10px] px-6 py-2 rounded-full tracking-widest">
-                                {roundNum === totalRounds ? 'Grand Final' : `Round ${roundNum}`}
-                              </Badge>
-                            </div>
-                            
+                            <div className="text-center mb-10"><Badge className="bg-white/5 text-white/40 border-white/10 uppercase font-black text-[10px] px-6 py-2 rounded-full tracking-widest">{roundNum === totalRounds ? 'Grand Final' : `Round ${roundNum}`}</Badge></div>
                             {roundMatches.map((m: any, mIdx: number) => (
                               <div key={m.id || mIdx} className="relative flex items-center">
                                 <div className="w-64 space-y-2 z-30 relative">
@@ -461,70 +473,19 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                     const pName = pIdx === 1 ? m.player1Name : m.player2Name;
                                     const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
                                     const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-
                                     return (
-                                      <div 
-                                        key={pIdx} 
-                                        onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)}
-                                        className={cn(
-                                          "h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all",
-                                          isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default",
-                                          isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : 
-                                          isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10"
-                                        )}
-                                      >
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                          <div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} />
-                                          <span className={cn(
-                                            "text-sm font-black uppercase truncate",
-                                            isWinner || isLoser ? "text-white" : "text-white/60"
-                                          )}>
-                                            {pName || 'TBD'}
-                                          </span>
-                                        </div>
-                                        {isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}
-                                        {isLoser && <XCircle className="w-4 h-4 text-white/40" />}
+                                      <div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default", isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10")}>
+                                        <div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>
+                                        {isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}
                                       </div>
                                     );
                                   })}
                                 </div>
-                                
                                 {roundNum < totalRounds && (
-                                  <svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible">
-                                    <path 
-                                      d={`M 0 200 L 40 200 L 40 ${mIdx % 2 === 0 ? 300 : 100} L 80 ${mIdx % 2 === 0 ? 300 : 100}`}
-                                      fill="none" 
-                                      stroke="currentColor" 
-                                      strokeWidth="2.5"
-                                      className="text-white/10"
-                                    />
-                                  </svg>
+                                  <svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible"><path d={`M 0 200 L 40 200 L 40 ${mIdx % 2 === 0 ? 300 : 100} L 80 ${mIdx % 2 === 0 ? 300 : 100}`} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" /></svg>
                                 )}
-
                                 {roundNum === totalRounds && (
-                                  <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center gap-10 ml-20">
-                                     <div className="w-20 h-0.5 bg-primary/20" />
-                                     <div className="flex flex-col items-center gap-3">
-                                       {winnerInfo && (
-                                         <p className="text-[10px] font-black uppercase text-yellow-500 animate-bounce tracking-[0.3em]">CHAMPION</p>
-                                       )}
-                                       <div className={cn(
-                                         "h-36 w-36 rounded-[2rem] border-4 flex flex-col items-center justify-center bg-black transition-all duration-700 relative",
-                                         winnerInfo ? "border-yellow-500 shadow-[0_0_80px_rgba(234,179,8,0.5)] scale-110" : "border-white/10 grayscale opacity-30"
-                                       )}>
-                                          <div className={cn(
-                                            "absolute -top-6 -right-6 h-12 w-12 rounded-full flex items-center justify-center bg-yellow-500 shadow-2xl transition-transform",
-                                            winnerInfo ? "scale-100 rotate-12" : "scale-0"
-                                          )}>
-                                            <Crown className="w-6 h-6 text-black" />
-                                          </div>
-                                          <Crown className={cn("w-14 h-14 mb-2", winnerInfo ? "text-yellow-500" : "text-white/10")} />
-                                          <p className="text-xs font-black uppercase text-white truncate max-w-[120px] mt-1 text-center">
-                                            {winnerInfo?.name || 'AWAITING'}
-                                          </p>
-                                       </div>
-                                     </div>
-                                  </div>
+                                  <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center gap-10 ml-20"><div className="w-20 h-0.5 bg-primary/20" /><div className="flex flex-col items-center gap-3">{winnerInfo && (<p className="text-[10px] font-black uppercase text-yellow-500 animate-bounce tracking-[0.3em]">CHAMPION</p>)}<div className={cn("h-36 w-36 rounded-[2rem] border-4 flex flex-col items-center justify-center bg-black transition-all duration-700 relative", winnerInfo ? "border-yellow-500 shadow-[0_0_80px_rgba(234,179,8,0.5)] scale-110" : "border-white/10 grayscale opacity-30")}><div className={cn("absolute -top-6 -right-6 h-12 w-12 rounded-full flex items-center justify-center bg-yellow-500 shadow-2xl transition-transform", winnerInfo ? "scale-100 rotate-12" : "scale-0")}><Crown className="w-6 h-6 text-black" /></div><Crown className={cn("w-14 h-14 mb-2", winnerInfo ? "text-yellow-500" : "text-white/10")} /><p className="text-xs font-black uppercase text-white truncate max-w-[120px] mt-1 text-center">{winnerInfo?.name || 'AWAITING'}</p></div></div></div>
                                 )}
                               </div>
                             ))}
@@ -533,180 +494,92 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                       })}
                     </div>
                  </div>
-                 <ScrollBar orientation="horizontal" className="bg-white/5 h-3" />
-                 <ScrollBar orientation="vertical" className="bg-white/5 w-3" />
+                 <ScrollBar orientation="horizontal" className="bg-white/5 h-3" /><ScrollBar orientation="vertical" className="bg-white/5 w-3" />
                </ScrollArea>
                <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
             </Card>
           </TabsContent>
 
+          <TabsContent value="logs" className="mt-4 outline-none">
+            <div className="flex flex-col gap-8">
+              {isAdmin && (
+                <Card className="glass border-primary/20 bg-primary/5 p-8 rounded-[2rem]">
+                  <h3 className="font-headline text-xl font-black uppercase italic mb-6 flex items-center gap-3"><Camera className="text-primary" /> COMMANDER LOG UPLOAD</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Battle Screenshot</Label>
+                      <div className="relative cursor-pointer group" onClick={() => logInputRef.current?.click()}>
+                        {logImageUrl ? (
+                          <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-2 border-primary/40">
+                            <Image src={logImageUrl} alt="Log Preview" fill className="object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><ImagePlus className="w-8 h-8 text-white" /></div>
+                          </div>
+                        ) : (
+                          <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all">
+                            {uploadingLog ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground" />}
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Select Screenshot</p>
+                          </div>
+                        )}
+                        <input type="file" ref={logInputRef} className="hidden" accept="image/*" onChange={handleLogUpload} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col justify-between py-2">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Battle Caption</Label>
+                        <Input value={logCaption} onChange={(e) => setLogCaption(e.target.value)} placeholder="e.g. Round 1 Epic Destruction by Marco" className="bg-white/5 h-12" />
+                      </div>
+                      <Button onClick={saveBattleLog} disabled={!logImageUrl || !logCaption.trim() || uploadingLog} className="w-full h-14 bg-primary font-black uppercase rounded-xl mt-4 glow-primary">
+                        {uploadingLog ? <Loader2 className="animate-spin" /> : <Plus className="w-5 h-5 mr-2" />} DEPLOY BATTLE LOG
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40 min-h-[400px] flex flex-col">
+                <h3 className="font-headline text-2xl font-black uppercase italic tracking-tighter mb-8 flex items-center gap-3"><Zap className="text-primary" /> BATTLE LEDGER</h3>
+                
+                {!battleLogs || battleLogs.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+                    <AlertCircle className="w-16 h-16 text-muted-foreground" />
+                    <p className="font-black uppercase tracking-[0.3em] text-sm">No Battle Logs Detected</p>
+                  </div>
+                ) : (
+                  <div className="px-10">
+                    <Carousel className="w-full max-w-4xl mx-auto">
+                      <CarouselContent>
+                        {battleLogs.map((log: any) => (
+                          <CarouselItem key={log.id}>
+                            <div className="relative aspect-video w-full rounded-3xl overflow-hidden border border-white/10 group">
+                              <Image src={log.imageUrl} alt={log.caption} fill className="object-cover" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
+                              <div className="absolute bottom-0 left-0 right-0 p-8">
+                                <Badge className="bg-primary mb-2 shadow-lg">BATTLE RECORD</Badge>
+                                <h4 className="text-2xl font-black uppercase italic text-white drop-shadow-2xl">{log.caption}</h4>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1">Logged by {log.uploadedBy}</p>
+                              </div>
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <CarouselPrevious className="h-12 w-12 bg-black/60 border-primary/40 text-primary" />
+                      <CarouselNext className="h-12 w-12 bg-black/60 border-primary/40 text-primary" />
+                    </Carousel>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </TabsContent>
+
           {(!isFullscreen && hasFullAccess) && (
             <>
               <TabsContent value="members" className="mt-4 outline-none">
-                <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {registrations?.map((r: any) => (
-                      <div key={r.userId} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all">
-                        <Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20">
-                          <AvatarImage src={r.avatarUrl} />
-                          <AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="overflow-hidden">
-                          <p className="font-black uppercase text-sm truncate text-white">{r.username}</p>
-                          <p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+                <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40"><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{registrations?.map((r: any) => (<div key={r.userId} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all"><Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20"><AvatarImage src={r.avatarUrl} /><AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback></Avatar><div className="overflow-hidden"><p className="font-black uppercase text-sm truncate text-white">{r.username}</p><p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p></div></div>))}</div></Card>
               </TabsContent>
-
               <TabsContent value="chat" className="mt-4 outline-none">
-                <Card className="glass border-white/5 flex flex-col h-[75vh] rounded-[2rem] overflow-hidden bg-black/40">
-                  {/* Pinned Messages Header */}
-                  {pinnedMessages.length > 0 && (
-                    <div className="bg-primary/10 border-b border-primary/20 p-2 flex items-center gap-3 overflow-x-auto no-scrollbar">
-                      <Pin className="w-4 h-4 text-primary shrink-0 ml-2" />
-                      {pinnedMessages.map((pm: any) => (
-                        <div key={pm.id} className="bg-black/40 px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-2 shrink-0 max-w-[200px]">
-                          <p className="text-[10px] font-bold text-white truncate">{pm.text}</p>
-                          <Button size="icon" variant="ghost" className="h-4 w-4 text-primary" onClick={() => togglePinMessage(pm)}><X className="w-2 h-2" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-                    {messages?.map((msg: any) => (
-                      <div key={msg.id} className={cn("flex items-start gap-3 group", msg.userId === user?.id ? "flex-row-reverse" : "")}>
-                        <Avatar className="h-8 w-8 border-2 border-white/10">
-                          <AvatarImage src={msg.avatarUrl} />
-                          <AvatarFallback className="text-xs">{msg.username[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className={cn("max-w-[80%] space-y-1", msg.userId === user?.id ? "items-end flex flex-col" : "")}>
-                          <div className="flex items-center gap-2 px-1">
-                            <span className="text-[9px] font-black uppercase text-muted-foreground">{msg.username}</span>
-                            {msg.isAdmin && <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary">ADMIN</Badge>}
-                          </div>
-                          
-                          <div className="relative">
-                            {/* Reply Preview */}
-                            {msg.replyTo && (
-                              <div className="bg-black/30 border-l-4 border-primary/50 p-2 mb-1 rounded-t-lg text-[10px] opacity-80">
-                                <p className="font-black text-primary uppercase">{msg.replyTo.username}</p>
-                                <p className="text-white truncate">{msg.replyTo.text}</p>
-                              </div>
-                            )}
-                            
-                            <div className={cn(
-                              "px-4 py-2.5 rounded-2xl text-sm relative",
-                              msg.userId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 text-white/90 border border-white/5 rounded-tl-none",
-                              msg.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""
-                            )}>
-                              {msg.text}
-                              {msg.isPinned && <Pin className="w-3 h-3 text-primary absolute -top-1.5 -right-1.5 fill-primary" />}
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className={cn(
-                              "absolute -top-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
-                              msg.userId === user?.id ? "right-0" : "left-0"
-                            )}>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full bg-black/60" onClick={() => setReplyingTo(msg)}><Reply className="w-3 h-3" /></Button>
-                              {isAdmin && (
-                                <Button size="icon" variant="ghost" className={cn("h-6 w-6 rounded-full bg-black/60", msg.isPinned ? "text-primary" : "")} onClick={() => togglePinMessage(msg)}>
-                                  <Pin className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Input Area */}
-                  <div className="p-4 border-t border-white/5 bg-black/40 space-y-3">
-                    {replyingTo && (
-                      <div className="bg-white/5 border-l-4 border-primary p-3 rounded-lg flex items-center justify-between">
-                        <div className="overflow-hidden">
-                          <p className="text-[10px] font-black text-primary uppercase">Replying to {replyingTo.username}</p>
-                          <p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => setReplyingTo(null)}><X className="w-4 h-4" /></Button>
-                      </div>
-                    )}
-                    
-                    <form onSubmit={handleSendMessage} className="flex gap-3 relative">
-                      <div className="flex-1 relative">
-                        <Input 
-                          value={messageText} 
-                          onChange={(e) => setMessageText(e.target.value)} 
-                          placeholder={
-                            isTournamentCompleted && !isAdmin 
-                              ? "Arena archived. Chat is locked." 
-                              : cooldown > 0 && !isAdmin 
-                                ? `Wait ${cooldown}s...` 
-                                : "Type a message..."
-                          } 
-                          className="bg-white/5 rounded-xl h-12 pr-12"
-                          disabled={(cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}
-                        />
-                        {cooldown > 0 && !isAdmin && !isTournamentCompleted && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-primary">
-                            <Clock className="w-3.5 h-3.5 animate-spin" />
-                            <span className="text-[10px] font-black">{cooldown}s</span>
-                          </div>
-                        )}
-                        {isTournamentCompleted && !isAdmin && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <Lock className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <Button 
-                        type="submit" 
-                        size="icon" 
-                        className="h-12 w-12 bg-primary rounded-xl shrink-0" 
-                        disabled={!messageText.trim() || (cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}
-                      >
-                        <Send className="w-5 h-5" />
-                      </Button>
-                    </form>
-                  </div>
-                </Card>
+                <Card className="glass border-white/5 flex flex-col h-[75vh] rounded-[2rem] overflow-hidden bg-black/40">{pinnedMessages.length > 0 && (<div className="bg-primary/10 border-b border-primary/20 p-2 flex items-center gap-3 overflow-x-auto no-scrollbar"><Pin className="w-4 h-4 text-primary shrink-0 ml-2" />{pinnedMessages.map((pm: any) => (<div key={pm.id} className="bg-black/40 px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-2 shrink-0 max-w-[200px]"><p className="text-[10px] font-bold text-white truncate">{pm.text}</p><Button size="icon" variant="ghost" className="h-4 w-4 text-primary" onClick={() => togglePinMessage(pm)}><X className="w-2 h-2" /></Button></div>))}</div>)}<div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">{messages?.map((msg: any) => (<div key={msg.id} className={cn("flex items-start gap-3 group", msg.userId === user?.id ? "flex-row-reverse" : "")}><Avatar className="h-8 w-8 border-2 border-white/10"><AvatarImage src={msg.avatarUrl} /><AvatarFallback className="text-xs">{msg.username[0]}</AvatarFallback></Avatar><div className={cn("max-w-[80%] space-y-1", msg.userId === user?.id ? "items-end flex flex-col" : "")}><div className="flex items-center gap-2 px-1"><span className="text-[9px] font-black uppercase text-muted-foreground">{msg.username}</span>{msg.isAdmin && <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary">ADMIN</Badge>}</div><div className="relative">{msg.replyTo && (<div className="bg-black/30 border-l-4 border-primary/50 p-2 mb-1 rounded-t-lg text-[10px] opacity-80"><p className="font-black text-primary uppercase">{msg.replyTo.username}</p><p className="text-white truncate">{msg.replyTo.text}</p></div>)}<div className={cn("px-4 py-2.5 rounded-2xl text-sm relative", msg.userId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 text-white/90 border border-white/5 rounded-tl-none", msg.isPinned ? "border-primary/50 ring-1 ring-primary/20" : "")}>{msg.text}{msg.isPinned && <Pin className="w-3 h-3 text-primary absolute -top-1.5 -right-1.5 fill-primary" />}</div><div className={cn("absolute -top-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", msg.userId === user?.id ? "right-0" : "left-0")}><Button size="icon" variant="ghost" className="h-6 w-6 rounded-full bg-black/60" onClick={() => setReplyingTo(msg)}><Reply className="w-3 h-3" /></Button>{isAdmin && (<Button size="icon" variant="ghost" className={cn("h-6 w-6 rounded-full bg-black/60", msg.isPinned ? "text-primary" : "")} onClick={() => togglePinMessage(msg)}><Pin className="w-3 h-3" /></Button>)}</div></div></div></div>))}</div><div className="p-4 border-t border-white/5 bg-black/40 space-y-3">{replyingTo && (<div className="bg-white/5 border-l-4 border-primary p-3 rounded-lg flex items-center justify-between"><div className="overflow-hidden"><p className="text-[10px] font-black text-primary uppercase">Replying to {replyingTo.username}</p><p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p></div><Button size="icon" variant="ghost" onClick={() => setReplyingTo(null)}><X className="w-4 h-4" /></Button></div>)}<form onSubmit={handleSendMessage} className="flex gap-3 relative"><div className="flex-1 relative"><Input value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder={isTournamentCompleted && !isAdmin ? "Arena archived. Chat is locked." : cooldown > 0 && !isAdmin ? `Wait ${cooldown}s...` : "Type a message..."} className="bg-white/5 rounded-xl h-12 pr-12" disabled={(cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)} />{cooldown > 0 && !isAdmin && !isTournamentCompleted && (<div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-primary"><Clock className="w-3.5 h-3.5 animate-spin" /><span className="text-[10px] font-black">{cooldown}s</span></div>)}{isTournamentCompleted && !isAdmin && (<div className="absolute right-3 top-1/2 -translate-y-1/2"><Lock className="w-4 h-4 text-muted-foreground" /></div>)}</div><Button type="submit" size="icon" className="h-12 w-12 bg-primary rounded-xl shrink-0" disabled={!messageText.trim() || (cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}><Send className="w-5 h-5" /></Button></form></div></Card>
               </TabsContent>
-
-              <TabsContent value="protocol" className="mt-4 outline-none">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card className="glass border-white/5 rounded-[2rem] overflow-hidden bg-black/40 p-8 space-y-8">
-                      <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><Monitor className="text-primary" /> War Clan Access</h3>
-                      <div className="bg-black/60 rounded-2xl p-6 border border-white/5 space-y-6">
-                         <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                           <span className="text-[10px] font-black uppercase text-muted-foreground">War Clan Tag</span>
-                           <span className="text-lg font-black text-primary uppercase">{t?.clanUid || 'AWAITING ADMIN'}</span>
-                         </div>
-                         {t?.clanLink && (
-                           <Button asChild className="w-full h-14 bg-green-600 font-black uppercase rounded-xl shadow-xl">
-                              <a href={t.clanLink} target="_blank">JOIN CLAN PROTOCOL <ArrowRight className="ml-2 w-4 h-4" /></a>
-                           </Button>
-                         )}
-                      </div>
-                    </Card>
-
-                    <Card className="glass border-white/5 rounded-[2rem] bg-black/40 p-8 space-y-8">
-                       <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><ShieldAlert className="text-primary" /> War Protocols</h3>
-                       <div className="space-y-4">
-                        {t?.rules?.map((rule: string, i: number) => (
-                          <div key={i} className="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
-                             <span className="text-primary font-black">{(i+1)}</span>
-                             <p className="text-sm font-medium text-white/80">{rule}</p>
-                          </div>
-                        ))}
-                       </div>
-                    </Card>
-                 </div>
-              </TabsContent>
+              <TabsContent value="protocol" className="mt-4 outline-none"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Card className="glass border-white/5 rounded-[2rem] overflow-hidden bg-black/40 p-8 space-y-8"><h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><Monitor className="text-primary" /> War Clan Access</h3><div className="bg-black/60 rounded-2xl p-6 border border-white/5 space-y-6"><div className="flex justify-between items-center border-b border-white/5 pb-4"><span className="text-[10px] font-black uppercase text-muted-foreground">War Clan Tag</span><span className="text-lg font-black text-primary uppercase">{t?.clanUid || 'AWAITING ADMIN'}</span></div>{t?.clanLink && (<Button asChild className="w-full h-14 bg-green-600 font-black uppercase rounded-xl shadow-xl"><a href={t.clanLink} target="_blank">JOIN CLAN PROTOCOL <ArrowRight className="ml-2 w-4 h-4" /></a></Button>)}</div></Card><Card className="glass border-white/5 rounded-[2rem] bg-black/40 p-8 space-y-8"><h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3"><ShieldAlert className="text-primary" /> War Protocols</h3><div className="space-y-4">{t?.rules?.map((rule: string, i: number) => (<div key={i} className="flex gap-4 p-4 bg-white/5 rounded-xl border border-white/5"><span className="text-primary font-black">{(i+1)}</span><p className="text-sm font-medium text-white/80">{rule}</p></div>))}</div></Card></div></TabsContent>
             </>
           )}
         </Tabs>
@@ -722,18 +595,7 @@ function DropdownDemo({ onSelect, current }: { onSelect: (size: number | null) =
       <span className="text-[10px] font-black uppercase text-muted-foreground mr-2">DEMO MODE:</span>
       <div className="flex gap-1">
         {[2, 4, 8, 16, 32, 64].map(size => (
-          <Button 
-            key={size} 
-            size="sm" 
-            variant="ghost" 
-            onClick={() => onSelect(current === size ? null : size)}
-            className={cn(
-              "h-8 px-2 text-[10px] font-black uppercase",
-              current === size ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5"
-            )}
-          >
-            {size}
-          </Button>
+          <Button key={size} size="sm" variant="ghost" onClick={() => onSelect(current === size ? null : size)} className={cn("h-8 px-2 text-[10px] font-black uppercase", current === size ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}>{size}</Button>
         ))}
       </div>
     </div>

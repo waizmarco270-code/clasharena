@@ -74,6 +74,17 @@
       },
       "required": ["tournamentId", "userId", "username", "tag", "registeredAt"]
     },
+    "BattleLog": {
+      "title": "Battle Log",
+      "description": "Screenshot and caption of a match battle.",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User statistics and account information.",
@@ -111,6 +122,10 @@
     "/tournaments/{tournamentId}/registrations/{userId}": {
       "schema": "TournamentRegistration",
       "description": "User registrations for a specific tournament."
+    },
+    "/tournaments/{tournamentId}/battle-logs/{logId}": {
+      "schema": "BattleLog",
+      "description": "Public battlefield screenshots and captions."
     },
     "/users/{userId}": {
       "schema": "UserProfile",
