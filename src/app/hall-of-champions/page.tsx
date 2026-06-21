@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, Medal, Crown, Star, ArrowUpRight, Loader2 } from 'lucide-react';
+import { Trophy, Medal, Crown, Star, ArrowUpRight, Loader2, PackageCheck, Eye, Gift, IndianRupee, Zap, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { doc, query, collection, where, orderBy, limit } from 'firebase/firestor
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function HallOfChampions() {
   const db = useFirestore();
@@ -26,6 +27,12 @@ export default function HallOfChampions() {
 
   const championsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(3)), [db]);
   const { data: topChampions } = useCollection(championsQuery);
+
+  // Victory Proofs Query
+  const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), where('status', '==', 'completed'), orderBy('completedAt', 'desc'), limit(15)), [db]);
+  const { data: proofs } = useCollection(claimsQuery);
+
+  const [selectedProof, setSelectedProof] = useState<string | null>(null);
 
   return (
     <PageWrapper>
@@ -59,35 +66,88 @@ export default function HallOfChampions() {
             ))}
           </div>
 
-          <div className="space-y-6">
-            <h2 className="font-headline text-2xl font-bold flex items-center gap-3"><Star className="text-primary fill-primary" /> BATTLE LEDGER</h2>
-            <div className="glass rounded-2xl overflow-hidden border-border/50 dark:border-white/5">
-              <Table>
-                <TableHeader className="bg-muted/10">
-                  <TableRow className="border-border/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Tournament</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Champion</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Arena</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Prize Won</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">View</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {completedTournaments?.map((t: any) => (
-                    <TableRow key={t.id} className="border-border/10 hover:bg-muted/5 transition-colors">
-                      <TableCell className="font-medium">{t.name}</TableCell>
-                      <TableCell><div className="flex items-center gap-2"><span className="font-black text-yellow-500 uppercase">{t.winnerName}</span></div></TableCell>
-                      <TableCell><Badge variant="outline" className="border-border/20 uppercase font-black">{t.subCategory}</Badge></TableCell>
-                      <TableCell className="font-bold text-primary">{t.prizePool}</TableCell>
-                      <TableCell className="text-right"><Link href={`/arena/tournament/${t.id}`}><Button variant="ghost" size="sm"><ArrowUpRight className="w-4 h-4" /></Button></Link></TableCell>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {/* Battle Ledger */}
+            <div className="space-y-6">
+              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter"><Star className="text-primary fill-primary" /> Battle Ledger</h2>
+              <div className="glass rounded-2xl overflow-hidden border-border/50 dark:border-white/5">
+                <Table>
+                  <TableHeader className="bg-muted/10">
+                    <TableRow className="border-border/10 hover:bg-transparent">
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Tournament</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Champion</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Prize</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground text-right">View</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {completedTournaments?.map((t: any) => (
+                      <TableRow key={t.id} className="border-border/10 hover:bg-muted/5 transition-colors">
+                        <TableCell className="font-bold uppercase text-[10px] max-w-[120px] truncate">{t.name}</TableCell>
+                        <TableCell><span className="font-black text-yellow-500 uppercase text-[10px]">{t.winnerName}</span></TableCell>
+                        <TableCell className="font-bold text-primary text-[10px]">{t.prizePool}</TableCell>
+                        <TableCell className="text-right"><Link href={`/arena/tournament/${t.id}`}><Button variant="ghost" size="sm" className="h-8 w-8"><ArrowUpRight className="w-4 h-4" /></Button></Link></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Victory Proofs */}
+            <div className="space-y-6">
+              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter text-green-500"><ShieldCheck className="w-6 h-6" /> Proof of Victory</h2>
+              <div className="glass rounded-2xl overflow-hidden border-border/50 dark:border-white/5">
+                <Table>
+                  <TableHeader className="bg-green-500/5">
+                    <TableRow className="border-border/10 hover:bg-transparent">
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Warrior</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Reward Won</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground text-right">Receipt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {proofs?.map((proof: any) => (
+                      <TableRow key={proof.id} className="border-border/10 hover:bg-muted/5 transition-colors">
+                        <TableCell className="font-black uppercase text-[10px]">{proof.username}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                             {proof.rewardType === 'money' ? <IndianRupee className="w-2.5 h-2.5 text-primary" /> : proof.rewardType === 'coin' ? <Zap className="w-2.5 h-2.5 text-primary" /> : <Gift className="w-2.5 h-2.5 text-primary" />}
+                             <span className="text-[9px] font-black uppercase">{proof.rewardType === 'money' ? proof.rewardValue : proof.rewardItemName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge className="bg-green-600 text-[8px] h-4 font-black">PAID ✅</Badge></TableCell>
+                        <TableCell className="text-right">
+                          {proof.proofImageUrl ? (
+                            <Button size="icon" variant="ghost" onClick={() => setSelectedProof(proof.proofImageUrl)} className="h-8 w-8 text-primary"><Eye className="w-4 h-4" /></Button>
+                          ) : (
+                            <span className="text-[8px] font-bold text-muted-foreground">AUTO-CREDIT</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!proofs || proofs.length === 0) && (
+                      <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground font-black text-[10px] uppercase">Waiting for new champions</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="glass border-white/10 max-w-2xl">
+          <DialogHeader><DialogTitle className="font-headline text-xl uppercase italic">Delivery <span className="text-primary">Receipt</span></DialogTitle></DialogHeader>
+          {selectedProof && (
+            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black">
+              <Image src={selectedProof} alt="Reward Receipt" fill className="object-contain" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

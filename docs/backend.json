@@ -85,6 +85,25 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "RewardClaim": {
+      "title": "Reward Claim",
+      "description": "A request/record for a tournament reward fulfillment.",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "tournamentName": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "rewardType": { "type": "string" },
+        "rewardValue": { "type": "string" },
+        "rewardItemName": { "type": "string" },
+        "rewardImageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "proofImageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User statistics and account information.",
@@ -95,6 +114,7 @@
         "townHall": { "type": "number" },
         "avatarUrl": { "type": "string" },
         "balance": { "type": "number" },
+        "earnings": { "type": "number" },
         "wins": { "type": "number" },
         "tournamentsPlayed": { "type": "number" },
         "isAdmin": { "type": "boolean" },
@@ -126,6 +146,10 @@
     "/tournaments/{tournamentId}/battle-logs/{logId}": {
       "schema": "BattleLog",
       "description": "Public battlefield screenshots and captions."
+    },
+    "/reward-claims/{claimId}": {
+      "schema": "RewardClaim",
+      "description": "Public victory proof ledger and private claim management."
     },
     "/users/{userId}": {
       "schema": "UserProfile",

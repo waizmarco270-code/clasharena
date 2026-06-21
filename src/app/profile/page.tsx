@@ -11,24 +11,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-  Settings, 
   Wallet, 
   Trophy, 
   Swords, 
   Zap, 
   Timer, 
-  ShieldAlert, 
   QrCode, 
   Edit3, 
-  Clock, 
   ShieldCheck,
   Loader2,
   ImagePlus,
   CreditCard,
-  CheckCircle2
+  CheckCircle2,
+  PackageCheck,
+  History,
+  Eye,
+  Gift,
+  IndianRupee
 } from 'lucide-react';
-import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore, useDoc, useCollection } from '@/firebase';
+import { doc, setDoc, query, collection, where, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -55,7 +57,16 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedProof, setSelectedProof] = useState<string | null>(null);
+
   const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
+
+  // Winnings Query
+  const winningsQuery = useMemo(() => {
+    if (!user) return null;
+    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
+  }, [db, user]);
+  const { data: myWinnings } = useCollection(winningsQuery);
 
   useEffect(() => {
     if (!profile?.profileLockedUntil) return;
@@ -92,8 +103,7 @@ export default function ProfilePage() {
       const formDataCld = new FormData();
       formDataCld.append('file', file);
       formDataCld.append('upload_preset', 'ml_default');
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formDataCld });
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formDataCld });
       const data = await res.json();
       if (data.secure_url) { setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url })); toast({ title: "QR Updated!" }); }
     } catch (err) { toast({ variant: "destructive", title: "Upload Failed" }); } finally { setUploading(false); }
@@ -109,10 +119,9 @@ export default function ProfilePage() {
       townHall: parseInt(formData.townHall),
       profileLockedUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
     } : {};
-    const updatedData = { upiId: formData.upiId, upiQrUrl: formData.upiQrUrl, updatedAt: new Date().toISOString(), ...identityUpdate };
-    setDoc(userRef, updatedData, { merge: true })
+    setDoc(userRef, { upiId: formData.upiId, upiQrUrl: formData.upiQrUrl, updatedAt: new Date().toISOString(), ...identityUpdate }, { merge: true })
       .then(() => { setEditOpen(false); toast({ title: "Profile Updated!" }); setIsSubmitting(false); })
-      .catch((err) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' })); setIsSubmitting(false); });
+      .finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -142,13 +151,51 @@ export default function ProfilePage() {
             <Card className="w-full md:w-auto glass border-primary/20 bg-primary/5"><CardContent className="p-6 flex flex-col items-center"><p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Vault Balance</p><div className="flex items-center gap-2 mb-4"><span className="text-3xl font-headline font-black">🪙 {profile?.balance || 0}</span></div><Link href="/wallet" className="w-full"><Button className="w-full bg-white text-black font-black h-10 shadow-lg"><Wallet className="w-4 h-4 mr-2" /> RECHARGE</Button></Link></CardContent></Card>
           </div>
         </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[{ label: 'Tournaments', value: '0', icon: <Swords className="text-blue-500 w-4 h-4" /> }, { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> }, { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> }, { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <ShieldCheck className="text-primary w-4 h-4" /> }].map((stat) => (
+              {[{ label: 'Tournaments', value: profile?.tournamentsPlayed || '0', icon: <Swords className="text-blue-500 w-4 h-4" /> }, { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> }, { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> }, { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <ShieldCheck className="text-primary w-4 h-4" /> }].map((stat) => (
                 <Card key={stat.label} className="glass border-white/5 text-center p-6 group"><div className="flex justify-center mb-3"><div className="p-2 bg-white/5 rounded-xl border border-white/5 group-hover:scale-110 transition-transform">{stat.icon}</div></div><p className="text-2xl font-headline font-black uppercase tracking-tight">{stat.value}</p><p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">{stat.label}</p></Card>
               ))}
             </div>
+
+            {/* Winnings Ledger */}
+            <Card className="glass border-white/5 overflow-hidden">
+               <CardHeader className="border-b border-white/5 bg-white/5"><CardTitle className="font-headline text-lg font-bold flex items-center gap-2 uppercase tracking-tighter"><PackageCheck className="w-5 h-5 text-primary" /> Career Winnings</CardTitle></CardHeader>
+               <CardContent className="p-0">
+                  <ScrollArea className="max-h-[400px]">
+                    {myWinnings && myWinnings.length > 0 ? (
+                       <div className="divide-y divide-white/5">
+                          {myWinnings.map((claim: any) => (
+                            <div key={claim.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                               <div className="flex gap-4 items-center">
+                                  <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                     {claim.rewardType === 'money' ? <IndianRupee className="w-5 h-5 text-primary" /> : claim.rewardType === 'coin' ? <Zap className="w-5 h-5 text-primary" /> : <Gift className="w-5 h-5 text-primary" />}
+                                  </div>
+                                  <div>
+                                     <p className="text-sm font-bold uppercase truncate max-w-[150px]">{claim.tournamentName}</p>
+                                     <p className="text-[10px] text-muted-foreground uppercase font-black">{claim.rewardType === 'money' ? `₹ ${claim.rewardValue}` : claim.rewardItemName}</p>
+                                  </div>
+                               </div>
+                               <div className="flex items-center gap-3">
+                                  <Badge variant={claim.status === 'completed' ? 'default' : 'outline'} className={cn(claim.status === 'completed' ? "bg-green-600" : "border-yellow-500 text-yellow-500", "text-[9px] font-black")}>
+                                     {claim.status === 'completed' ? 'DELIVERED' : 'PENDING'}
+                                  </Badge>
+                                  {claim.proofImageUrl && (
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => setSelectedProof(claim.proofImageUrl)}><Eye className="w-4 h-4" /></Button>
+                                  )}
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    ) : (
+                      <div className="p-10 text-center space-y-2 opacity-40"><Trophy className="w-10 h-10 mx-auto mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">No winnings recorded yet</p></div>
+                    )}
+                  </ScrollArea>
+               </CardContent>
+            </Card>
+
             <Card className="glass border-white/5 overflow-hidden">
               <CardHeader className="border-b border-white/5 bg-white/5"><CardTitle className="font-headline text-lg font-bold flex items-center gap-2 uppercase tracking-tighter"><CreditCard className="w-5 h-5 text-primary" /> Payout Protocol</CardTitle></CardHeader>
               <CardContent className="p-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start"><div className="space-y-6"><div><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-2 block">Active UPI ID</Label><div className="bg-white/5 rounded-xl p-4 border border-white/5 flex items-center justify-between"><span className="font-mono font-bold text-primary">{profile?.upiId || 'Not Configured'}</span><QrCode className="w-4 h-4 text-muted-foreground" /></div></div><div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 flex gap-3"><ShieldCheck className="w-5 h-5 text-blue-500 shrink-0" /><p className="text-[10px] leading-relaxed text-muted-foreground uppercase font-bold">Payouts are processed within 24h.</p></div></div><div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-2 block">Verification QR</Label>{profile?.upiQrUrl ? <div className="relative aspect-square w-full max-w-[200px] mx-auto rounded-2xl overflow-hidden border-2 border-white/10 glow-primary/20"><Image src={profile.upiQrUrl} alt="UPI QR" fill className="object-cover" /></div> : <div className="aspect-square w-full max-w-[200px] mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2"><ImagePlus className="w-8 h-8 text-muted-foreground/30" /><p className="text-[10px] text-muted-foreground uppercase font-bold">No QR Uploaded</p></div>}</div></div></CardContent>
@@ -156,6 +203,18 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="glass border-white/10 max-w-2xl">
+          <DialogHeader><DialogTitle className="font-headline text-xl uppercase">Delivery Proof</DialogTitle></DialogHeader>
+          {selectedProof && (
+            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10">
+              <Image src={selectedProof} alt="Proof" fill className="object-contain bg-black" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="glass max-w-2xl p-0 h-[95vh] flex flex-col">
           <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">EDIT <span className="text-primary">IDENTITY</span></DialogTitle></DialogHeader>
