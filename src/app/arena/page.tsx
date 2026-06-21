@@ -225,7 +225,7 @@ export default function ArenaPage() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  // Simplified query to ensure public visibility and avoid index complexies for now
+  // Simplified query for robustness across devices
   const tournamentQuery = useMemo(() => {
     return query(collection(db, 'tournaments'), orderBy('startTime', 'desc'));
   }, [db]);
@@ -235,19 +235,16 @@ export default function ArenaPage() {
   const filteredTournaments = useMemo(() => {
     if (!allTournaments) return [];
     return allTournaments.filter(t => {
-      // Visibility Check: All and current active category
+      // Visibility Check
       const matchesMain = activeTab === 'all' || t.type === activeTab || (activeTab === 'history' && t.status === 'completed');
       if (!matchesMain) return false;
 
-      // Sub-category check
       const matchesSub = activeSub === 'all' || t.subCategory === activeSub;
       if (!matchesSub) return false;
 
-      // Search and TH filters
       const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTH = thFilter === null || t.townHall === thFilter;
       
-      // If activeTab is not history, don't show completed ones unless strictly requested
       if (activeTab !== 'history' && t.status === 'completed') return false;
 
       return matchesSearch && matchesTH;
@@ -273,15 +270,16 @@ export default function ArenaPage() {
       <div className="relative min-h-screen">
         {bgData?.arena && <div className="fixed inset-0 z-0 pointer-events-none"><Image src={bgData.arena} alt="Arena BG" fill className="object-cover opacity-60 saturate-150" priority /><div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/20 to-background" /></div>}
 
-        <div className="relative z-10 flex flex-col gap-10">
-          {/* Main Category Tabs */}
-          <div className="flex overflow-x-auto no-scrollbar gap-4 pb-2">
+        <div className="relative z-10 flex flex-col gap-6 md:gap-10">
+          
+          {/* Main Category Tabs - Pill Group */}
+          <div className="flex overflow-x-auto no-scrollbar gap-2 md:gap-4 pb-2">
             {mainTabs.map(tab => (
               <Button 
                 key={tab.id} 
                 onClick={() => { setActiveTab(tab.id); setActiveSub('all'); }} 
                 className={cn(
-                  "rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 transition-all border-t border-white/20", 
+                  "rounded-2xl font-black uppercase text-[10px] px-4 md:px-8 h-10 md:h-12 shrink-0 transition-all border-t border-white/20", 
                   activeTab === tab.id ? `${tab.color} text-white glow-primary` : 'bg-muted/40 text-muted-foreground'
                 )}
               >
@@ -292,72 +290,81 @@ export default function ArenaPage() {
           </div>
 
           {activeTab === 'championship' ? (
-            <div className="flex flex-col items-center justify-center py-32 space-y-6 glass border-white/10 rounded-[3rem]">
-               <Zap className="w-20 h-20 text-orange-500 animate-pulse" />
-               <div className="text-center space-y-2">
-                  <h2 className="font-headline text-5xl font-black uppercase italic tracking-tighter">COMING <span className="text-orange-500">SOON</span></h2>
-                  <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">High Stakes Championship Protocol is being initialized</p>
+            <div className="flex flex-col items-center justify-center py-24 md:py-32 space-y-6 glass border-white/10 rounded-[2.5rem] md:rounded-[3rem]">
+               <Zap className="w-16 h-16 md:w-20 md:h-20 text-orange-500 animate-pulse" />
+               <div className="text-center space-y-2 px-4">
+                  <h2 className="font-headline text-4xl md:text-5xl font-black uppercase italic tracking-tighter">COMING <span className="text-orange-500">SOON</span></h2>
+                  <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px] md:text-xs">High Stakes Championship Protocol is being initialized</p>
                </div>
                <Button variant="outline" onClick={() => setActiveTab('all')} className="rounded-full border-orange-500/20 text-orange-500 font-black px-10">GO BACK</Button>
             </div>
           ) : (
             <>
-              {/* Sub Category Carousel */}
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-2">Select Battle Mode</p>
-                <ScrollArea className="w-full whitespace-nowrap">
-                  <div className="flex gap-4 pb-4">
-                    {subCategories.map(sub => (
-                      <Button 
-                        key={sub.id} 
-                        onClick={() => setActiveSub(sub.id)}
-                        variant="outline"
-                        className={cn(
-                          "rounded-xl font-bold uppercase text-[9px] px-6 h-10 shrink-0 transition-all backdrop-blur-md",
-                          activeSub === sub.id ? 'bg-primary border-primary text-white glow-primary' : 'bg-white/5 border-white/5 text-muted-foreground'
-                        )}
-                      >
-                        {sub.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <ScrollBar orientation="horizontal" className="hidden" />
-                </ScrollArea>
-              </div>
-
-              {/* History Button - Silver Style */}
-              <div className="flex justify-start">
+              {/* Secondary Navigation Row: History + Mode Selector */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-3 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-1">Select Battle Mode</p>
+                  <ScrollArea className="w-full whitespace-nowrap">
+                    <div className="flex gap-2 pb-2">
+                      {subCategories.map(sub => (
+                        <Button 
+                          key={sub.id} 
+                          onClick={() => setActiveSub(sub.id)}
+                          variant="outline"
+                          className={cn(
+                            "rounded-xl font-bold uppercase text-[9px] px-4 h-9 shrink-0 transition-all backdrop-blur-md",
+                            activeSub === sub.id ? 'bg-primary border-primary text-white glow-primary' : 'bg-white/5 border-white/5 text-muted-foreground'
+                          )}
+                        >
+                          {sub.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <ScrollBar orientation="horizontal" className="hidden" />
+                  </ScrollArea>
+                </div>
+                
+                {/* Silver History Button - Space Efficient */}
                 <Button 
                   onClick={() => { setActiveTab('history'); setActiveSub('all'); }} 
                   className={cn(
-                    "rounded-2xl font-black uppercase text-[10px] px-8 h-14 shrink-0 transition-all border-t border-white/20 bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-xl hover:scale-105", 
-                    activeTab === 'history' ? 'ring-4 ring-gray-400/30' : ''
+                    "rounded-xl md:rounded-2xl font-black uppercase text-[10px] px-6 h-12 md:h-14 shrink-0 transition-all border-t border-white/20 bg-gradient-to-r from-gray-400 to-gray-600 text-white shadow-lg hover:scale-105 active:scale-95", 
+                    activeTab === 'history' ? 'ring-2 ring-gray-400/50' : ''
                   )}
                 >
                   <History className="w-4 h-4 mr-2" /> ARENA HISTORY
                 </Button>
               </div>
 
-              {/* Search & Filters */}
-              <div className="flex flex-col md:flex-row gap-4">
+              {/* Search & Filter - Modern Flexbox */}
+              <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1 group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input placeholder="Find your arena..." className="pl-12 h-14 bg-muted/20 border-border/50 rounded-2xl font-bold backdrop-blur-md" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <Input placeholder="Find your arena..." className="pl-12 h-12 md:h-14 bg-muted/20 border-border/50 rounded-xl md:rounded-2xl font-bold backdrop-blur-md" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 px-6 rounded-2xl border-border/50 glass gap-2"><Filter className="w-4 h-4" /> {thFilter === null ? 'TH LEVEL' : `TH ${thFilter}`}</Button></DropdownMenuTrigger>
-                  <DropdownMenuContent className="glass border-border/50"><DropdownMenuItem onClick={() => setThFilter(null)}>ALL LEVELS</DropdownMenuItem>{[9,10,11,12,13,14,15,16,17,18].map(th => (<DropdownMenuItem key={th} onClick={() => setThFilter(th)}>TH {th}</DropdownMenuItem>))}</DropdownMenuContent>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-12 md:h-14 px-6 rounded-xl md:rounded-2xl border-border/50 glass gap-2 font-black uppercase text-[10px]">
+                      <Filter className="w-4 h-4" /> {thFilter === null ? 'TH LEVEL' : `TH ${thFilter}`}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="glass border-border/50">
+                    <DropdownMenuItem className="font-bold uppercase text-[10px]" onClick={() => setThFilter(null)}>ALL LEVELS</DropdownMenuItem>
+                    {[9,10,11,12,13,14,15,16,17,18].map(th => (
+                      <DropdownMenuItem key={th} className="font-bold uppercase text-[10px]" onClick={() => setThFilter(th)}>TH {th}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
               {/* Tournament Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-24">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-24">
                 {loading ? Array.from({ length: 6 }).map((_, i) => (<div key={i} className="h-96 w-full rounded-[2rem] bg-muted/20 animate-pulse" />)) : 
                  filteredTournaments.length === 0 ? (
-                   <div className="col-span-full py-32 flex flex-col items-center justify-center text-center space-y-6 glass border-white/5 rounded-[3rem]">
-                     <ShieldAlert className="w-16 h-16 text-muted-foreground/30" />
+                   <div className="col-span-full py-24 md:py-32 flex flex-col items-center justify-center text-center space-y-6 glass border-white/5 rounded-[2.5rem] md:rounded-[3rem] px-4">
+                     <ShieldAlert className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground/30" />
                      <div className="space-y-2">
-                        <h3 className="font-headline text-3xl font-black uppercase italic">No Arenas Detected</h3>
+                        <h3 className="font-headline text-2xl md:text-3xl font-black uppercase italic">No Arenas Detected</h3>
                         <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Adjust filters or check back for new battlegrounds</p>
                      </div>
                    </div>
