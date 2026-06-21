@@ -15,6 +15,7 @@ import { isBefore, isAfter } from 'date-fns';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export default function TournamentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
