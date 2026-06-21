@@ -162,12 +162,22 @@ export default function ArenaPage() {
 
   const tournamentQuery = useMemo(() => {
     let q = query(collection(db, 'tournaments'), orderBy('startTime', 'desc'));
+    
     if (activeTab === 'history') {
       q = query(collection(db, 'tournaments'), where('status', '==', 'completed'), orderBy('startTime', 'desc'));
     } else if (activeTab !== 'all') {
-      q = query(collection(db, 'tournaments'), where('type', '==', activeTab), where('status', '!=', 'completed'), orderBy('status'), orderBy('startTime', 'desc'));
+      q = query(collection(db, 'tournaments'), 
+        where('type', '==', activeTab), 
+        where('status', '!=', 'completed'), 
+        orderBy('status'), 
+        orderBy('startTime', 'desc')
+      );
     } else {
-      q = query(collection(db, 'tournaments'), where('status', '!=', 'completed'), orderBy('startTime', 'desc'));
+      q = query(collection(db, 'tournaments'), 
+        where('status', '!=', 'completed'), 
+        orderBy('status'), 
+        orderBy('startTime', 'desc')
+      );
     }
     return q;
   }, [db, activeTab]);

@@ -94,7 +94,7 @@
   "firestore": {
     "/tournaments/{tournamentId}": {
       "schema": "Tournament",
-      "description": "Public list of all available tournaments. Publicly readable by all users."
+      "description": "Public collection of tournaments. Everyone can read and list all tournaments freely."
     },
     "/tournaments/{tournamentId}/matches/{matchId}": {
       "schema": "TournamentMatch",
