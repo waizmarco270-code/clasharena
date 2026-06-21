@@ -16,7 +16,7 @@ import { format, isBefore, isAfter } from 'date-fns';
 function TournamentCard({ t }: { t: any }) {
   const [countdown, setCountdown] = useState<string>('');
   const [statusText, setStatusText] = useState<string>('');
-  const [statusColor, setStatusColor] = useState<string>('text-primary');
+  const [statusColor, setStatusColor] = useState<string>('text-black');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,27 +29,27 @@ function TournamentCard({ t }: { t: any }) {
         const diff = regStart.getTime() - now.getTime();
         setCountdown(formatDiff(diff));
         setStatusText('REGISTRATION OPENS IN');
-        setStatusColor('text-yellow-500');
+        setStatusColor('text-black');
       } else if (isAfter(now, regStart) && isBefore(now, regEnd)) {
         if (t.currentPlayers >= t.maxPlayers) {
           setCountdown('SOLD OUT');
           setStatusText('ARENA FULL');
-          setStatusColor('text-red-500');
+          setStatusColor('text-red-600');
         } else {
           const diff = regEnd.getTime() - now.getTime();
           setCountdown(formatDiff(diff));
           setStatusText('REGISTRATION ENDS IN');
-          setStatusColor('text-green-500');
+          setStatusColor('text-black');
         }
       } else if (isAfter(now, regEnd) && isBefore(now, battleStart)) {
         const diff = battleStart.getTime() - now.getTime();
         setCountdown(formatDiff(diff));
         setStatusText('BATTLE STARTS IN');
-        setStatusColor('text-primary');
+        setStatusColor('text-black');
       } else {
         setCountdown('BATTLE LIVE');
         setStatusText('ARENA ACTIVE');
-        setStatusColor('text-red-500');
+        setStatusColor('text-red-600');
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -81,7 +81,7 @@ function TournamentCard({ t }: { t: any }) {
   return (
     <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem]">
       {/* Hero Section */}
-      <div className="relative h-60">
+      <div className="relative h-64">
         <Image 
           src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
           alt={t.name} 
@@ -93,24 +93,26 @@ function TournamentCard({ t }: { t: any }) {
         
         {/* Top Badges */}
         <div className="absolute top-4 left-4 flex gap-2">
-          <Badge className="bg-primary px-3 py-1 uppercase font-black text-[10px] tracking-widest rounded-full shadow-lg">
+          <Badge className="bg-primary px-3 py-1 uppercase font-black text-[10px] tracking-widest rounded-full shadow-lg border-t border-white/20">
             {t.subCategory.replace('_', ' ')}
           </Badge>
         </div>
 
-        {/* Live Timer Badge */}
-        <div className="absolute top-4 right-4">
-          <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-xl">
-            <Timer className="w-3.5 h-3.5 text-primary animate-pulse" />
-            <div className="flex flex-col">
-                <span className="text-[7px] font-black text-muted-foreground uppercase leading-none mb-0.5">{statusText}</span>
-                <span className={`text-[11px] font-black ${statusColor} font-mono leading-none`}>{countdown}</span>
-            </div>
-          </div>
+        {/* LEGENDARY PROTOCOL TIMER STRIP */}
+        <div className="absolute bottom-0 left-0 right-0 bg-yellow-500 py-2 flex items-center justify-center gap-3 overflow-hidden shadow-[0_-4px_20px_rgba(234,179,8,0.3)]">
+           <div className="flex items-center gap-2 animate-pulse">
+              <Timer className="w-4 h-4 text-black" />
+              <span className="text-[9px] font-black text-black uppercase tracking-tighter leading-none">{statusText}</span>
+           </div>
+           <div className="h-4 w-[1px] bg-black/20" />
+           <span className={`text-sm font-black ${statusColor} font-mono leading-none drop-shadow-sm`}>{countdown}</span>
+           
+           {/* Decorative Shimmer on Strip */}
+           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" />
         </div>
 
-        {/* Title Overlay */}
-        <div className="absolute bottom-4 left-6 right-6">
+        {/* Title Overlay (Moved slightly up to not cover the yellow strip) */}
+        <div className="absolute bottom-12 left-6 right-6">
           <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em] drop-shadow-md">{t.type}</p>
           <h3 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-white drop-shadow-2xl truncate leading-none">
             {t.name}
@@ -147,7 +149,7 @@ function TournamentCard({ t }: { t: any }) {
               {t.currentPlayers} / {t.maxPlayers} Warriors
             </span>
           </div>
-          <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+          <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
             <div 
               className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,69,0,0.5)]" 
               style={{ width: `${(t.currentPlayers / t.maxPlayers) * 100}%` }} 
@@ -174,7 +176,6 @@ function TournamentCard({ t }: { t: any }) {
           </Button>
           <Button size="icon" variant="outline" className="h-14 w-14 rounded-2xl border-white/10 glass hover:bg-primary/10 transition-colors group relative">
              <Info className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-             {/* Red Bubble for Rules notification logic could go here */}
              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-background animate-pulse" />
           </Button>
         </Link>
