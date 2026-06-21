@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -197,7 +197,11 @@ export default function AdminPanel() {
           registrationStartTime: '', registrationEndTime: '', startTime: ''
         });
       })
-      .catch(() => toast({ variant: "destructive", title: "DEPLOYMENT FAILED" }))
+      .catch((err) => {
+        const pError = new FirestorePermissionError({ path: tRef.path, operation: 'create', requestResourceData: payload });
+        errorEmitter.emit('permission-error', pError);
+        toast({ variant: "destructive", title: "DEPLOYMENT FAILED" });
+      })
       .finally(() => setTLoading(false));
   };
 
@@ -310,7 +314,8 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
               ))}
-              {tournaments?.length === 0 && <p className="col-span-full text-center py-20 text-muted-foreground italic">No arenas deployed yet.</p>}
+              {tournaments?.length === 0 && !tournamentsLoading && <p className="col-span-full text-center py-20 text-muted-foreground italic">No arenas deployed yet.</p>}
+              {tournamentsLoading && <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-primary" /></div>}
             </div>
           </TabsContent>
 
@@ -418,7 +423,7 @@ export default function AdminPanel() {
                         {uploadingQr && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
                       </div>
                       <Button variant="outline" className="w-full h-12 border-dashed border-white/20" onClick={() => qrInputRef.current?.click()}>{qrUrl ? 'CHANGE QR CODE' : 'UPLOAD QR CODE'}</Button>
-                      <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleAdminQrUpload} />
+                      <input type="file" min-h-0 ref={qrInputRef} className="hidden" accept="image/*" onChange={handleAdminQrUpload} />
                     </div>
                   </div>
                 </CardContent>
@@ -462,9 +467,18 @@ export default function AdminPanel() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg Start (IST)</Label><Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reg End (IST)</Label><Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Battle Start (IST)</Label><Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required /></div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase">Reg Start (IST)</Label>
+                <Input type="datetime-local" value={tForm.registrationStartTime} onChange={e => setTForm({...tForm, registrationStartTime: e.target.value})} required className="[color-scheme:dark]" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase">Reg End (IST)</Label>
+                <Input type="datetime-local" value={tForm.registrationEndTime} onChange={e => setTForm({...tForm, registrationEndTime: e.target.value})} required className="[color-scheme:dark]" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase">Battle Start (IST)</Label>
+                <Input type="datetime-local" value={tForm.startTime} onChange={e => setTForm({...tForm, startTime: e.target.value})} required className="[color-scheme:dark]" />
+              </div>
             </div>
 
             <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Rules (One per line)</Label><Textarea value={tForm.rules} onChange={e => setTForm({...tForm, rules: e.target.value})} placeholder="Rule 1&#10;Rule 2" className="h-24" /></div>

@@ -3,7 +3,7 @@
   "entities": {
     "Tournament": {
       "title": "Tournament",
-      "description": "Represents a Clash of Clans tournament event.",
+      "description": "Represents a Clash of Clans tournament event. Updated for arena system.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
