@@ -7,16 +7,33 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "category": { "type": "string" },
+        "type": { "type": "string", "enum": ["paid", "free", "championship"] },
+        "subCategory": { "type": "string", "enum": ["knockout", "1vs1", "tdm"] },
         "entryFee": { "type": "number" },
-        "prizePool": { "type": "number" },
+        "prizePool": { "type": "string" },
         "currentPlayers": { "type": "number" },
         "maxPlayers": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["open", "full", "ongoing", "completed"] },
-        "imageUrl": { "type": "string" }
+        "registrationStartTime": { "type": "string", "format": "date-time" },
+        "registrationEndTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["upcoming", "open", "full", "ongoing", "completed"] },
+        "imageUrl": { "type": "string" },
+        "rules": { "type": "array", "items": { "type": "string" } }
       },
-      "required": ["name", "category", "entryFee", "prizePool", "maxPlayers", "status"]
+      "required": ["name", "type", "subCategory", "entryFee", "maxPlayers", "status", "startTime", "registrationStartTime", "registrationEndTime"]
+    },
+    "TournamentRegistration": {
+      "title": "Tournament Registration",
+      "description": "A record of a user registering for a tournament.",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "tag": { "type": "string" },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tournamentId", "userId", "username", "tag", "registeredAt"]
     },
     "UserProfile": {
       "title": "User Profile",
@@ -55,20 +72,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "amount", "transactionId", "screenshotUrl", "status"]
-    },
-    "MatchRecord": {
-      "title": "Match Record",
-      "description": "Represents a single match result for verification.",
-      "type": "object",
-      "properties": {
-        "tournamentId": { "type": "string" },
-        "player1Id": { "type": "string" },
-        "player2Id": { "type": "string" },
-        "reportedScore": { "type": "string" },
-        "screenshotUrl": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "verified", "mismatch", "failed"] }
-      },
-      "required": ["tournamentId", "player1Id", "player2Id", "status"]
     }
   },
   "auth": {
@@ -79,6 +82,10 @@
       "schema": "Tournament",
       "description": "Public list of all available and past tournaments."
     },
+    "/tournaments/{tournamentId}/registrations/{userId}": {
+      "schema": "TournamentRegistration",
+      "description": "User registrations for a specific tournament."
+    },
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Private user profiles."
@@ -86,10 +93,6 @@
     "/recharge-requests/{requestId}": {
       "schema": "RechargeRequest",
       "description": "Pending and past manual recharge requests."
-    },
-    "/matches/{matchId}": {
-      "schema": "MatchRecord",
-      "description": "Match records for verification."
     }
   }
 }
