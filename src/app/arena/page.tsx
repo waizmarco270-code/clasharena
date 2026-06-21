@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -98,7 +97,7 @@ function TournamentCard({ t }: { t: any }) {
   const regStatus = getRegistrationStatus();
 
   return (
-    <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem] z-10">
+    <Card className="overflow-hidden glass border-border/50 dark:border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem] z-10">
       <div className="relative h-64">
         <Image 
           src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
@@ -123,7 +122,7 @@ function TournamentCard({ t }: { t: any }) {
         </div>
         <div className="absolute bottom-12 left-6 right-6">
           <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em] drop-shadow-md">{t.type}</p>
-          <h3 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-white drop-shadow-2xl truncate leading-none">
+          <h3 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-foreground drop-shadow-2xl truncate leading-none">
             {t.name}
           </h3>
         </div>
@@ -132,7 +131,7 @@ function TournamentCard({ t }: { t: any }) {
         <div className="grid grid-cols-2 gap-y-4 gap-x-8">
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.2em]">Prize Pool</p>
-            <p className="text-sm font-black text-white flex items-center gap-2">🏆 {t.prizePool}</p>
+            <p className="text-sm font-black text-foreground flex items-center gap-2">🏆 {t.prizePool}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.2em]">Entry Fee</p>
@@ -140,21 +139,21 @@ function TournamentCard({ t }: { t: any }) {
           </div>
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.2em]">Requirement</p>
-            <p className="text-[10px] font-bold text-white uppercase">{t.townHall > 0 ? `TH ${t.townHall} ONLY` : 'ALL TH LEVELS'}</p>
+            <p className="text-[10px] font-bold text-foreground uppercase">{t.townHall > 0 ? `TH ${t.townHall} ONLY` : 'ALL TH LEVELS'}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.2em]">War Start</p>
-            <p className="text-[10px] font-bold text-white uppercase">{format(new Date(t.startTime), 'MMM dd, HH:mm')}</p>
+            <p className="text-[10px] font-bold text-foreground uppercase">{format(new Date(t.startTime), 'MMM dd, HH:mm')}</p>
           </div>
         </div>
         <div className="space-y-2">
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
             <span className="text-muted-foreground">Recruitment Progress</span>
-            <span className={t.currentPlayers >= t.maxPlayers ? 'text-primary' : 'text-green-500'}>
+            <span className={t.currentPlayers >= t.maxPlayers ? 'text-primary' : 'text-green-600'}>
               {t.currentPlayers} / {t.maxPlayers} Warriors
             </span>
           </div>
-          <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+          <div className="h-2.5 w-full bg-muted/30 rounded-full overflow-hidden border border-border/10 p-[1px]">
             <div 
               className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full transition-all duration-1000 ease-out" 
               style={{ width: `${(t.currentPlayers / t.maxPlayers) * 100}%` }} 
@@ -168,7 +167,7 @@ function TournamentCard({ t }: { t: any }) {
             className={`flex-1 font-black uppercase tracking-widest h-14 rounded-2xl transition-all text-sm ${
               regStatus === 'OPEN' 
                 ? 'bg-primary hover:bg-primary/90 glow-primary text-white' 
-                : 'bg-white/5 text-muted-foreground cursor-not-allowed border border-white/10'
+                : 'bg-muted text-muted-foreground cursor-not-allowed border border-border/10'
             }`}
             disabled={regStatus !== 'OPEN'}
           >
@@ -177,7 +176,7 @@ function TournamentCard({ t }: { t: any }) {
              regStatus === 'FULL' ? 'ARENA FULL' : 
              regStatus === 'CLOSED' ? 'REGISTRATION CLOSED' : 'BATTLE LIVE'}
           </Button>
-          <Button size="icon" variant="outline" className="h-14 w-14 rounded-2xl border-white/10 glass hover:bg-primary/10 transition-colors group relative">
+          <Button size="icon" variant="outline" className="h-14 w-14 rounded-2xl border-border/10 glass hover:bg-primary/10 transition-colors group relative">
              <Info className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
           </Button>
         </Link>
@@ -223,10 +222,16 @@ export default function ArenaPage() {
   return (
     <PageWrapper>
       <div className="relative min-h-screen">
-        {/* Dynamic Arena Background */}
+        {/* Dynamic Arena Background - Fixed on all devices */}
         {arenaBg && (
           <div className="fixed inset-0 z-0 pointer-events-none">
-            <Image src={arenaBg} alt="Arena Background" fill className="object-cover opacity-40 saturate-150" />
+            <Image 
+              src={arenaBg} 
+              alt="Arena Background" 
+              fill 
+              className="object-cover opacity-40 saturate-150" 
+              priority
+            />
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
             <div className="absolute inset-0 backdrop-blur-[2px]" />
           </div>
@@ -237,8 +242,8 @@ export default function ArenaPage() {
           <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 -mx-4 px-4">
             <Button 
               onClick={() => setActiveTab('all')}
-              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-white/5 transition-all ${
-                activeTab === 'all' ? 'bg-primary glow-primary' : 'bg-white/5 text-muted-foreground'
+              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-border/10 transition-all ${
+                activeTab === 'all' ? 'bg-primary glow-primary text-white' : 'bg-muted/40 text-muted-foreground'
               }`}
             >
               ALL ARENAS
@@ -246,7 +251,7 @@ export default function ArenaPage() {
             <Button 
               onClick={() => setActiveTab('paid')}
               className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-red-500/20 transition-all ${
-                activeTab === 'paid' ? 'bg-red-600 glow-primary shadow-[0_0_20px_rgba(220,38,38,0.5)]' : 'bg-red-600/10 text-red-500 border'
+                activeTab === 'paid' ? 'bg-red-600 glow-primary shadow-[0_0_20px_rgba(220,38,38,0.5)] text-white' : 'bg-red-600/10 text-red-500 border'
               }`}
             >
               PAID BATTLES
@@ -254,7 +259,7 @@ export default function ArenaPage() {
             <Button 
               onClick={() => setActiveTab('free')}
               className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-blue-500/20 transition-all ${
-                activeTab === 'free' ? 'bg-blue-600 glow-primary shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'bg-blue-600/10 text-blue-500 border'
+                activeTab === 'free' ? 'bg-blue-600 glow-primary shadow-[0_0_20px_rgba(37,99,235,0.5)] text-white' : 'bg-blue-600/10 text-blue-500 border'
               }`}
             >
               FREE TOURNAMENTS
@@ -262,7 +267,7 @@ export default function ArenaPage() {
             <Button 
               onClick={() => setActiveTab('championship')}
               className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 transition-all ${
-                activeTab === 'championship' ? 'legendary-text-bg glow-primary border-yellow-500/50 border' : 'bg-orange-600/10 text-orange-500 border border-orange-500/20'
+                activeTab === 'championship' ? 'legendary-text-bg glow-primary border-yellow-500/50 border text-white' : 'bg-orange-600/10 text-orange-500 border border-orange-500/20'
               }`}
             >
               CHAMPIONSHIP
@@ -277,7 +282,7 @@ export default function ArenaPage() {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     placeholder="Find your arena..." 
-                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-2xl font-bold focus:ring-primary backdrop-blur-md"
+                    className="pl-12 h-14 bg-muted/20 border-border/50 rounded-2xl font-bold focus:ring-primary backdrop-blur-md"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -285,12 +290,12 @@ export default function ArenaPage() {
                 <div className="flex gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-14 px-6 rounded-2xl border-white/10 glass gap-2">
+                      <Button variant="outline" className="h-14 px-6 rounded-2xl border-border/50 glass gap-2">
                         <Filter className="w-4 h-4" /> 
                         {thFilter === null ? 'TH LEVEL' : `TH ${thFilter}`}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="glass border-white/10">
+                    <DropdownMenuContent className="glass border-border/50">
                       <DropdownMenuItem onClick={() => setThFilter(null)}>ALL LEVELS</DropdownMenuItem>
                       {[9,10,11,12,13,14,15,16,17,18].map(th => (
                         <DropdownMenuItem key={th} onClick={() => setThFilter(th)}>TH {th}</DropdownMenuItem>
@@ -302,7 +307,7 @@ export default function ArenaPage() {
                     <Button 
                       variant="ghost" 
                       onClick={() => { setThFilter(null); setSubCatFilter(null); setSearchTerm(''); }}
-                      className="h-14 w-14 rounded-2xl text-destructive bg-white/5"
+                      className="h-14 w-14 rounded-2xl text-destructive bg-muted/20"
                     >
                       <X className="w-5 h-5" />
                     </Button>
@@ -315,7 +320,7 @@ export default function ArenaPage() {
                 <Button 
                   size="sm" 
                   onClick={() => setSubCatFilter(null)}
-                  className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase ${subCatFilter === null ? 'bg-primary' : 'bg-white/5 text-muted-foreground'}`}
+                  className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase ${subCatFilter === null ? 'bg-primary text-white' : 'bg-muted/40 text-muted-foreground'}`}
                 >
                   ALL MODES
                 </Button>
@@ -324,7 +329,7 @@ export default function ArenaPage() {
                     key={cat}
                     size="sm" 
                     onClick={() => setSubCatFilter(cat)}
-                    className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase transition-all ${subCatFilter === cat ? 'bg-primary' : 'bg-white/5 text-muted-foreground'}`}
+                    className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase transition-all ${subCatFilter === cat ? 'bg-primary text-white' : 'bg-muted/40 text-muted-foreground'}`}
                   >
                     {cat.replace('_', ' ')}
                   </Button>
@@ -335,11 +340,11 @@ export default function ArenaPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-96 w-full rounded-[2rem] bg-white/5 animate-pulse" />
+                    <div key={i} className="h-96 w-full rounded-[2rem] bg-muted/20 animate-pulse" />
                   ))
                 ) : filteredTournaments.length === 0 ? (
                   <div className="col-span-full py-32 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="p-6 bg-white/5 rounded-full border border-white/10 backdrop-blur-xl">
+                    <div className="p-6 bg-muted/20 rounded-full border border-border/10 backdrop-blur-xl">
                       <ShieldAlert className="w-16 h-16 text-muted-foreground/30" />
                     </div>
                     <div className="space-y-2">
@@ -363,7 +368,7 @@ export default function ArenaPage() {
                 <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
               </div>
               <div className="space-y-4">
-                <h2 className="font-headline text-5xl md:text-7xl font-black uppercase italic legendary-text tracking-tighter text-white">Legendary World Championship</h2>
+                <h2 className="font-headline text-5xl md:text-7xl font-black uppercase italic legendary-text tracking-tighter text-foreground">Legendary World Championship</h2>
                 <p className="text-muted-foreground font-bold tracking-[0.4em] text-sm uppercase animate-pulse">Wait for Ultimate Glory • Coming Soon</p>
               </div>
               <div className="flex gap-4">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -29,8 +28,8 @@ import {
 import { useDoc, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
-import Link from 'next/link';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import Link from 'link'; // Corrected
+import { default as NextLink } from 'next/link';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -126,10 +125,16 @@ export default function Dashboard() {
   return (
     <PageWrapper>
       <div className="relative min-h-screen">
-        {/* Dynamic Dashboard Background */}
+        {/* Dynamic Dashboard Background - Fixed on all devices */}
         {dashboardBg && (
           <div className="fixed inset-0 z-0 pointer-events-none">
-            <Image src={dashboardBg} alt="Dashboard Background" fill className="object-cover opacity-30 saturate-150" />
+            <Image 
+              src={dashboardBg} 
+              alt="Dashboard Background" 
+              fill 
+              className="object-cover opacity-30 saturate-150" 
+              priority
+            />
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
             <div className="absolute inset-0 backdrop-blur-[1px]" />
           </div>
@@ -138,41 +143,41 @@ export default function Dashboard() {
         <div className="relative z-10 flex flex-col gap-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-1 text-white">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-1 text-foreground">
                 <h1 className="font-headline text-3xl md:text-4xl font-black tracking-tight uppercase leading-none">COMMAND <span className="text-primary italic">HUB</span></h1>
                 {isSuperAdmin ? <CheckCircle2 className="w-6 h-6 text-yellow-500 fill-yellow-500/20" /> : isAdmin && <CheckCircle2 className="w-6 h-6 text-green-500" />}
               </div>
-              <p className="text-muted-foreground font-medium">Welcome back, <span className="text-white font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
+              <p className="text-muted-foreground font-medium">Welcome back, <span className="text-foreground font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
             </div>
-            <Link href="/arena"><Button className="bg-primary font-black px-8 h-12 rounded-xl glow-primary shadow-xl">FIND TOURNAMENT</Button></Link>
+            <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl">FIND TOURNAMENT</Button></NextLink>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="glass border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl">
+            <Card className="glass border-border/40 dark:border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary" /><Badge variant="outline" className="text-[10px] border-primary/20">WALLET</Badge></div>
-                <p className="text-2xl font-black font-headline text-white">🪙 {profile?.balance || 0}</p>
+                <p className="text-2xl font-black font-headline text-foreground">🪙 {profile?.balance || 0}</p>
                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Coins</p>
               </CardContent>
             </Card>
-            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl">
               <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500" /><Badge variant="outline" className="text-[10px] border-white/10">CAREER</Badge></div>
-                <p className="text-2xl font-black font-headline text-white">{profile?.wins || 0}</p>
+                <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500" /><Badge variant="outline" className="text-[10px] border-border/20">CAREER</Badge></div>
+                <p className="text-2xl font-black font-headline text-foreground">{profile?.wins || 0}</p>
                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Victories</p>
               </CardContent>
             </Card>
-            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl">
               <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><TrendingUp className="w-5 h-5 text-green-500" /><Badge variant="outline" className="text-[10px] border-white/10">STATUS</Badge></div>
-                <p className="text-2xl font-black font-headline italic uppercase tracking-tighter text-white">{profile?.rank || 'ROOKIE'}</p>
+                <div className="flex justify-between items-start mb-4"><TrendingUp className="w-5 h-5 text-green-500" /><Badge variant="outline" className="text-[10px] border-border/20">STATUS</Badge></div>
+                <p className="text-2xl font-black font-headline italic uppercase tracking-tighter text-foreground">{profile?.rank || 'ROOKIE'}</p>
                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Standing</p>
               </CardContent>
             </Card>
-            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl">
               <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5" /><Badge variant="outline" className="text-[10px] border-white/10">POWER</Badge></div>
-                <p className="text-2xl font-black font-headline uppercase tracking-tighter text-white">TH{profile?.townHall || '??'}</p>
+                <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5" /><Badge variant="outline" className="text-[10px] border-border/20">POWER</Badge></div>
+                <p className="text-2xl font-black font-headline uppercase tracking-tighter text-foreground">TH{profile?.townHall || '??'}</p>
                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Town Hall</p>
               </CardContent>
             </Card>
@@ -180,13 +185,13 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-               <div className="bg-white/5 border border-white/5 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 backdrop-blur-2xl">
+               <div className="bg-muted/20 border border-border/20 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 backdrop-blur-2xl">
                   <Swords className="w-16 h-16 text-primary animate-pulse" />
                   <div className="space-y-2">
-                     <h3 className="font-headline text-2xl font-bold uppercase italic text-white">No Active Battles</h3>
+                     <h3 className="font-headline text-2xl font-bold uppercase italic text-foreground">No Active Battles</h3>
                      <p className="text-muted-foreground max-w-sm font-medium">Head over to the Arena to find active tournaments and claim your glory.</p>
                   </div>
-                  <Link href="/arena"><Button variant="outline" className="mt-4 border-white/10 font-black backdrop-blur-md">BROWSE ARENAS</Button></Link>
+                  <NextLink href="/arena"><Button variant="outline" className="mt-4 border-border/20 font-black backdrop-blur-md">BROWSE ARENAS</Button></NextLink>
                </div>
             </div>
           </div>
@@ -194,7 +199,7 @@ export default function Dashboard() {
       </div>
 
       <Dialog open={setupOpen} onOpenChange={() => {}}>
-        <DialogContent className="glass border-white/10 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col">
+        <DialogContent className="glass border-border/20 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col">
           <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="setup-form" onSubmit={handleSetupSubmit} className="space-y-8 pb-8">
@@ -203,13 +208,13 @@ export default function Dashboard() {
               </div>
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-start"><ShieldAlert className="w-6 h-6 text-primary shrink-0 animate-pulse" /><div className="text-[11px]"><p className="font-black text-primary uppercase tracking-widest">SECURITY PROTOCOL</p><p className="text-muted-foreground">Username, Tag, and Town Hall will be locked for 72 hours.</p></div></div>
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="bg-white/5 h-12 font-bold" /></div>
-                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="bg-white/5 h-12 font-mono uppercase" /></div>
-                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label><Select value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}><SelectTrigger className="bg-white/5 h-12 font-bold"><SelectValue placeholder="Select TH Level" /></SelectTrigger><SelectContent>{[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (<SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>))}</SelectContent></Select></div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="bg-muted/10 h-12 font-bold" /></div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="bg-muted/10 h-12 font-mono uppercase" /></div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label><Select value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}><SelectTrigger className="bg-muted/10 h-12 font-bold"><SelectValue placeholder="Select TH Level" /></SelectTrigger><SelectContent>{[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (<SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>))}</SelectContent></Select></div>
               </div>
             </form>
           </ScrollArea>
-          <div className="p-6 border-t border-white/5 bg-background/50"><Button form="setup-form" type="submit" className="w-full bg-primary font-black h-14 rounded-2xl shadow-xl glow-primary" disabled={uploading || isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : <ShieldCheck className="mr-2" />}SECURE IDENTITY</Button></div>
+          <div className="p-6 border-t border-border/20 bg-background/50"><Button form="setup-form" type="submit" className="w-full bg-primary text-white font-black h-14 rounded-2xl shadow-xl glow-primary" disabled={uploading || isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : <ShieldCheck className="mr-2" />}SECURE IDENTITY</Button></div>
         </DialogContent>
       </Dialog>
     </PageWrapper>
