@@ -24,7 +24,6 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoaded && userId) {
-      // Direct login to dashboard, no more /setup page
       router.push('/dashboard');
     }
   }, [userId, isLoaded, router]);
@@ -39,7 +38,7 @@ export default function Home() {
         <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
 
         {/* Hero Section */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
+        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-10 md:pt-20">
           <div className="absolute inset-0 z-0">
             <Image 
               src={heroBg?.imageUrl || ''} 
@@ -52,22 +51,22 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black" />
           </div>
 
-          <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center">
-            <h1 className="font-headline text-6xl md:text-[11rem] font-black mb-8 tracking-tighter leading-[0.8] uppercase flex flex-col">
-              <span className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">CLASH</span>
-              <span className="legendary-text italic tracking-[-0.05em]">ARENA</span>
+          <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center justify-center w-full">
+            <h1 className="font-headline text-[5.5rem] leading-[0.85] xs:text-[7rem] md:text-[11rem] font-black mb-10 tracking-tighter uppercase flex flex-col items-center justify-center">
+              <span className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]">CLASH</span>
+              <span className="legendary-text italic tracking-[-0.05em] mt-2">ARENA</span>
             </h1>
             
-            <p className="text-xl md:text-2xl font-bold text-white/90 mb-4 tracking-tight">
+            <p className="text-lg md:text-2xl font-bold text-white/90 mb-4 tracking-tight">
               Compete. Win. <span className="text-primary italic underline decoration-primary/40 underline-offset-8">Rise.</span>
             </p>
             
-            <p className="text-muted-foreground text-sm md:text-xl max-w-2xl mb-14 leading-relaxed font-medium">
+            <p className="text-muted-foreground text-sm md:text-xl max-w-2xl mb-14 leading-relaxed font-medium px-4">
               The ultimate competitive ecosystem for elite Clash of Clans players. 
               <span className="text-white"> Fair play</span>, transparent results, and <span className="text-primary">legendary rewards</span>.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center items-center px-6">
               {isLoaded && !userId ? (
                 <SignInButton mode="modal">
                   <Button 
@@ -97,10 +96,10 @@ export default function Home() {
         </section>
 
         {/* Why Clash Arena */}
-        <section className="py-32 container mx-auto px-4 relative z-10">
-          <div className="text-center mb-24 relative">
+        <section className="py-20 md:py-32 container mx-auto px-4 relative z-10">
+          <div className="text-center mb-20 relative">
             <h2 className="font-headline text-4xl md:text-6xl font-black mb-6 uppercase tracking-tighter text-white">
-              BUILT FOR <span className="legendary-text italic glow-neon">CHAMPIONS</span>
+              BUILT FOR <span className="legendary-text italic glow-neon text-5xl md:text-7xl">CHAMPIONS</span>
             </h2>
             <div className="h-1.5 w-32 bg-primary mx-auto rounded-full glow-primary" />
           </div>
