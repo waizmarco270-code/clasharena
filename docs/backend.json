@@ -83,7 +83,8 @@
         "wins": { "type": "number" },
         "tournamentsPlayed": { "type": "number" },
         "isAdmin": { "type": "boolean" },
-        "isSuperAdmin": { "type": "boolean" }
+        "isSuperAdmin": { "type": "boolean" },
+        "lastActive": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -93,15 +94,15 @@
   "firestore": {
     "/tournaments/{tournamentId}": {
       "schema": "Tournament",
-      "description": "Public list of all available and past tournaments."
+      "description": "Public list of all available tournaments. Publicly readable by all users."
     },
     "/tournaments/{tournamentId}/matches/{matchId}": {
       "schema": "TournamentMatch",
-      "description": "Tournament bracket matches."
+      "description": "Tournament bracket matches. Publicly readable."
     },
     "/tournaments/{tournamentId}/messages/{messageId}": {
       "schema": "TournamentMessage",
-      "description": "Real-time arena chat."
+      "description": "Real-time arena chat. Readable by participants and admins."
     },
     "/tournaments/{tournamentId}/registrations/{userId}": {
       "schema": "TournamentRegistration",
@@ -109,7 +110,7 @@
     },
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Private user profiles."
+      "description": "Private user profiles. Accessible by owner and super admins."
     }
   }
 }

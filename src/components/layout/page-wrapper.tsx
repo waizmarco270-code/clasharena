@@ -18,11 +18,13 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
+  
+  // Memoized profile fetch to prevent unnecessary re-renders
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
-  // Presence Tracking - Updates every navigation or every 3 mins
+  // Optimized Presence Tracking - Independent of pathname to prevent navigation lag
   useEffect(() => {
     if (!userId || !userRef) return;
 
@@ -32,21 +34,20 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
           lastActive: new Date().toISOString()
         });
       } catch (e) {
-        // Silently fail to not interrupt UX
+        // Silently fail
       }
     };
 
     updatePresence();
     
-    // Heartbeat every 3 minutes
+    // Heartbeat every 3 minutes is enough. Pathname removed from dependencies.
     const interval = setInterval(updatePresence, 3 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [userId, userRef, pathname]);
+  }, [userId, userRef]);
 
   useEffect(() => {
     if (!authLoaded) return;
 
-    // Handle Unauthenticated Users
     if (!userId) {
       if (!isPublicRoute) {
         router.push('/');
@@ -54,13 +55,11 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Handle Authenticated Users - Always go to dashboard if on landing page
     if (pathname === '/') {
       router.push('/dashboard');
     }
   }, [userId, authLoaded, pathname, router, isPublicRoute]);
 
-  // Global Auth Loading State
   if (!authLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -75,12 +74,10 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Simple landing page for non-logged in users
   if (pathname === '/' && !userId) {
     return <div className="bg-black min-h-screen flex items-center justify-center w-full">{children}</div>;
   }
 
-  // Dashboard & other internal pages
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background">
