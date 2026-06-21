@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode, Zap } from 'lucide-react';
+import { Shield, Users, Swords, Wallet, AlertCircle, CheckCircle2, Search, Eye, Loader2, Settings, ImagePlus, Save, UserCog, UserMinus, UserPlus, Coins, Activity, TrendingUp, Plus, Trash2, Calendar, Clock, Trophy, QrCode, Zap, Edit3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -65,6 +65,7 @@ export default function AdminPanel() {
   // Tournament Form States
   const [tOpen, setTOpen] = useState(false);
   const [tLoading, setTLoading] = useState(false);
+  const [editTId, setEditTId] = useState<string | null>(null);
   const [tForm, setTForm] = useState({
     name: '',
     type: 'paid',
@@ -104,6 +105,15 @@ export default function AdminPanel() {
     const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
     return allUsers.filter(u => u.lastActive && new Date(u.lastActive).getTime() > fiveMinsAgo).length;
   }, [allUsers]);
+
+  const resetTForm = () => {
+    setTForm({
+      name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
+      entryFee: 0, prizePool: '', rules: '', imageUrl: '', townHall: 0,
+      registrationStartTime: '', registrationEndTime: '', startTime: ''
+    });
+    setEditTId(null);
+  };
 
   const handleUpdateSettings = async () => {
     if (!isAdmin || savingSettings) return;
@@ -170,39 +180,71 @@ export default function AdminPanel() {
     }
   };
 
+  const handleEditClick = (t: any) => {
+    setEditTId(t.id);
+    setTForm({
+      name: t.name,
+      type: t.type,
+      subCategory: t.subCategory,
+      maxPlayers: t.maxPlayers,
+      entryFee: t.entryFee,
+      prizePool: t.prizePool,
+      rules: t.rules?.join('\n') || '',
+      imageUrl: t.imageUrl || '',
+      townHall: t.townHall || 0,
+      registrationStartTime: t.registrationStartTime || '',
+      registrationEndTime: t.registrationEndTime || '',
+      startTime: t.startTime || ''
+    });
+    setTOpen(true);
+  };
+
   const handleCreateTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     setTLoading(true);
 
     const rulesArray = tForm.rules.split('\n').filter(r => r.trim() !== '');
-    const tId = doc(collection(db, 'tournaments')).id;
-    const tRef = doc(db, 'tournaments', tId);
 
-    const payload = {
-      ...tForm,
-      currentPlayers: 0,
-      rules: rulesArray,
-      status: 'upcoming',
-      createdAt: new Date().toISOString()
-    };
+    if (editTId) {
+      const tRef = doc(db, 'tournaments', editTId);
+      const payload = {
+        ...tForm,
+        rules: rulesArray,
+        updatedAt: new Date().toISOString()
+      };
+      updateDoc(tRef, payload)
+        .then(() => {
+          toast({ title: "ARENA UPDATED", description: `${tForm.name} is now updated.` });
+          setTOpen(false);
+          resetTForm();
+        })
+        .catch((err) => {
+          toast({ variant: "destructive", title: "UPDATE FAILED" });
+        })
+        .finally(() => setTLoading(false));
+    } else {
+      const tId = doc(collection(db, 'tournaments')).id;
+      const tRef = doc(db, 'tournaments', tId);
+      const payload = {
+        ...tForm,
+        currentPlayers: 0,
+        rules: rulesArray,
+        status: 'upcoming',
+        createdAt: new Date().toISOString()
+      };
 
-    setDoc(tRef, payload)
-      .then(() => {
-        toast({ title: "ARENA DEPLOYED", description: `${tForm.name} is now live.` });
-        setTOpen(false);
-        setTForm({
-          name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
-          entryFee: 0, prizePool: '', rules: '', imageUrl: '', townHall: 0,
-          registrationStartTime: '', registrationEndTime: '', startTime: ''
-        });
-      })
-      .catch((err) => {
-        const pError = new FirestorePermissionError({ path: tRef.path, operation: 'create', requestResourceData: payload });
-        errorEmitter.emit('permission-error', pError);
-        toast({ variant: "destructive", title: "DEPLOYMENT FAILED" });
-      })
-      .finally(() => setTLoading(false));
+      setDoc(tRef, payload)
+        .then(() => {
+          toast({ title: "ARENA DEPLOYED", description: `${tForm.name} is now live.` });
+          setTOpen(false);
+          resetTForm();
+        })
+        .catch((err) => {
+          toast({ variant: "destructive", title: "DEPLOYMENT FAILED" });
+        })
+        .finally(() => setTLoading(false));
+    }
   };
 
   const handleDeleteTournament = async (id: string) => {
@@ -253,7 +295,7 @@ export default function AdminPanel() {
             <h1 className="font-headline text-3xl font-black mb-1 uppercase">COMMAND <span className="text-primary italic">CENTER</span></h1>
             <p className="text-muted-foreground font-medium">Tournament management & financial oversight.</p>
           </div>
-          <Button onClick={() => setTOpen(true)} className="bg-primary font-black gap-2 h-12 px-6 glow-primary">
+          <Button onClick={() => { resetTForm(); setTOpen(true); }} className="bg-primary font-black gap-2 h-12 px-6 glow-primary">
             <Plus className="w-5 h-5" /> CREATE TOURNAMENT
           </Button>
         </div>
@@ -299,6 +341,7 @@ export default function AdminPanel() {
                     <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
                     <div className="absolute top-2 right-2 flex gap-1">
+                      <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60 hover:bg-black/80 border-white/10" onClick={() => handleEditClick(t)}><Edit3 className="w-4 h-4 text-white" /></Button>
                       <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleDeleteTournament(t.id)}><Trash2 className="w-4 h-4" /></Button>
                     </div>
                     <div className="absolute bottom-2 left-4">
@@ -434,9 +477,13 @@ export default function AdminPanel() {
         </Tabs>
       </div>
 
-      <Dialog open={tOpen} onOpenChange={setTOpen}>
+      <Dialog open={tOpen} onOpenChange={(open) => { setTOpen(open); if (!open) resetTForm(); }}>
         <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="p-6 pb-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase">DEPLOY NEW <span className="text-primary">ARENA</span></DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase">
+              {editTId ? 'UPDATE' : 'DEPLOY NEW'} <span className="text-primary">ARENA</span>
+            </DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleCreateTournament} className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Arena Name</Label><Input value={tForm.name} onChange={e => setTForm({...tForm, name: e.target.value})} placeholder="e.g. Titan Clash" required /></div>
@@ -493,7 +540,7 @@ export default function AdminPanel() {
             </div>
 
             <Button type="submit" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary">
-              {tLoading ? <Loader2 className="animate-spin" /> : 'DEPLOY ARENA'}
+              {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE ARENA' : 'DEPLOY ARENA'}
             </Button>
           </form>
         </DialogContent>
@@ -516,3 +563,4 @@ export default function AdminPanel() {
     </PageWrapper>
   );
 }
+
