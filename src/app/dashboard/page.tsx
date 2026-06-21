@@ -51,7 +51,7 @@ export default function Dashboard() {
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
   // Background Image from App Settings
-  const backgroundsRef = doc(db, 'app-settings', 'backgrounds');
+  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
   const dashboardBg = bgData?.dashboard;
 

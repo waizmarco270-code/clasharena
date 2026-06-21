@@ -194,7 +194,7 @@ export default function ArenaPage() {
   const [subCatFilter, setSubCatFilter] = useState<string | null>(null);
 
   // Background Image from App Settings
-  const backgroundsRef = doc(db, 'app-settings', 'backgrounds');
+  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
   const arenaBg = bgData?.arena;
 
