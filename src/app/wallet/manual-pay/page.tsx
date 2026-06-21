@@ -20,8 +20,7 @@ import {
   AlertTriangle,
   ShieldAlert as ShieldIcon
 } from 'lucide-react';
-import { useUser } from "@clerk/nextjs";
-import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -29,10 +28,13 @@ import Link from 'next/link';
 
 function ManualPayContent() {
   const searchParams = useSearchParams();
-  const { user, isLoaded: authLoading } = useUser();
+  const { user, loading: authLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
+  const userRef = useMemo(() => user ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
+
   // Fetch Admin Payment Settings
   const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
   const { data: settings, loading: settingsLoading } = useDoc(settingsRef);
@@ -89,8 +91,8 @@ function ManualPayContent() {
     setSubmitting(true);
     const requestRef = doc(db, 'recharge-requests', txId);
     const requestData = {
-      userId: user.id, // Clerk ID
-      username: user.username || user.firstName || 'Warrior',
+      userId: user.uid, // Using Firebase UID
+      username: profile?.username || user.displayName || 'Warrior',
       amount: amount,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
@@ -115,7 +117,7 @@ function ManualPayContent() {
       });
   };
 
-  if (settingsLoading || !authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
+  if (settingsLoading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
 
   if (showSuccess) {
     return (

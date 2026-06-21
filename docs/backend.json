@@ -60,7 +60,7 @@
     },
     "RechargeRequest": {
       "title": "Recharge Request",
-      "description": "A request for a manual balance top-up.",
+      "description": "A request for a manual balance top-up. Securely tracked by User ID.",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -116,7 +116,7 @@
     },
     "/recharge-requests/{requestId}": {
       "schema": "RechargeRequest",
-      "description": "Pending and past manual recharge requests."
+      "description": "User recharge requests, secured by owner."
     },
     "/app-settings/{settingId}": {
       "schema": "AppSettings",

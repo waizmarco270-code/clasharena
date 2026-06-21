@@ -16,28 +16,29 @@ import {
   Loader2,
   Calendar
 } from 'lucide-react';
-import { useCollection, useFirestore } from '@/firebase';
-import { useUser } from "@clerk/nextjs";
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import Link from 'next/link';
+import Link from 'link'; // Note: corrected from 'next/link' in some frameworks, keeping standard next/link
+import { default as NextLink } from 'next/link';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function WalletHistoryPage() {
-  const { user, isLoaded: authLoaded } = useUser();
+  const { user, loading: authLoading } = useUser();
   const db = useFirestore();
 
   const historyQuery = useMemo(() => {
-    if (!authLoaded || !user?.id) return null;
+    if (authLoading || !user?.uid) return null;
+    // Querying requests belonging to the current Firebase user
     return query(
       collection(db, 'recharge-requests'),
-      where('userId', '==', user.id),
+      where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
-  }, [db, user?.id, authLoaded]);
+  }, [db, user?.uid, authLoading]);
 
   const { data: logs, loading: logsLoading } = useCollection(historyQuery);
-  const loading = !authLoaded || logsLoading;
+  const loading = authLoading || logsLoading;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -60,9 +61,9 @@ export default function WalletHistoryPage() {
       <div className="max-w-5xl mx-auto space-y-8 pb-20">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <Link href="/wallet" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest mb-2">
+            <NextLink href="/wallet" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest mb-2">
               <ChevronLeft className="w-4 h-4" /> Back to Vault
-            </Link>
+            </NextLink>
             <h1 className="font-headline text-3xl font-black italic uppercase">TRANSACTION <span className="text-primary">LOGS</span></h1>
             <p className="text-muted-foreground text-sm font-medium">Track your coin acquisition history and approvals.</p>
           </div>
@@ -88,9 +89,9 @@ export default function WalletHistoryPage() {
                   <p className="font-bold uppercase tracking-tight">NO RECORDS FOUND</p>
                   <p className="text-xs text-muted-foreground">You haven't made any recharge requests yet.</p>
                 </div>
-                <Link href="/wallet">
+                <NextLink href="/wallet">
                   <Button className="mt-4 bg-primary font-black px-8">RECHARGE NOW</Button>
-                </Link>
+                </NextLink>
               </div>
             ) : (
               <Table>
