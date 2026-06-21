@@ -24,7 +24,9 @@ import {
   ChevronRight,
   ChevronLeft,
   Flame,
-  Zap
+  Zap,
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 import { useCollection, useFirestore, useDoc } from '@/firebase';
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
@@ -116,22 +118,27 @@ function TournamentCard({ t }: { t: any }) {
   const regStatus = getRegistrationStatus();
 
   return (
-    <Card className="overflow-hidden glass border-border/50 dark:border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem] z-10">
-      <div className="relative h-64">
-        <Image src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} alt={t.name} fill className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/40" />
+    <Card className="overflow-hidden glass border-border/50 dark:border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2.5rem] z-10 shadow-2xl">
+      <div className="relative h-72">
+        <Image 
+          src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
+          alt={t.name} 
+          fill 
+          className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-90" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/60" />
         
-        {/* Reward Badge Overlay */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
-           <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+        {/* Reward Badge Overlay - Top Left */}
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
+           <div className="bg-black/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 flex items-center gap-2 shadow-lg">
               {t.rewardType === 'money' ? (
-                <IndianRupee className="w-3 h-3 text-primary" />
+                <IndianRupee className="w-3.5 h-3.5 text-primary" />
               ) : t.rewardType === 'coin' ? (
-                <Coins className="w-3 h-3 text-primary" />
+                <Coins className="w-3.5 h-3.5 text-primary" />
               ) : (
-                <Gift className="w-3 h-3 text-primary" />
+                <Gift className="w-3.5 h-3.5 text-primary" />
               )}
-              <span className="text-[10px] font-black text-white uppercase italic">
+              <span className="text-[11px] font-black text-white uppercase italic tracking-wider">
                 {t.rewardType === 'money' ? `₹ ${t.rewardValue}` : 
                  t.rewardType === 'coin' ? `${t.rewardValue} COINS` : 
                  t.rewardItemName}
@@ -140,42 +147,63 @@ function TournamentCard({ t }: { t: any }) {
            {t.rewardType === 'item' && t.rewardImageUrl && (
              <Button 
                size="sm" 
-               variant="secondary" 
-               className="h-7 px-3 rounded-full text-[8px] font-black uppercase italic bg-primary/80 hover:bg-primary text-white border-none glow-primary"
+               className="h-8 px-4 rounded-full text-[10px] font-black uppercase italic bg-primary/90 hover:bg-primary text-white border-none glow-primary shadow-xl"
                onClick={(e) => { e.preventDefault(); setIsPreviewOpen(true); }}
              >
-               <Eye className="w-3 h-3 mr-1" /> REWARD PREVIEW
+               <Eye className="w-3.5 h-3.5 mr-2" /> REWARD PREVIEW
              </Button>
            )}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 bg-yellow-500 py-2 flex items-center justify-center gap-3 overflow-hidden shadow-xl">
-           <div className="flex items-center gap-2">
-              <Timer className="w-4 h-4 text-black" />
-              <span className="text-[9px] font-black text-black uppercase tracking-tighter leading-none">{statusText}</span>
-           </div>
-           <div className="h-4 w-[1px] bg-black/20" />
-           <span className={`text-sm font-black ${statusColor} font-mono leading-none`}>{countdown}</span>
-        </div>
-        <div className="absolute bottom-12 left-6 right-6">
-          <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em]">{t.type} • {t.subCategory?.replace('_', ' ')}</p>
-          <h3 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-foreground truncate">
-            {t.name}
+        {/* Detailed Info Overlay - Bottom Section of Image */}
+        <div className="absolute bottom-12 left-6 right-6 z-20">
+          <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em] drop-shadow-md">
+            {t.type} • {t.subCategory?.replace('_', ' ')}
+          </p>
+          <h3 className="font-headline text-2xl md:text-3xl font-black uppercase italic tracking-tighter text-white truncate drop-shadow-2xl mb-2">
+             {t.name}
           </h3>
+          
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-1.5 text-white/90 bg-black/40 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md">
+              <Zap className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-widest">TH {t.townHall || 'ANY'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-white/90 bg-black/40 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md">
+              <Coins className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Fee: {t.entryFee === 0 ? 'FREE' : t.entryFee}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-white/90 bg-black/40 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md">
+              <Users className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{t.currentPlayers || 0} / {t.maxPlayers}</span>
+            </div>
+          </div>
+
           {t.status === 'completed' && (
-            <div className="mt-2 flex items-center gap-2 text-[10px] font-black text-yellow-500 uppercase italic">
-              <Trophy className="w-3 h-3" /> Winner: {t.winnerName}
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-black text-yellow-500 uppercase italic bg-black/60 w-fit px-3 py-1 rounded-lg border border-yellow-500/20">
+              <Trophy className="w-3.5 h-3.5" /> Winner: {t.winnerName}
             </div>
           )}
         </div>
+
+        {/* Status Bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-primary/95 backdrop-blur-xl py-2.5 flex items-center justify-center gap-4 shadow-xl z-20 border-t border-white/10">
+           <div className="flex items-center gap-2">
+              <Timer className="w-4 h-4 text-black" />
+              <span className="text-[10px] font-black text-black uppercase tracking-tighter leading-none">{statusText}</span>
+           </div>
+           <div className="h-4 w-[1px] bg-black/20" />
+           <span className={`text-sm font-black ${statusColor} font-mono leading-none tracking-tight`}>{countdown}</span>
+        </div>
       </div>
-      <CardFooter className="p-6 bg-card/20 backdrop-blur-md">
+
+      <CardFooter className="p-6 bg-card/20 backdrop-blur-xl border-t border-white/5">
         <Link href={`/arena/tournament/${t.id}`} className="w-full">
           <Button 
             className={cn(
-              "w-full font-black uppercase tracking-widest h-14 rounded-2xl transition-all text-sm",
+              "w-full font-black uppercase tracking-[0.2em] h-14 rounded-2xl transition-all text-sm shadow-xl",
               regStatus === 'OPEN' || regStatus === 'ONGOING' || regStatus === 'COMPLETED'
-                ? 'bg-primary glow-primary text-white' 
+                ? 'bg-primary glow-primary text-white border-t border-white/20' 
                 : 'bg-muted text-muted-foreground'
             )}
           >
@@ -190,24 +218,26 @@ function TournamentCard({ t }: { t: any }) {
 
       {/* Reward Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="glass border-white/10 max-w-sm p-0 overflow-hidden outline-none">
-          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/40">
-            <DialogTitle className="text-sm font-black uppercase italic tracking-widest">REWARD <span className="text-primary">PREVIEW</span></DialogTitle>
+        <DialogContent className="glass border-white/10 max-w-sm p-0 overflow-hidden outline-none rounded-[2rem]">
+          <div className="p-5 border-b border-white/10 flex justify-between items-center bg-black/50">
+            <DialogTitle className="text-sm font-black uppercase italic tracking-widest text-white">REWARD <span className="text-primary">PREVIEW</span></DialogTitle>
           </div>
           <div className="relative aspect-square w-full">
             {t.rewardImageUrl && <Image src={t.rewardImageUrl} alt="Reward Item" fill className="object-cover" />}
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
-               <Badge className="bg-primary mb-2">EPIC DROP</Badge>
-               <h3 className="text-2xl font-black uppercase italic text-white drop-shadow-xl">{t.rewardItemName}</h3>
+            <div className="absolute bottom-8 left-8 right-8">
+               <Badge className="bg-primary mb-2 shadow-lg">EPIC DROP</Badge>
+               <h3 className="text-3xl font-black uppercase italic text-white drop-shadow-2xl">{t.rewardItemName}</h3>
             </div>
           </div>
-          <div className="p-6 bg-black/40 flex flex-col gap-4">
-             <div className="flex items-center gap-3 text-muted-foreground">
-                <ShieldAlert className="w-5 h-5 text-primary" />
-                <p className="text-[10px] font-bold uppercase">This item will be granted to the Arena Champion within 24 hours of victory.</p>
+          <div className="p-8 bg-black/60 flex flex-col gap-6">
+             <div className="flex items-start gap-4 text-muted-foreground">
+                <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
+                <p className="text-[11px] font-black uppercase tracking-widest leading-relaxed">
+                   This legendary reward will be granted to the Arena Champion within 24 hours of victory confirmation.
+                </p>
              </div>
-             <Button onClick={() => setIsPreviewOpen(false)} className="w-full bg-white text-black font-black uppercase">CLOSE PREVIEW</Button>
+             <Button onClick={() => setIsPreviewOpen(false)} className="w-full h-12 bg-white text-black font-black uppercase rounded-xl hover:bg-gray-200 transition-colors">CLOSE PREVIEW</Button>
           </div>
         </DialogContent>
       </Dialog>
