@@ -6,12 +6,31 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Swords, Users, Trophy, Calendar, Filter, Search, Clock, Zap, ArrowRight, ShieldAlert, Timer, Info } from 'lucide-react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { 
+  Swords, 
+  Users, 
+  Trophy, 
+  Search, 
+  Timer, 
+  Info, 
+  Filter, 
+  ChevronRight,
+  ShieldAlert,
+  Loader2,
+  X
+} from 'lucide-react';
+import { useCollection, useFirestore, useDoc } from '@/firebase';
+import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format, isBefore, isAfter } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 function TournamentCard({ t }: { t: any }) {
   const [countdown, setCountdown] = useState<string>('');
@@ -80,7 +99,6 @@ function TournamentCard({ t }: { t: any }) {
 
   return (
     <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem]">
-      {/* Hero Section */}
       <div className="relative h-64">
         <Image 
           src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
@@ -90,15 +108,11 @@ function TournamentCard({ t }: { t: any }) {
           data-ai-hint="clash game"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/40" />
-        
-        {/* Top Badges */}
         <div className="absolute top-4 left-4 flex gap-2">
           <Badge className="bg-primary px-3 py-1 uppercase font-black text-[10px] tracking-widest rounded-full shadow-lg border-t border-white/20">
             {t.subCategory.replace('_', ' ')}
           </Badge>
         </div>
-
-        {/* LEGENDARY PROTOCOL TIMER STRIP */}
         <div className="absolute bottom-0 left-0 right-0 bg-yellow-500 py-2 flex items-center justify-center gap-3 overflow-hidden shadow-[0_-4px_20px_rgba(234,179,8,0.3)]">
            <div className="flex items-center gap-2 animate-pulse">
               <Timer className="w-4 h-4 text-black" />
@@ -106,12 +120,7 @@ function TournamentCard({ t }: { t: any }) {
            </div>
            <div className="h-4 w-[1px] bg-black/20" />
            <span className={`text-sm font-black ${statusColor} font-mono leading-none drop-shadow-sm`}>{countdown}</span>
-           
-           {/* Decorative Shimmer on Strip */}
-           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" />
         </div>
-
-        {/* Title Overlay (Moved slightly up to not cover the yellow strip) */}
         <div className="absolute bottom-12 left-6 right-6">
           <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em] drop-shadow-md">{t.type}</p>
           <h3 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-white drop-shadow-2xl truncate leading-none">
@@ -119,8 +128,6 @@ function TournamentCard({ t }: { t: any }) {
           </h3>
         </div>
       </div>
-
-      {/* Info Section */}
       <CardContent className="flex-1 p-6 space-y-6 bg-card/20">
         <div className="grid grid-cols-2 gap-y-4 gap-x-8">
           <div className="space-y-1">
@@ -140,8 +147,6 @@ function TournamentCard({ t }: { t: any }) {
             <p className="text-[10px] font-bold text-white uppercase">{format(new Date(t.startTime), 'MMM dd, HH:mm')}</p>
           </div>
         </div>
-
-        {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
             <span className="text-muted-foreground">Recruitment Progress</span>
@@ -151,14 +156,12 @@ function TournamentCard({ t }: { t: any }) {
           </div>
           <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
             <div 
-              className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,69,0,0.5)]" 
+              className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full transition-all duration-1000 ease-out" 
               style={{ width: `${(t.currentPlayers / t.maxPlayers) * 100}%` }} 
             />
           </div>
         </div>
       </CardContent>
-
-      {/* Actions */}
       <CardFooter className="p-6 pt-0 bg-card/20">
         <Link href={`/arena/tournament/${t.id}`} className="w-full flex gap-3">
           <Button 
@@ -187,6 +190,14 @@ function TournamentCard({ t }: { t: any }) {
 export default function ArenaPage() {
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [thFilter, setThFilter] = useState<number | null>(null);
+  const [subCatFilter, setSubCatFilter] = useState<string | null>(null);
+
+  // Background Image from App Settings
+  const backgroundsRef = doc(db, 'app-settings', 'backgrounds');
+  const { data: bgData } = useDoc(backgroundsRef);
+  const arenaBg = bgData?.arena;
 
   const tournamentQuery = useMemo(() => {
     let q = query(collection(db, 'tournaments'), orderBy('startTime', 'asc'));
@@ -198,65 +209,182 @@ export default function ArenaPage() {
 
   const { data: tournaments, loading } = useCollection(tournamentQuery);
 
+  const filteredTournaments = useMemo(() => {
+    if (!tournaments) return [];
+    return tournaments.filter(t => {
+      const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTH = thFilter === null || t.townHall === thFilter;
+      const matchesSubCat = subCatFilter === null || t.subCategory === subCatFilter;
+      return matchesSearch && matchesTH && matchesSubCat;
+    });
+  }, [tournaments, searchTerm, thFilter, subCatFilter]);
+
+  const subCategories = ['knockout', '1vs1', 'tdm'];
+
   return (
     <PageWrapper>
-      <div className="flex flex-col gap-10">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <h1 className="font-headline text-5xl font-black mb-2 tracking-tighter uppercase leading-none">
-              TOURNAMENT <span className="text-primary italic">HUB</span>
-            </h1>
-            <p className="text-muted-foreground font-medium uppercase tracking-[0.2em] text-xs">Find your battle. Claim your legacy.</p>
-          </div>
-          <div className="flex gap-2 bg-muted/30 p-1 rounded-2xl border border-white/5">
-            {['all', 'paid', 'free', 'championship'].map((tab) => (
-              <Button 
-                key={tab} 
-                variant={activeTab === tab ? 'default' : 'ghost'} 
-                size="sm" 
-                onClick={() => setActiveTab(tab)}
-                className={`rounded-xl font-black uppercase text-[10px] px-6 h-10 transition-all ${
-                  activeTab === tab ? 'bg-primary glow-primary' : ''
-                }`}
-              >
-                {tab}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {activeTab === 'championship' && (
-          <div className="min-h-[40vh] flex flex-col items-center justify-center text-center space-y-6">
-            <div className="relative">
-              <Trophy className="w-24 h-24 text-primary animate-float" />
-              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="font-headline text-4xl font-black uppercase italic legendary-text">Legendary World Championship</h2>
-              <p className="text-muted-foreground font-bold tracking-[0.3em] text-xs uppercase animate-pulse">Coming Soon - Prepare for Ultimate Glory</p>
-            </div>
+      <div className="relative min-h-screen">
+        {arenaBg && (
+          <div className="fixed inset-0 z-[-1] pointer-events-none">
+            <Image src={arenaBg} alt="Arena Background" fill className="object-cover opacity-20 blur-sm" />
+            <div className="absolute inset-0 bg-black/60" />
           </div>
         )}
 
-        {activeTab !== 'championship' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-96 w-full rounded-[2rem] bg-white/5 animate-pulse" />
-              ))
-            ) : tournaments?.length === 0 ? (
-              <div className="col-span-full py-20 text-center space-y-4">
-                <Swords className="w-16 h-16 text-muted-foreground/20 mx-auto" />
-                <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">No active arenas in this sector.</p>
+        <div className="flex flex-col gap-8">
+          {/* Swipable Category Tabs */}
+          <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 -mx-4 px-4">
+            <Button 
+              onClick={() => setActiveTab('all')}
+              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-white/5 transition-all ${
+                activeTab === 'all' ? 'bg-primary glow-primary' : 'bg-white/5 text-muted-foreground'
+              }`}
+            >
+              ALL ARENAS
+            </Button>
+            <Button 
+              onClick={() => setActiveTab('paid')}
+              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-red-500/20 transition-all ${
+                activeTab === 'paid' ? 'bg-red-600 glow-primary shadow-[0_0_20px_rgba(220,38,38,0.5)]' : 'bg-red-600/10 text-red-500 border'
+              }`}
+            >
+              PAID BATTLES
+            </Button>
+            <Button 
+              onClick={() => setActiveTab('free')}
+              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 border-blue-500/20 transition-all ${
+                activeTab === 'free' ? 'bg-blue-600 glow-primary shadow-[0_0_20px_rgba(37,99,235,0.5)]' : 'bg-blue-600/10 text-blue-500 border'
+              }`}
+            >
+              FREE TOURNAMENTS
+            </Button>
+            <Button 
+              onClick={() => setActiveTab('championship')}
+              className={`rounded-2xl font-black uppercase text-[10px] px-8 h-12 shrink-0 transition-all ${
+                activeTab === 'championship' ? 'legendary-text-bg glow-primary border-yellow-500/50 border' : 'bg-orange-600/10 text-orange-500 border border-orange-500/20'
+              }`}
+            >
+              CHAMPIONSHIP
+            </Button>
+          </div>
+
+          {activeTab !== 'championship' && (
+            <>
+              {/* Search & Filter Bar */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    placeholder="Find your arena..." 
+                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-2xl font-bold focus:ring-primary"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-14 px-6 rounded-2xl border-white/10 glass gap-2">
+                        <Filter className="w-4 h-4" /> 
+                        {thFilter === null ? 'TH LEVEL' : `TH ${thFilter}`}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="glass border-white/10">
+                      <DropdownMenuItem onClick={() => setThFilter(null)}>ALL LEVELS</DropdownMenuItem>
+                      {[9,10,11,12,13,14,15,16,17,18].map(th => (
+                        <DropdownMenuItem key={th} onClick={() => setThFilter(th)}>TH {th}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {(thFilter !== null || subCatFilter !== null || searchTerm !== '') && (
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => { setThFilter(null); setSubCatFilter(null); setSearchTerm(''); }}
+                      className="h-14 w-14 rounded-2xl text-destructive"
+                    >
+                      <X className="w-5 h-5" />
+                    </Button>
+                  )}
+                </div>
               </div>
-            ) : (
-              tournaments?.map((t: any) => (
-                <TournamentCard key={t.id} t={t} />
-              ))
-            )}
-          </div>
-        )}
+
+              {/* Sub-category Swipable Carousel */}
+              <div className="flex overflow-x-auto no-scrollbar gap-2 py-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => setSubCatFilter(null)}
+                  className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase ${subCatFilter === null ? 'bg-primary' : 'bg-white/5 text-muted-foreground'}`}
+                >
+                  ALL MODES
+                </Button>
+                {subCategories.map(cat => (
+                  <Button 
+                    key={cat}
+                    size="sm" 
+                    onClick={() => setSubCatFilter(cat)}
+                    className={`rounded-xl px-4 h-10 shrink-0 text-[10px] font-black uppercase transition-all ${subCatFilter === cat ? 'bg-primary' : 'bg-white/5 text-muted-foreground'}`}
+                  >
+                    {cat.replace('_', ' ')}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Tournament Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-96 w-full rounded-[2rem] bg-white/5 animate-pulse" />
+                  ))
+                ) : filteredTournaments.length === 0 ? (
+                  <div className="col-span-full py-32 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="p-6 bg-white/5 rounded-full border border-white/10">
+                      <ShieldAlert className="w-16 h-16 text-muted-foreground/30" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-headline text-2xl font-black uppercase italic">No Active Arenas</h3>
+                      <p className="text-muted-foreground font-medium max-w-xs mx-auto">Wait for command. New tournaments will be deployed soon.</p>
+                    </div>
+                  </div>
+                ) : (
+                  filteredTournaments.map((t: any) => (
+                    <TournamentCard key={t.id} t={t} />
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'championship' && (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in duration-700">
+              <div className="relative">
+                <Trophy className="w-32 h-32 text-primary animate-float" />
+                <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
+              </div>
+              <div className="space-y-4">
+                <h2 className="font-headline text-5xl md:text-7xl font-black uppercase italic legendary-text tracking-tighter">Legendary World Championship</h2>
+                <p className="text-muted-foreground font-bold tracking-[0.4em] text-sm uppercase animate-pulse">Wait for Ultimate Glory • Coming Soon</p>
+              </div>
+              <div className="flex gap-4">
+                 <div className="px-6 py-2 glass rounded-full border-primary/20 text-[10px] font-black text-primary tracking-widest uppercase">Elite Level Protocol</div>
+                 <div className="px-6 py-2 glass rounded-full border-primary/20 text-[10px] font-black text-primary tracking-widest uppercase">Verified Results</div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+      
+      <style jsx global>{`
+        .legendary-text-bg {
+          background: linear-gradient(45deg, #ff4500, #fbbf24, #ff4500);
+          background-size: 200% auto;
+          animation: shine 3s linear infinite;
+          color: white;
+        }
+        @keyframes shine {
+          to { background-position: 200% center; }
+        }
+      `}</style>
     </PageWrapper>
   );
 }

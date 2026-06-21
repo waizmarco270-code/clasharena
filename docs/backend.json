@@ -73,6 +73,29 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "amount", "transactionId", "screenshotUrl", "status"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global application configuration including dynamic backgrounds.",
+      "type": "object",
+      "properties": {
+        "backgrounds": {
+          "type": "object",
+          "properties": {
+            "arena": { "type": "string" },
+            "dashboard": { "type": "string" },
+            "wallet": { "type": "string" },
+            "hallOfChampions": { "type": "string" }
+          }
+        },
+        "payment": {
+          "type": "object",
+          "properties": {
+            "adminUpiId": { "type": "string" },
+            "adminQrUrl": { "type": "string" }
+          }
+        }
+      }
     }
   },
   "auth": {
@@ -94,6 +117,10 @@
     "/recharge-requests/{requestId}": {
       "schema": "RechargeRequest",
       "description": "Pending and past manual recharge requests."
+    },
+    "/app-settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Global settings for the application."
     }
   }
 }
