@@ -60,7 +60,7 @@ function TournamentCard({ t }: { t: any }) {
           setStatusText('REGISTRATION ENDS IN');
           setStatusColor('text-black');
         }
-      } else if (isAfter(now, regEnd) && isBefore(now, battleStart)) {
+      } else if (isAfter(now, regStart) && isBefore(now, battleStart)) {
         const diff = battleStart.getTime() - now.getTime();
         setCountdown(formatDiff(diff));
         setStatusText('BATTLE STARTS IN');
@@ -98,7 +98,7 @@ function TournamentCard({ t }: { t: any }) {
   const regStatus = getRegistrationStatus();
 
   return (
-    <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem]">
+    <Card className="overflow-hidden glass border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2rem] z-10">
       <div className="relative h-64">
         <Image 
           src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
@@ -128,7 +128,7 @@ function TournamentCard({ t }: { t: any }) {
           </h3>
         </div>
       </div>
-      <CardContent className="flex-1 p-6 space-y-6 bg-card/20">
+      <CardContent className="flex-1 p-6 space-y-6 bg-card/20 backdrop-blur-md">
         <div className="grid grid-cols-2 gap-y-4 gap-x-8">
           <div className="space-y-1">
             <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.2em]">Prize Pool</p>
@@ -162,7 +162,7 @@ function TournamentCard({ t }: { t: any }) {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-6 pt-0 bg-card/20">
+      <CardFooter className="p-6 pt-0 bg-card/20 backdrop-blur-md">
         <Link href={`/arena/tournament/${t.id}`} className="w-full flex gap-3">
           <Button 
             className={`flex-1 font-black uppercase tracking-widest h-14 rounded-2xl transition-all text-sm ${
@@ -179,7 +179,6 @@ function TournamentCard({ t }: { t: any }) {
           </Button>
           <Button size="icon" variant="outline" className="h-14 w-14 rounded-2xl border-white/10 glass hover:bg-primary/10 transition-colors group relative">
              <Info className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-             <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-background animate-pulse" />
           </Button>
         </Link>
       </CardFooter>
@@ -224,14 +223,16 @@ export default function ArenaPage() {
   return (
     <PageWrapper>
       <div className="relative min-h-screen">
+        {/* Dynamic Arena Background */}
         {arenaBg && (
-          <div className="fixed inset-0 z-[-1] pointer-events-none">
-            <Image src={arenaBg} alt="Arena Background" fill className="object-cover opacity-20 blur-sm" />
-            <div className="absolute inset-0 bg-black/60" />
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <Image src={arenaBg} alt="Arena Background" fill className="object-cover opacity-40 saturate-150" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
+            <div className="absolute inset-0 backdrop-blur-[2px]" />
           </div>
         )}
 
-        <div className="flex flex-col gap-8">
+        <div className="relative z-10 flex flex-col gap-8">
           {/* Swipable Category Tabs */}
           <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 -mx-4 px-4">
             <Button 
@@ -276,7 +277,7 @@ export default function ArenaPage() {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     placeholder="Find your arena..." 
-                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-2xl font-bold focus:ring-primary"
+                    className="pl-12 h-14 bg-white/5 border-white/10 rounded-2xl font-bold focus:ring-primary backdrop-blur-md"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -301,7 +302,7 @@ export default function ArenaPage() {
                     <Button 
                       variant="ghost" 
                       onClick={() => { setThFilter(null); setSubCatFilter(null); setSearchTerm(''); }}
-                      className="h-14 w-14 rounded-2xl text-destructive"
+                      className="h-14 w-14 rounded-2xl text-destructive bg-white/5"
                     >
                       <X className="w-5 h-5" />
                     </Button>
@@ -338,7 +339,7 @@ export default function ArenaPage() {
                   ))
                 ) : filteredTournaments.length === 0 ? (
                   <div className="col-span-full py-32 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="p-6 bg-white/5 rounded-full border border-white/10">
+                    <div className="p-6 bg-white/5 rounded-full border border-white/10 backdrop-blur-xl">
                       <ShieldAlert className="w-16 h-16 text-muted-foreground/30" />
                     </div>
                     <div className="space-y-2">
@@ -362,7 +363,7 @@ export default function ArenaPage() {
                 <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
               </div>
               <div className="space-y-4">
-                <h2 className="font-headline text-5xl md:text-7xl font-black uppercase italic legendary-text tracking-tighter">Legendary World Championship</h2>
+                <h2 className="font-headline text-5xl md:text-7xl font-black uppercase italic legendary-text tracking-tighter text-white">Legendary World Championship</h2>
                 <p className="text-muted-foreground font-bold tracking-[0.4em] text-sm uppercase animate-pulse">Wait for Ultimate Glory • Coming Soon</p>
               </div>
               <div className="flex gap-4">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -49,6 +50,11 @@ export default function Dashboard() {
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
+  // Background Image from App Settings
+  const backgroundsRef = doc(db, 'app-settings', 'backgrounds');
+  const { data: bgData } = useDoc(backgroundsRef);
+  const dashboardBg = bgData?.dashboard;
+
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ 
     username: '', 
@@ -60,8 +66,6 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
-
-  const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
 
   useEffect(() => {
     if (!profileLoading && profile) {
@@ -78,29 +82,6 @@ export default function Dashboard() {
       setSetupOpen(true);
     }
   }, [profile, profileLoading, user]);
-
-  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const formDataCld = new FormData();
-      formDataCld.append('file', file);
-      formDataCld.append('upload_preset', 'ml_default');
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formDataCld });
-      const data = await response.json();
-      if (data.secure_url) {
-        setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url }));
-        toast({ title: "UPI QR Secured!" });
-      }
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "QR Upload Failed" });
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSetupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,59 +125,70 @@ export default function Dashboard() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-              <h1 className="font-headline text-3xl md:text-4xl font-black tracking-tight uppercase leading-none">COMMAND <span className="text-primary italic">HUB</span></h1>
-              {isSuperAdmin ? <CheckCircle2 className="w-6 h-6 text-yellow-500 fill-yellow-500/20" /> : isAdmin && <CheckCircle2 className="w-6 h-6 text-green-500" />}
-            </div>
-            <p className="text-muted-foreground font-medium">Welcome back, <span className="text-white font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
+      <div className="relative min-h-screen">
+        {/* Dynamic Dashboard Background */}
+        {dashboardBg && (
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <Image src={dashboardBg} alt="Dashboard Background" fill className="object-cover opacity-30 saturate-150" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
+            <div className="absolute inset-0 backdrop-blur-[1px]" />
           </div>
-          <Link href="/arena"><Button className="bg-primary font-black px-8 h-12 rounded-xl glow-primary shadow-xl">FIND TOURNAMENT</Button></Link>
-        </div>
+        )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary" /><Badge variant="outline" className="text-[10px] border-primary/20">WALLET</Badge></div>
-              <p className="text-2xl font-black font-headline">🪙 {profile?.balance || 0}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Coins</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5 hover:bg-white/5 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500" /><Badge variant="outline" className="text-[10px] border-white/10">CAREER</Badge></div>
-              <p className="text-2xl font-black font-headline">{profile?.wins || 0}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Victories</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5 hover:bg-white/5 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4"><TrendingUp className="w-5 h-5 text-green-500" /><Badge variant="outline" className="text-[10px] border-white/10">STATUS</Badge></div>
-              <p className="text-2xl font-black font-headline italic uppercase tracking-tighter">{profile?.rank || 'ROOKIE'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Standing</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-white/5 hover:bg-white/5 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5" /><Badge variant="outline" className="text-[10px] border-white/10">POWER</Badge></div>
-              <p className="text-2xl font-black font-headline uppercase tracking-tighter">TH{profile?.townHall || '??'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Town Hall</p>
-            </CardContent>
-          </Card>
-        </div>
+        <div className="relative z-10 flex flex-col gap-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-1 text-white">
+                <h1 className="font-headline text-3xl md:text-4xl font-black tracking-tight uppercase leading-none">COMMAND <span className="text-primary italic">HUB</span></h1>
+                {isSuperAdmin ? <CheckCircle2 className="w-6 h-6 text-yellow-500 fill-yellow-500/20" /> : isAdmin && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+              </div>
+              <p className="text-muted-foreground font-medium">Welcome back, <span className="text-white font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
+            </div>
+            <Link href="/arena"><Button className="bg-primary font-black px-8 h-12 rounded-xl glow-primary shadow-xl">FIND TOURNAMENT</Button></Link>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-             <div className="bg-white/5 border border-white/5 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4">
-                <Swords className="w-16 h-16 text-primary animate-pulse" />
-                <div className="space-y-2">
-                   <h3 className="font-headline text-2xl font-bold uppercase italic">No Active Battles</h3>
-                   <p className="text-muted-foreground max-w-sm font-medium">Head over to the Arena to find active tournaments and claim your glory.</p>
-                </div>
-                <Link href="/arena"><Button variant="outline" className="mt-4 border-white/10 font-black">BROWSE ARENAS</Button></Link>
-             </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="glass border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary" /><Badge variant="outline" className="text-[10px] border-primary/20">WALLET</Badge></div>
+                <p className="text-2xl font-black font-headline text-white">🪙 {profile?.balance || 0}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Coins</p>
+              </CardContent>
+            </Card>
+            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500" /><Badge variant="outline" className="text-[10px] border-white/10">CAREER</Badge></div>
+                <p className="text-2xl font-black font-headline text-white">{profile?.wins || 0}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Victories</p>
+              </CardContent>
+            </Card>
+            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4"><TrendingUp className="w-5 h-5 text-green-500" /><Badge variant="outline" className="text-[10px] border-white/10">STATUS</Badge></div>
+                <p className="text-2xl font-black font-headline italic uppercase tracking-tighter text-white">{profile?.rank || 'ROOKIE'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Standing</p>
+              </CardContent>
+            </Card>
+            <Card className="glass border-white/5 hover:bg-white/5 transition-colors backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5" /><Badge variant="outline" className="text-[10px] border-white/10">POWER</Badge></div>
+                <p className="text-2xl font-black font-headline uppercase tracking-tighter text-white">TH{profile?.townHall || '??'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Town Hall</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+               <div className="bg-white/5 border border-white/5 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 backdrop-blur-2xl">
+                  <Swords className="w-16 h-16 text-primary animate-pulse" />
+                  <div className="space-y-2">
+                     <h3 className="font-headline text-2xl font-bold uppercase italic text-white">No Active Battles</h3>
+                     <p className="text-muted-foreground max-w-sm font-medium">Head over to the Arena to find active tournaments and claim your glory.</p>
+                  </div>
+                  <Link href="/arena"><Button variant="outline" className="mt-4 border-white/10 font-black backdrop-blur-md">BROWSE ARENAS</Button></Link>
+               </div>
+            </div>
           </div>
         </div>
       </div>

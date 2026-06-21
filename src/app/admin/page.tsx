@@ -35,7 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCollection, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -178,21 +178,6 @@ export default function AdminPanel() {
     });
   };
 
-  const handleSaveBackgrounds = async () => {
-    if (!isAdmin || savingBgs) return;
-    setSavingBgs(true);
-    setDoc(backgroundsRef, {
-      ...bgs,
-      updatedAt: new Date().toISOString()
-    }, { merge: true }).then(() => {
-      toast({ title: "BACKGROUNDS COMMANDED", description: "Visual aesthetic applied globally." });
-    }).catch(() => {
-      toast({ variant: "destructive", title: "UPDATE FAILED" });
-    }).finally(() => {
-      setSavingBgs(false);
-    });
-  };
-
   const handleBgUpload = async (section: keyof typeof bgs, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,9 +190,18 @@ export default function AdminPanel() {
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
       const data = await res.json();
       if (data.secure_url) {
-        setBgs(prev => ({ ...prev, [section]: data.secure_url }));
-        toast({ title: "IMAGE DEPLOYED", description: `${section.toUpperCase()} background ready.` });
+        // Auto-save to Firestore immediately
+        const updatedBgs = { ...bgs, [section]: data.secure_url };
+        await setDoc(backgroundsRef, {
+          ...updatedBgs,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        
+        setBgs(updatedBgs);
+        toast({ title: "VISUAL DEPLOYED", description: `${section.toUpperCase()} background is now live.` });
       }
+    } catch (err) {
+      toast({ variant: "destructive", title: "DEPLOY FAILED" });
     } finally {
       setSavingBgs(false);
     }
@@ -381,7 +375,9 @@ export default function AdminPanel() {
                       </div>
                     ))}
                   </CardContent>
-                  <CardFooter><Button className="w-full h-12 bg-primary font-black" onClick={handleSaveBackgrounds} disabled={savingBgs}>{savingBgs ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE VISUALS</Button></CardFooter>
+                  <CardFooter>
+                    <p className="text-[10px] text-muted-foreground italic uppercase">Images are automatically deployed on upload.</p>
+                  </CardFooter>
                 </Card>
              </div>
           </TabsContent>
