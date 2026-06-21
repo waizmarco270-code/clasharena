@@ -28,7 +28,6 @@ import {
 import { useDoc, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
-import Link from 'link'; // Corrected
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -132,11 +131,11 @@ export default function Dashboard() {
               src={dashboardBg} 
               alt="Dashboard Background" 
               fill 
-              className="object-cover opacity-30 saturate-150" 
+              className="object-cover opacity-50 saturate-150" 
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
-            <div className="absolute inset-0 backdrop-blur-[1px]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/10 to-background" />
+            <div className="absolute inset-0 backdrop-blur-[0px]" />
           </div>
         )}
 

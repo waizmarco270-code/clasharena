@@ -229,11 +229,11 @@ export default function ArenaPage() {
               src={arenaBg} 
               alt="Arena Background" 
               fill 
-              className="object-cover opacity-40 saturate-150" 
+              className="object-cover opacity-60 saturate-150" 
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
-            <div className="absolute inset-0 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/20 to-background" />
+            <div className="absolute inset-0 backdrop-blur-[1px]" />
           </div>
         )}
 
