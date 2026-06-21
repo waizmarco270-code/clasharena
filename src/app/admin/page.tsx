@@ -47,6 +47,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useUser } from "@clerk/nextjs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -82,8 +83,6 @@ export default function AdminPanel() {
   const [displayUsers, setDisplayUsers] = useState<any[]>([]);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [rejectId, setRejectId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
   
   // Payment Gateway States
   const [upiId, setUpiId] = useState('');
@@ -456,14 +455,16 @@ export default function AdminPanel() {
       </div>
 
       <Dialog open={tOpen} onOpenChange={setTOpen}>
-        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-0 shrink-0">
-            <DialogTitle className="font-headline text-2xl font-black italic uppercase">
-              {editTId ? 'RECONFIGURE' : 'DEPLOY'} <span className="text-primary">ARENA</span>
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] !flex !flex-col p-0 overflow-hidden outline-none">
+          <div className="p-6 border-b border-white/10 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="font-headline text-2xl font-black italic uppercase">
+                {editTId ? 'RECONFIGURE' : 'DEPLOY'} <span className="text-primary">ARENA</span>
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           
-          <ScrollArea className="flex-1 p-6">
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20">
             <form onSubmit={handleCreateTournament} id="t-form" className="space-y-8">
               {/* Core Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -562,7 +563,7 @@ export default function AdminPanel() {
               <div className="space-y-4 pt-4 border-t border-white/5">
                 <Label className="text-[10px] font-black uppercase">Arena Banner</Label>
                 <div className="flex items-center gap-4">
-                  <div className="relative h-24 w-40 rounded-xl overflow-hidden border border-dashed border-white/10 bg-black/20 flex items-center justify-center shrink-0">
+                  <div className="relative h-20 w-32 rounded-xl overflow-hidden border border-dashed border-white/10 bg-black/20 flex items-center justify-center shrink-0">
                     {tForm.imageUrl ? (
                       <Image src={tForm.imageUrl} alt="Banner" fill className="object-cover" />
                     ) : (
@@ -570,8 +571,8 @@ export default function AdminPanel() {
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Recommended: 800x400 JPG/PNG</p>
-                    <Button type="button" variant="outline" size="sm" className="w-full h-10 border-dashed border-white/20" onClick={() => tThumbInputRef.current?.click()}>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Banner Preview</p>
+                    <Button type="button" variant="outline" size="sm" className="w-full h-9 border-dashed border-white/20 text-[10px] font-black" onClick={() => tThumbInputRef.current?.click()}>
                       {uploadingThumbnail ? <Loader2 className="animate-spin mr-2" /> : <ImagePlus className="w-4 h-4 mr-2" />}
                       {tForm.imageUrl ? 'CHANGE BANNER' : 'UPLOAD BANNER'}
                     </Button>
@@ -580,9 +581,9 @@ export default function AdminPanel() {
                 </div>
               </div>
             </form>
-          </ScrollArea>
+          </div>
 
-          <div className="p-6 border-t border-white/5 bg-background/50 shrink-0">
+          <div className="p-6 border-t border-white/10 bg-black/40 shrink-0">
             <Button type="submit" form="t-form" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary rounded-2xl">
               {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE BATTLEFIELD' : 'DEPLOY TOURNAMENT'}
             </Button>
