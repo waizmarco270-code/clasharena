@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef, use } from 'react';
@@ -29,7 +28,8 @@ import {
   Minus,
   Maximize2,
   Minimize2,
-  Monitor
+  Monitor,
+  Check
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment } from 'firebase/firestore';
@@ -220,7 +220,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       });
       setDemoMatches(updated);
       
-      // If final match winner is selected in demo, show confetti
       if (match.round === totalRounds) {
         triggerConfetti();
         toast({ title: "DEMO VICTORY", description: `${winnerName} is the Champion!` });
@@ -236,7 +235,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       await updateDoc(nextRef, { [isPlayer1 ? 'player1Id' : 'player2Id']: winnerId, [isPlayer1 ? 'player1Name' : 'player2Name']: winnerName });
     }
     
-    // Check if it's the final match
     if (match.round === totalRounds) {
       triggerConfetti();
       toast({ title: "ARENA CHAMPION", description: `${winnerName} has claimed the crown!` });
@@ -345,7 +343,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
               "glass border-white/5 relative overflow-hidden bg-[#0a0a0a] shadow-2xl transition-all duration-300",
               isFullscreen ? "h-full rounded-none border-0" : "h-full rounded-[2.5rem]"
             )}>
-               {/* Controls Bar */}
                <div className="absolute top-6 left-6 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl">
                  <Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.max(0.4, prev - 0.2))}><Minus className="w-4 h-4" /></Button>
                  <span className="text-[10px] font-black text-white w-12 text-center">{Math.round(zoom * 100)}%</span>
@@ -365,7 +362,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
                <div className="absolute top-6 right-6 z-50">
                  <Badge variant="outline" className="bg-primary/20 border-primary/40 text-primary font-black uppercase tracking-widest px-4 py-2 flex items-center gap-2 shadow-xl backdrop-blur-md">
-                   {demoSize ? `DEMO: ${demoSize} WARRIORS` : <><Move className="w-4 h-4 animate-pulse" /> Movable Battlefield</>}
+                   {demoSize ? `DEMO: ${demoSize} WARRIORS` : <><Move className="w-4 h-4 animate-pulse" /> Battlefield View</>}
                  </Badge>
                </div>
 
@@ -382,7 +379,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
                         return (
                           <div key={roundNum} className="flex flex-col justify-around gap-20 relative">
-                            {/* Round Title */}
                             <div className="text-center mb-10">
                               <Badge className="bg-white/5 text-white/40 border-white/10 uppercase font-black text-[10px] px-6 py-2 rounded-full tracking-widest">
                                 {roundNum === totalRounds ? 'Grand Final' : `Round ${roundNum}`}
@@ -391,7 +387,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                             
                             {roundMatches.map((m: any, mIdx: number) => (
                               <div key={m.id || mIdx} className="relative flex items-center">
-                                {/* Match Card */}
                                 <div className="w-64 space-y-2 z-30 relative">
                                   {[1, 2].map(pIdx => {
                                     const pId = pIdx === 1 ? m.player1Id : m.player2Id;
@@ -406,21 +401,26 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                         className={cn(
                                           "h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all",
                                           isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default",
-                                          isWinner ? "bg-primary border-primary shadow-[0_0_20px_rgba(255,69,0,0.4)]" : 
-                                          isLoser ? "bg-black/40 border-white/5 opacity-40 grayscale" : "bg-black/60 border-white/10"
+                                          isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : 
+                                          isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10"
                                         )}
                                       >
                                         <div className="flex items-center gap-3 overflow-hidden">
                                           <div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} />
-                                          <span className="text-sm font-black uppercase truncate text-white">{pName || 'TBD'}</span>
+                                          <span className={cn(
+                                            "text-sm font-black uppercase truncate",
+                                            isWinner || isLoser ? "text-white" : "text-white/60"
+                                          )}>
+                                            {pName || 'TBD'}
+                                          </span>
                                         </div>
                                         {isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                        {isLoser && <XCircle className="w-4 h-4 text-white/40" />}
                                       </div>
                                     );
                                   })}
                                 </div>
                                 
-                                {/* SVG Connector Lines */}
                                 {roundNum < totalRounds && (
                                   <svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible">
                                     <path 
@@ -433,7 +433,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                   </svg>
                                 )}
 
-                                {/* Trophy Connection */}
                                 {roundNum === totalRounds && (
                                   <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center gap-10 ml-20">
                                      <div className="w-20 h-0.5 bg-primary/20" />
@@ -452,7 +451,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                             <Crown className="w-6 h-6 text-black" />
                                           </div>
                                           <Crown className={cn("w-14 h-14 mb-2", winnerInfo ? "text-yellow-500" : "text-white/10")} />
-                                          <p className="text-xs font-black uppercase text-white truncate max-w-[120px] mt-1">
+                                          <p className="text-xs font-black uppercase text-white truncate max-w-[120px] mt-1 text-center">
                                             {winnerInfo?.name || 'AWAITING'}
                                           </p>
                                        </div>
@@ -477,8 +476,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                  <ScrollBar orientation="horizontal" className="bg-white/5 h-3" />
                  <ScrollBar orientation="vertical" className="bg-white/5 w-3" />
                </ScrollArea>
-               
-               {/* Grid Background */}
                <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
             </Card>
           </TabsContent>
