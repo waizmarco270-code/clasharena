@@ -42,6 +42,13 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
   useEffect(() => {
     if (!t) return;
     const timer = setInterval(() => {
+      // Priority check for manually completed status
+      if (t.status === 'completed') {
+        setStatus('COMPLETED');
+        setCountdown('BATTLE OVER');
+        return;
+      }
+
       const now = new Date();
       const regStart = new Date(t.registrationStartTime);
       const regEnd = new Date(t.registrationEndTime);
@@ -173,18 +180,25 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                 <div className="p-4 bg-black/40 rounded-2xl border border-white/10 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black uppercase text-muted-foreground">Battle Status</span>
-                    <Badge className={status === 'OPEN' ? 'bg-green-500' : 'bg-red-500'}>{status.replace('_', ' ')}</Badge>
+                    <Badge className={status === 'OPEN' ? 'bg-green-500' : (status === 'COMPLETED' ? 'bg-blue-600' : 'bg-red-500')}>
+                      {status.replace('_', ' ')}
+                    </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black uppercase text-muted-foreground">Time Phase</span>
-                    <span className="text-sm font-mono font-black text-primary animate-pulse">{countdown}</span>
+                    <span className={cn(
+                      "text-sm font-mono font-black",
+                      status === 'COMPLETED' ? "text-muted-foreground" : "text-primary animate-pulse"
+                    )}>
+                      {countdown}
+                    </span>
                   </div>
                 </div>
 
                 {canEnterArena ? (
                   <Link href={`/arena/tournament/${id}/play`} className="block">
                     <Button className="w-full h-16 bg-green-600 hover:bg-green-700 font-black uppercase text-xl rounded-2xl shadow-2xl transition-all glow-primary border-t border-white/20">
-                      ENTER ARENA <PlayCircle className="ml-2 w-6 h-6" />
+                      {status === 'COMPLETED' ? 'VIEW RESULTS' : 'ENTER ARENA'} <PlayCircle className="ml-2 w-6 h-6" />
                     </Button>
                   </Link>
                 ) : (

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, useRef, use } from 'react';
@@ -29,7 +30,8 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
-  Check
+  Check,
+  Lock
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment } from 'firebase/firestore';
@@ -79,6 +81,9 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
   const isRegistered = registrations?.some((r: any) => r.userId === user?.id);
+  
+  // Access Control Flag: Spectators can only see Brackets
+  const hasFullAccess = isRegistered || isAdmin;
 
   // Initialize demo matches when demo size changes
   useEffect(() => {
@@ -136,7 +141,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !messageText.trim() || (!isRegistered && !isAdmin)) return;
+    if (!user || !messageText.trim() || !hasFullAccess) return;
     const msgData = {
       userId: user.id,
       username: profile?.username || user.firstName || 'Warrior',
@@ -332,9 +337,18 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           {!isFullscreen && (
             <TabsList className="bg-muted/30 border border-white/5 w-full justify-start overflow-x-auto no-scrollbar h-14 p-1">
               <TabsTrigger value="fixtures" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Swords className="w-4 h-4 mr-2" /> Bracket</TabsTrigger>
-              <TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger>
-              <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><MessageSquare className="w-4 h-4 mr-2" /> Chat Arena</TabsTrigger>
-              <TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger>
+              
+              {hasFullAccess ? (
+                <>
+                  <TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger>
+                  <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><MessageSquare className="w-4 h-4 mr-2" /> Chat Arena</TabsTrigger>
+                  <TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger>
+                </>
+              ) : (
+                <Badge variant="outline" className="h-full px-4 rounded-lg bg-black/40 text-[9px] font-black uppercase opacity-60 flex items-center gap-2">
+                  <Lock className="w-3 h-3" /> PARTICIPANTS ONLY
+                </Badge>
+              )}
             </TabsList>
           )}
 
@@ -480,7 +494,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             </Card>
           </TabsContent>
 
-          {!isFullscreen && (
+          {(!isFullscreen && hasFullAccess) && (
             <>
               <TabsContent value="members" className="mt-4 outline-none">
                 <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
