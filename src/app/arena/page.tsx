@@ -16,7 +16,11 @@ import {
   ShieldAlert,
   Loader2,
   X,
-  History
+  History,
+  Gift,
+  Coins,
+  IndianRupee,
+  Eye
 } from 'lucide-react';
 import { useCollection, useFirestore, useDoc } from '@/firebase';
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
@@ -30,12 +34,14 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 function TournamentCard({ t }: { t: any }) {
   const [countdown, setCountdown] = useState<string>('');
   const [statusText, setStatusText] = useState<string>('');
   const [statusColor, setStatusColor] = useState<string>('text-black');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (t.status === 'completed') {
@@ -109,6 +115,35 @@ function TournamentCard({ t }: { t: any }) {
       <div className="relative h-64">
         <Image src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} alt={t.name} fill className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-80" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/40" />
+        
+        {/* Reward Badge Overlay */}
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
+           <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+              {t.rewardType === 'money' ? (
+                <IndianRupee className="w-3 h-3 text-primary" />
+              ) : t.rewardType === 'coin' ? (
+                <Coins className="w-3 h-3 text-primary" />
+              ) : (
+                <Gift className="w-3 h-3 text-primary" />
+              )}
+              <span className="text-[10px] font-black text-white uppercase italic">
+                {t.rewardType === 'money' ? `₹ ${t.rewardValue}` : 
+                 t.rewardType === 'coin' ? `${t.rewardValue} COINS` : 
+                 t.rewardItemName}
+              </span>
+           </div>
+           {t.rewardType === 'item' && t.rewardImageUrl && (
+             <Button 
+               size="sm" 
+               variant="secondary" 
+               className="h-7 px-3 rounded-full text-[8px] font-black uppercase italic bg-primary/80 hover:bg-primary text-white border-none glow-primary"
+               onClick={() => setIsPreviewOpen(true)}
+             >
+               <Eye className="w-3 h-3 mr-1" /> REWARD PREVIEW
+             </Button>
+           )}
+        </div>
+
         <div className="absolute bottom-0 left-0 right-0 bg-yellow-500 py-2 flex items-center justify-center gap-3 overflow-hidden shadow-xl">
            <div className="flex items-center gap-2">
               <Timer className="w-4 h-4 text-black" />
@@ -147,6 +182,30 @@ function TournamentCard({ t }: { t: any }) {
           </Button>
         </Link>
       </CardFooter>
+
+      {/* Reward Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="glass border-white/10 max-w-sm p-0 overflow-hidden outline-none">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/40">
+            <DialogTitle className="text-sm font-black uppercase italic tracking-widest">REWARD <span className="text-primary">PREVIEW</span></DialogTitle>
+          </div>
+          <div className="relative aspect-square w-full">
+            <Image src={t.rewardImageUrl} alt="Reward Item" fill className="object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            <div className="absolute bottom-6 left-6 right-6">
+               <Badge className="bg-primary mb-2">EPIC DROP</Badge>
+               <h3 className="text-2xl font-black uppercase italic text-white drop-shadow-xl">{t.rewardItemName}</h3>
+            </div>
+          </div>
+          <div className="p-6 bg-black/40 flex flex-col gap-4">
+             <div className="flex items-center gap-3 text-muted-foreground">
+                <ShieldAlert className="w-5 h-5 text-primary" />
+                <p className="text-[10px] font-bold uppercase">This item will be granted to the Arena Champion within 24 hours of victory.</p>
+             </div>
+             <Button onClick={() => setIsPreviewOpen(false)} className="w-full bg-white text-black font-black uppercase">CLOSE PREVIEW</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -161,7 +220,7 @@ export default function ArenaPage() {
   const { data: bgData } = useDoc(backgroundsRef);
 
   const tournamentQuery = useMemo(() => {
-    let q = query(collection(db, 'tournaments'), orderBy('startTime', 'desc'));
+    let q = query(collection(db, 'tournaments'), orderBy('status'), orderBy('startTime', 'desc'));
     
     if (activeTab === 'history') {
       q = query(collection(db, 'tournaments'), where('status', '==', 'completed'), orderBy('startTime', 'desc'));

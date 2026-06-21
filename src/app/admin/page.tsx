@@ -33,7 +33,9 @@ import {
   Camera,
   Calendar,
   Clock,
-  Trophy
+  Trophy,
+  Gift,
+  IndianRupee
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,13 +108,20 @@ export default function AdminPanel() {
   const [editTId, setEditTId] = useState<string | null>(null);
   const [newRule, setNewRule] = useState('');
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingReward, setUploadingReward] = useState(false);
   const tThumbInputRef = useRef<HTMLInputElement>(null);
+  const tRewardInputRef = useRef<HTMLInputElement>(null);
+  
   const [tForm, setTForm] = useState({
     name: '',
     type: 'paid',
     subCategory: 'knockout',
     maxPlayers: 8,
     entryFee: 0,
+    rewardType: 'coin',
+    rewardValue: '',
+    rewardItemName: '',
+    rewardImageUrl: '',
     prizePool: '',
     rules: [] as string[],
     imageUrl: '',
@@ -155,7 +164,8 @@ export default function AdminPanel() {
   const resetTForm = () => {
     setTForm({
       name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
-      entryFee: 0, prizePool: '', rules: [], imageUrl: '', townHall: 0,
+      entryFee: 0, rewardType: 'coin', rewardValue: '', rewardItemName: '',
+      rewardImageUrl: '', prizePool: '', rules: [], imageUrl: '', townHall: 0,
       registrationStartTime: '', registrationEndTime: '', startTime: ''
     });
     setEditTId(null);
@@ -221,6 +231,26 @@ export default function AdminPanel() {
     }
   };
 
+  const handleRewardImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingReward(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setTForm(prev => ({ ...prev, rewardImageUrl: data.secure_url }));
+        toast({ title: "REWARD PHOTO READY" });
+      }
+    } finally {
+      setUploadingReward(false);
+    }
+  };
+
   const handleAdminQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -259,8 +289,15 @@ export default function AdminPanel() {
     if (!isAdmin) return;
     setTLoading(true);
 
+    // Create a pool summary for backward compatibility
+    let poolSummary = '';
+    if (tForm.rewardType === 'money') poolSummary = `₹ ${tForm.rewardValue}`;
+    else if (tForm.rewardType === 'coin') poolSummary = `🪙 ${tForm.rewardValue}`;
+    else poolSummary = `${tForm.rewardItemName}`;
+
     const tournamentData = {
       ...tForm,
+      prizePool: poolSummary,
       updatedAt: new Date().toISOString()
     };
 
@@ -465,7 +502,7 @@ export default function AdminPanel() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20">
-            <form onSubmit={handleCreateTournament} id="t-form" className="space-y-8">
+            <form onSubmit={handleCreateTournament} id="t-form" className="space-y-10">
               {/* Core Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -520,9 +557,64 @@ export default function AdminPanel() {
                   <Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label>
                   <Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} className="bg-white/5" />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-black uppercase">Prize Pool / Rewards</Label>
-                  <Input value={tForm.prizePool} onChange={e => setTForm({...tForm, prizePool: e.target.value})} placeholder="e.g. 1000 Coins + Gold Pass" className="bg-white/5" />
+              </div>
+
+              {/* Reward Protocol Section */}
+              <div className="space-y-6 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                <Label className="text-[12px] font-black uppercase flex items-center gap-2 text-primary">
+                  <Trophy className="w-4 h-4" /> REWARD PROTOCOL
+                </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Reward Type</Label>
+                    <Select value={tForm.rewardType} onValueChange={val => setTForm({...tForm, rewardType: val as any})}>
+                      <SelectTrigger className="bg-white/5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="money">REAL MONEY (INR)</SelectItem>
+                        <SelectItem value="coin">ARENA COINS</SelectItem>
+                        <SelectItem value="item">SPECIAL ITEM / GIFT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {tForm.rewardType === 'item' ? (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Item Name</Label>
+                      <Input value={tForm.rewardItemName} onChange={e => setTForm({...tForm, rewardItemName: e.target.value})} placeholder="e.g. Gold Pass / Discord Nitro" className="bg-white/5" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Reward Amount</Label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                          {tForm.rewardType === 'money' ? <IndianRupee className="w-4 h-4 text-primary" /> : <Coins className="w-4 h-4 text-primary" />}
+                        </div>
+                        <Input type="number" value={tForm.rewardValue} onChange={e => setTForm({...tForm, rewardValue: e.target.value})} className="bg-white/5 pl-10" />
+                      </div>
+                    </div>
+                  )}
+
+                  {tForm.rewardType === 'item' && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-black uppercase">Item Photo</Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-dashed border-primary/20 bg-black/20 flex items-center justify-center shrink-0">
+                          {tForm.rewardImageUrl ? (
+                            <Image src={tForm.rewardImageUrl} alt="Reward" fill className="object-cover" />
+                          ) : (
+                            <Gift className="w-6 h-6 text-muted-foreground opacity-20" />
+                          )}
+                        </div>
+                        <Button type="button" variant="outline" size="sm" className="h-10 border-dashed border-primary/20 text-[10px] font-black" onClick={() => tRewardInputRef.current?.click()}>
+                          {uploadingReward ? <Loader2 className="animate-spin mr-2" /> : <ImagePlus className="w-4 h-4 mr-2" />}
+                          UPLOAD REWARD PHOTO
+                        </Button>
+                        <input type="file" ref={tRewardInputRef} className="hidden" accept="image/*" onChange={handleRewardImageUpload} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -559,7 +651,7 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Thumbnail Section - Bottom & Compact */}
+              {/* Thumbnail Section */}
               <div className="space-y-4 pt-4 border-t border-white/5">
                 <Label className="text-[10px] font-black uppercase">Arena Banner</Label>
                 <div className="flex items-center gap-4">

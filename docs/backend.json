@@ -3,13 +3,17 @@
   "entities": {
     "Tournament": {
       "title": "Tournament",
-      "description": "Represents a Clash of Clans tournament event. Updated for arena system.",
+      "description": "Represents a Clash of Clans tournament event. Updated for arena system with advanced rewards.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "type": { "type": "string", "enum": ["paid", "free", "championship"] },
         "subCategory": { "type": "string", "enum": ["knockout", "1vs1", "tdm"] },
         "entryFee": { "type": "number" },
+        "rewardType": { "type": "string", "enum": ["money", "coin", "item"] },
+        "rewardValue": { "type": "string" },
+        "rewardItemName": { "type": "string" },
+        "rewardImageUrl": { "type": "string" },
         "prizePool": { "type": "string" },
         "currentPlayers": { "type": "number" },
         "maxPlayers": { "type": "number" },
@@ -25,7 +29,7 @@
         "winnerId": { "type": "string" },
         "winnerName": { "type": "string" }
       },
-      "required": ["name", "type", "subCategory", "entryFee", "maxPlayers", "status", "startTime", "registrationStartTime", "registrationEndTime"]
+      "required": ["name", "type", "subCategory", "entryFee", "maxPlayers", "status", "startTime", "registrationStartTime", "registrationEndTime", "rewardType"]
     },
     "TournamentMatch": {
       "title": "Tournament Match",
