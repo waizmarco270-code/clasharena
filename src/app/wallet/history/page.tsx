@@ -16,29 +16,28 @@ import {
   Loader2,
   Calendar
 } from 'lucide-react';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import Link from 'link'; // Note: corrected from 'next/link' in some frameworks, keeping standard next/link
 import { default as NextLink } from 'next/link';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from "@clerk/nextjs";
 
 export default function WalletHistoryPage() {
-  const { user, loading: authLoading } = useUser();
+  const { userId, isLoaded: authLoading } = useAuth();
   const db = useFirestore();
 
   const historyQuery = useMemo(() => {
-    if (authLoading || !user?.uid) return null;
-    // Querying requests belonging to the current Firebase user
+    if (!authLoading || !userId) return null;
     return query(
       collection(db, 'recharge-requests'),
-      where('userId', '==', user.uid),
+      where('userId', '==', userId),
       orderBy('createdAt', 'desc')
     );
-  }, [db, user?.uid, authLoading]);
+  }, [db, userId, authLoading]);
 
   const { data: logs, loading: logsLoading } = useCollection(historyQuery);
-  const loading = authLoading || logsLoading;
+  const loading = !authLoading || logsLoading;
 
   const getStatusIcon = (status: string) => {
     switch (status) {

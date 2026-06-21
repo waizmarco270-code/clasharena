@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useDoc, useCollection } from '@/firebase';
 import { doc, query, collection, where, orderBy, limit } from 'firebase/firestore';
 import Image from 'next/image';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export default function HallOfChampions() {
   const db = useFirestore();
@@ -44,7 +46,7 @@ export default function HallOfChampions() {
                   <div className="mb-6">{i === 0 ? <Crown className="text-yellow-500 w-12 h-12" /> : <Medal className="text-gray-400 w-8 h-8" />}</div>
                   <Avatar className="h-24 w-24 border-4 border-border/10 mb-4 group-hover:border-primary/40 transition-all">
                     <AvatarImage src={champ.avatarUrl} />
-                    <AvatarFallback className="text-2xl font-black">{champ.username?.substring(0,2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-2xl font-black">{champ.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
                   </Avatar>
                   <h3 className="font-headline text-2xl font-bold mb-1">{champ.username}</h3>
                   <Badge variant="secondary" className="mb-4">{i === 0 ? 'ELITE CHAMPION' : 'PRO WARRIOR'}</Badge>
