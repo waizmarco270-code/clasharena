@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef, use } from 'react';
@@ -7,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { 
   Swords, 
   Users, 
@@ -264,7 +264,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
           <TabsContent value="fixtures" className="mt-4 outline-none">
             <Card className="glass border-white/5 h-[75vh] relative overflow-hidden bg-black rounded-[2rem]">
-               {/* Pro White-Dot Grid Layer */}
                <div className="absolute inset-0 opacity-[0.1] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
                
                <ScrollArea className="h-full w-full">
@@ -274,7 +273,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                         const roundNum = rIdx + 1;
                         const roundMatches = matches?.filter((m: any) => m.round === roundNum) || [];
                         
-                        if (roundMatches.length === 0 && isAdmin) return null;
+                        if (roundMatches.length === 0 && matches.length > 0) return null;
 
                         return (
                           <div key={roundNum} className="flex flex-col justify-around gap-20 relative">
@@ -321,7 +320,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                   })}
                                 </div>
                                 
-                                {/* Connection Brackets (SVG Style Lines) */}
                                 {roundNum < totalRounds && (
                                   <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center z-0">
                                     <div className="w-16 h-[2px] bg-white/10" />
@@ -500,4 +498,3 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     </PageWrapper>
   );
 }
-
