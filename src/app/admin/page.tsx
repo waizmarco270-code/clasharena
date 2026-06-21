@@ -43,7 +43,7 @@ import { useCollection, useFirestore, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, increment, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useUser } from "@clerk/nextjs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -571,7 +571,7 @@ export default function AdminPanel() {
                  <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase text-muted-foreground">Reward Type</span><Badge className="bg-primary/20 text-primary uppercase text-[9px]">{activeClaim?.rewardType}</Badge></div>
                  <div className="flex justify-between items-center">
                    <span className="text-[9px] font-black uppercase text-muted-foreground">Reward Detail</span>
-                   <span className="text-sm font-black uppercase">{activeClaim?.rewardType === 'money' ? `₹ ${activeClaim?.rewardValue}` : activeClaim?.rewardItemName}</span>
+                   <span className="text-sm font-black uppercase">{activeClaim?.rewardType === 'money' ? `₹ ${claim.rewardValue}` : activeClaim?.rewardItemName}</span>
                  </div>
               </div>
 
@@ -746,3 +746,4 @@ export default function AdminPanel() {
     </PageWrapper>
   );
 }
+
