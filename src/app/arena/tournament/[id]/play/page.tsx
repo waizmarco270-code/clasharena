@@ -86,7 +86,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [demoMatches, setDemoMatches] = useState<any[]>([]);
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
@@ -94,6 +93,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const isRegistered = registrations?.some((r: any) => r.userId === user?.id);
   
   const hasFullAccess = isRegistered || isAdmin;
+  const isTournamentCompleted = t?.status === 'completed';
 
   // Cooldown timer
   useEffect(() => {
@@ -160,6 +160,12 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !messageText.trim() || !hasFullAccess) return;
+
+    // Lock chat for non-admins if tournament is completed
+    if (isTournamentCompleted && !isAdmin) {
+      toast({ variant: "destructive", title: "ARENA ARCHIVED", description: "Chat is locked for this battlefield." });
+      return;
+    }
 
     // Check cooldown for non-admins
     if (!isAdmin) {
@@ -636,18 +642,34 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                         <Input 
                           value={messageText} 
                           onChange={(e) => setMessageText(e.target.value)} 
-                          placeholder={cooldown > 0 ? `Wait ${cooldown}s...` : "Type a message..."} 
+                          placeholder={
+                            isTournamentCompleted && !isAdmin 
+                              ? "Arena archived. Chat is locked." 
+                              : cooldown > 0 && !isAdmin 
+                                ? `Wait ${cooldown}s...` 
+                                : "Type a message..."
+                          } 
                           className="bg-white/5 rounded-xl h-12 pr-12"
-                          disabled={cooldown > 0 && !isAdmin}
+                          disabled={(cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}
                         />
-                        {cooldown > 0 && !isAdmin && (
+                        {cooldown > 0 && !isAdmin && !isTournamentCompleted && (
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-primary">
                             <Clock className="w-3.5 h-3.5 animate-spin" />
                             <span className="text-[10px] font-black">{cooldown}s</span>
                           </div>
                         )}
+                        {isTournamentCompleted && !isAdmin && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Lock className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
-                      <Button type="submit" size="icon" className="h-12 w-12 bg-primary rounded-xl shrink-0" disabled={!messageText.trim() || (cooldown > 0 && !isAdmin)}>
+                      <Button 
+                        type="submit" 
+                        size="icon" 
+                        className="h-12 w-12 bg-primary rounded-xl shrink-0" 
+                        disabled={!messageText.trim() || (cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}
+                      >
                         <Send className="w-5 h-5" />
                       </Button>
                     </form>

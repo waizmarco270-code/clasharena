@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect, use } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Swords, Users, Trophy, ChevronLeft, ShieldCheck, Zap, Info, ArrowRight, Loader2, PlayCircle } from 'lucide-react';
