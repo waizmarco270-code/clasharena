@@ -36,6 +36,9 @@ export default function HallOfChampions() {
   const historyQuery = useMemo(() => query(collection(db, 'tournaments'), where('status', '==', 'completed'), orderBy('completedAt', 'desc'), limit(10)), [db]);
   const { data: completedTournaments } = useCollection(historyQuery);
 
+  const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(10)), [db]);
+  const { data: rewardClaims } = useCollection(claimsQuery);
+
   // Champions Query - Top performers who are not hidden
   const championsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(10)), [db]);
   const { data: allUsers } = useCollection(championsQuery);
@@ -135,6 +138,13 @@ export default function HallOfChampions() {
                         <TableCell className="text-right"><Link href={`/arena/tournament/${t.id}`}><Button variant="ghost" size="sm" className="h-8 w-8"><ArrowUpRight className="w-4 h-4" /></Button></Link></TableCell>
                       </TableRow>
                     ))}
+                    {(!completedTournaments || completedTournaments.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10 opacity-40">
+                          <p className="text-[10px] font-black uppercase italic">No Battles Recorded</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -153,12 +163,45 @@ export default function HallOfChampions() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historyQuery && (
-                      <div className="p-0">
-                         {/* Content generated from reward-claims query in original component */}
-                      </div>
+                    {rewardClaims?.map((claim: any) => (
+                      <TableRow key={claim.id} className="border-border/10 hover:bg-muted/5 transition-colors">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-6 w-6 border border-white/10">
+                              <AvatarImage src={claim.avatarUrl} />
+                              <AvatarFallback className="text-[8px] font-black">{claim.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="font-bold uppercase text-[10px]">{claim.username}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20 text-[9px] font-black uppercase">
+                            {claim.rewardType === 'money' ? `₹ ${claim.rewardValue}` : claim.rewardItemName || 'Prize'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={claim.status === 'completed' ? 'default' : 'outline'} className={cn(claim.status === 'completed' ? "bg-green-600" : "border-yellow-500 text-yellow-500", "text-[8px] font-black")}>
+                            {claim.status === 'completed' ? 'PAID' : 'PENDING'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {claim.proofImageUrl ? (
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedProof(claim.proofImageUrl)}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          ) : (
+                            <span className="text-[8px] text-muted-foreground italic">Syncing</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!rewardClaims || rewardClaims.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10 opacity-40">
+                          <p className="text-[10px] font-black uppercase italic">No Proofs Logged</p>
+                        </TableCell>
+                      </TableRow>
                     )}
-                    {/* Re-using same logic for simplicity and consistency */}
                   </TableBody>
                 </Table>
               </div>
