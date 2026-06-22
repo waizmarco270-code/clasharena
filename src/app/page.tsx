@@ -1,69 +1,119 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Trophy, 
   Users, 
   ShieldCheck, 
   ArrowRight,
-  Target
+  Target,
+  Shield
 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { NeuralBackground } from '@/components/ui/neural-background';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { useRouter } from 'next/navigation';
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Card } from '@/components/ui/card';
+import { useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import Link from 'next/link';
 
 export default function Home() {
   const { userId, isLoaded } = useAuth();
   const router = useRouter();
-  const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg');
+  const db = useFirestore();
+
+  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
+  const { data: bgData } = useDoc(backgroundsRef);
 
   useEffect(() => {
     if (isLoaded && userId) {
       router.push('/dashboard');
     }
   }, [userId, isLoaded, router]);
+
+  const heroBg = bgData?.hero || 'https://res.cloudinary.com/dnbbmvbcr/image/upload/f_auto,q_auto/1000053884_i6oosd';
+  const logoUrl = bgData?.logo;
   
   return (
     <PageWrapper>
       <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden min-h-screen relative bg-black">
         <NeuralBackground />
         
+        {/* Landing Page Header */}
+        <header className="fixed top-0 left-0 right-0 z-[100] h-20 glass-dark border-b border-white/5 backdrop-blur-xl">
+           <div className="container mx-auto h-full px-4 flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-3">
+                 <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden shadow-2xl">
+                    {logoUrl ? (
+                      <Image src={logoUrl} alt="Logo" fill className="object-cover" />
+                    ) : (
+                      <span>C</span>
+                    )}
+                 </div>
+                 <span className="font-headline font-black text-2xl tracking-tighter uppercase italic hidden md:block">
+                   CLASH <span className="text-primary">ARENA</span>
+                 </span>
+              </Link>
+
+              <div className="flex items-center gap-6">
+                 {isLoaded && !userId ? (
+                   <SignInButton mode="modal">
+                     <Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary border-t border-white/20 uppercase tracking-widest text-[10px]">
+                       SECURE ACCESS
+                     </Button>
+                   </SignInButton>
+                 ) : isLoaded && userId ? (
+                   <Link href="/dashboard">
+                     <Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary border-t border-white/20 uppercase tracking-widest text-[10px]">
+                       COMMAND HUB
+                     </Button>
+                   </Link>
+                 ) : (
+                   <div className="h-10 w-24 bg-white/5 animate-pulse rounded-lg" />
+                 )}
+              </div>
+           </div>
+        </header>
+        
         {/* Decorative Glows */}
         <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] -z-10 animate-glow-drift opacity-40" />
         <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[100px] -z-10 animate-glow-drift opacity-30" style={{ animationDirection: 'reverse' }} />
 
         {/* Hero Section */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-10 md:pt-20">
+        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
           <div className="absolute inset-0 z-0">
             <Image 
-              src={heroBg?.imageUrl || ''} 
+              src={heroBg} 
               alt="Hero Background" 
               fill 
-              className="object-cover opacity-30 scale-105 saturate-150"
+              className="object-cover opacity-80 scale-100 saturate-[1.2]"
               priority
-              data-ai-hint="gaming fire"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black" />
+            {/* Minimal overlay for text readability but maintaining visual clarity */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black" />
           </div>
 
           <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center justify-center w-full">
+            <div className="p-4 bg-primary/20 backdrop-blur-2xl rounded-full border border-primary/20 mb-8 flex items-center gap-3 animate-float">
+               <Shield className="w-5 h-5 text-primary" />
+               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white">Official 2026 Pro Season</span>
+            </div>
+
             <h1 className="font-headline text-[5.5rem] leading-[0.85] xs:text-[7rem] md:text-[11rem] font-black mb-10 tracking-tighter uppercase flex flex-col items-center justify-center">
-              <span className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]">CLASH</span>
+              <span className="text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.4)]">CLASH</span>
               <span className="legendary-text italic tracking-[-0.05em] mt-2">ARENA</span>
             </h1>
             
-            <p className="text-lg md:text-2xl font-bold text-white/90 mb-4 tracking-tight">
-              Compete. Win. <span className="text-primary italic underline decoration-primary/40 underline-offset-8">Rise.</span>
+            <p className="text-lg md:text-2xl font-bold text-white mb-6 tracking-tight drop-shadow-2xl">
+              Compete. Win. <span className="text-primary italic underline decoration-primary/60 underline-offset-8">Rise.</span>
             </p>
             
-            <p className="text-muted-foreground text-sm md:text-xl max-w-2xl mb-14 leading-relaxed font-medium px-4">
+            <p className="text-white/90 text-sm md:text-xl max-w-2xl mb-14 leading-relaxed font-bold px-4 drop-shadow-lg">
               The ultimate competitive ecosystem for elite Clash of Clans players. 
-              <span className="text-white"> Fair play</span>, transparent results, and <span className="text-primary">legendary rewards</span>.
+              <span className="text-primary"> Fair play</span>, transparent results, and <span className="text-primary">legendary rewards</span>.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center items-center px-6">
@@ -127,7 +177,9 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-2xl text-white glow-primary rotate-3">C</div>
+                  <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-2xl text-white glow-primary rotate-3 overflow-hidden">
+                    {logoUrl ? <Image src={logoUrl} alt="Logo" fill className="object-cover" /> : "C"}
+                  </div>
                   <span className="font-headline font-bold text-2xl tracking-tighter text-white">
                     CLASH <span className="text-primary italic">ARENA</span>
                   </span>

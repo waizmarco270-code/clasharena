@@ -42,10 +42,16 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const db = useFirestore();
+
+  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
+  const { data: bgData } = useDoc(backgroundsRef);
+
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   const isAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isAdmin || profile?.isSuperAdmin;
+
+  const logoUrl = bgData?.logo;
 
   const mainNav = [
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
@@ -63,17 +69,17 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
       <SidebarHeader className="h-20 flex flex-col justify-center px-4 border-b border-white/5">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0">
-             <Image 
-                src="/logo.png" 
-                alt="Logo" 
-                fill 
-                className="object-cover" 
-                onError={(e) => {
-                  (e.target as any).style.display = 'none';
-                }}
-             />
-             <span className="relative z-10">C</span>
+          <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0 shadow-xl">
+             {logoUrl ? (
+               <Image 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  fill 
+                  className="object-cover" 
+               />
+             ) : (
+               <span className="relative z-10">C</span>
+             )}
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
             <span className="font-headline font-black text-lg tracking-tight uppercase leading-none truncate whitespace-nowrap">

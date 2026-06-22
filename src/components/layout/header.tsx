@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -11,17 +10,24 @@ import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { UserButton, useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-toggle";
+import Image from 'next/image';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
 export function Header() {
   const { user } = useUser();
   const db = useFirestore();
+
+  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
+  const { data: bgData } = useDoc(backgroundsRef);
+
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
+
+  const logoUrl = bgData?.logo;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-border/10">
@@ -29,8 +35,12 @@ export function Header() {
         <div className="flex items-center gap-4">
           <SidebarTrigger className="hover:bg-primary/10 hover:text-primary" />
           <Link href="/" className="flex items-center gap-2 md:hidden">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3">
-              C
+            <div className="relative w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden">
+               {logoUrl ? (
+                 <Image src={logoUrl} alt="Logo" fill className="object-cover" />
+               ) : (
+                 "C"
+               )}
             </div>
           </Link>
         </div>
