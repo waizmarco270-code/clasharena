@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -78,7 +77,6 @@ export default function Home() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  // Limit to top 3 champions for the landing page wall
   const topChampionsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(3)), [db]);
   const { data: champions } = useCollection(topChampionsQuery);
 
@@ -99,7 +97,7 @@ export default function Home() {
            <div className="absolute inset-0 opacity-40 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] animate-pulse" />
         </div>
         
-        <header className="fixed top-0 left-0 right-0 z-[100] h-20 glass-dark border-b border-white/5 backdrop-blur-2xl">
+        <header className="fixed top-0 left-0 right-0 z-[100] h-20 glass-dark border-b border-white/5 backdrop-blur-2xl animate-in fade-in slide-in-from-top-4 duration-500">
            <div className="container mx-auto h-full px-4 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-3">
                  <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden shadow-2xl">
@@ -113,7 +111,7 @@ export default function Home() {
               <div className="flex items-center gap-6">
                  {isLoaded && !userId ? (
                    <SignInButton mode="modal">
-                     <Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary border-t border-white/20 uppercase tracking-widest text-[10px] shadow-2xl">
+                     <Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary border-t border-white/20 uppercase tracking-widest text-[10px] shadow-2xl animate-shimmer">
                        SECURE ACCESS
                      </Button>
                    </SignInButton>
@@ -137,21 +135,21 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center justify-center w-full">
-            <div className="p-3 md:p-4 bg-primary/20 backdrop-blur-3xl rounded-full border border-primary/30 mb-8 flex items-center gap-3 animate-float shadow-[0_0_50px_rgba(255,69,0,0.3)]">
+            <div className="p-3 md:p-4 bg-primary/20 backdrop-blur-3xl rounded-full border border-primary/30 mb-8 flex items-center gap-3 animate-float shadow-[0_0_50px_rgba(255,69,0,0.3)] animate-in fade-in zoom-in duration-700 delay-300">
                <Shield className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white">The Pro Arena for Clash of Clans</span>
             </div>
 
-            <h1 className="font-headline text-[4rem] leading-[0.85] xs:text-[6rem] md:text-[10rem] font-black mb-10 tracking-tighter uppercase flex flex-col items-center justify-center">
+            <h1 className="font-headline text-[4rem] leading-[0.85] xs:text-[6rem] md:text-[10rem] font-black mb-10 tracking-tighter uppercase flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
               <span className="text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.2)]">CLASH</span>
               <span className="legendary-text italic tracking-[-0.05em] mt-1 md:mt-2 scale-110 drop-shadow-[0_0_80px_rgba(255,69,0,0.4)]">ARENA</span>
             </h1>
             
-            <p className="text-base md:text-2xl font-bold text-white mb-12 tracking-tight max-w-xl drop-shadow-2xl opacity-90">
+            <p className="text-base md:text-2xl font-bold text-white mb-12 tracking-tight max-w-xl drop-shadow-2xl opacity-90 animate-in fade-in duration-1000 delay-500">
               Battle for <span className="text-primary italic underline decoration-primary/60 underline-offset-8">Glory.</span> Win real <span className="text-primary italic underline decoration-primary/60 underline-offset-8">Rewards.</span>
             </p>
             
-            <div className="flex flex-col gap-8 w-full max-w-4xl justify-center items-center px-6">
+            <div className="flex flex-col gap-8 w-full max-w-4xl justify-center items-center px-6 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-700">
               {isLoaded && !userId ? (
                 <SignInButton mode="modal">
                   <Button 
@@ -224,7 +222,7 @@ export default function Home() {
                        </div>
                     </div>
                  </div>
-                 <div className="relative aspect-video rounded-3xl overflow-hidden glass border-white/10 shadow-2xl group">
+                 <div className="relative aspect-video rounded-3xl overflow-hidden glass border-white/10 shadow-2xl group transition-all duration-700 hover:border-primary/40">
                     <Image src="https://picsum.photos/seed/transparency/800/450" alt="Transparency" fill className="object-cover opacity-60 group-hover:scale-110 transition-transform duration-1000" />
                     <div className="absolute inset-0 flex items-center justify-center">
                        <div className="p-10 text-center space-y-4">
@@ -255,7 +253,7 @@ export default function Home() {
               { title: "Secure Payouts", desc: "Enterprise-grade security protocols for every transaction.", icon: <Lock className="text-primary w-10 h-10" /> },
               { title: "Chat Arena", desc: "Engage with your opponents and fans in our live arena chat.", icon: <MessageSquare className="text-primary w-10 h-10" /> },
             ].map((item, i) => (
-              <Card key={i} className="glass bg-white/[0.01] hover:bg-white/[0.05] border-white/5 hover:border-primary/40 transition-all p-10 text-center group relative overflow-hidden">
+              <Card key={i} className="glass bg-white/[0.01] hover:bg-white/[0.05] border-white/5 hover:border-primary/40 transition-all p-10 text-center group relative overflow-hidden hover:-translate-y-2 duration-500">
                 <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all" />
                 <div className="mb-8 flex justify-center group-hover:scale-110 transition-all duration-500 drop-shadow-[0_0_15px_rgba(255,69,0,0.3)]">{item.icon}</div>
                 <h3 className="font-headline text-2xl font-bold mb-4 text-white uppercase tracking-tight">{item.title}</h3>
@@ -274,12 +272,11 @@ export default function Home() {
                     </h2>
                     <p className="text-muted-foreground uppercase font-black text-xs tracking-widest">The eternal record of war</p>
                  </div>
-                 {/* REMOVED: View All Champions button as per user request */}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  {champions?.map((champ: any, i: number) => (
-                    <div key={champ.id} className="glass p-6 md:p-10 rounded-[2.5rem] flex flex-col items-center gap-4 text-center hover:bg-primary/5 transition-all border-white/5 group">
+                    <div key={champ.id} className="glass p-6 md:p-10 rounded-[2.5rem] flex flex-col items-center gap-4 text-center hover:bg-primary/5 transition-all border-white/5 group hover:-translate-y-2 duration-500">
                        <div className="relative">
                           <div className="h-20 w-20 md:h-32 md:h-32 rounded-full overflow-hidden border-4 border-primary/20 p-1 group-hover:border-primary transition-all">
                              <Image src={champ.avatarUrl || 'https://picsum.photos/seed/warrior/200'} alt="Champion" fill className="object-cover rounded-full" />

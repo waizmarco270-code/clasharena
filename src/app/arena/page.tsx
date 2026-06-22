@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -43,6 +42,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function TournamentCard({ t }: { t: any }) {
   const [countdown, setCountdown] = useState<string>('');
@@ -118,7 +118,7 @@ function TournamentCard({ t }: { t: any }) {
   const regStatus = getRegistrationStatus();
 
   return (
-    <Card className="overflow-hidden glass border-border/50 dark:border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2.5rem] z-10 shadow-2xl">
+    <Card className="overflow-hidden glass border-border/50 dark:border-white/5 flex flex-col hover:border-primary/30 transition-all group relative rounded-[2.5rem] z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
       <div className="relative h-72">
         <Image 
           src={t.imageUrl || 'https://picsum.photos/seed/clash/800/600'} 
@@ -128,7 +128,6 @@ function TournamentCard({ t }: { t: any }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/60" />
         
-        {/* Reward Badge Overlay - Top Left */}
         <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
            <div className="bg-black/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 flex items-center gap-2 shadow-lg">
               {t.rewardType === 'money' ? (
@@ -155,7 +154,6 @@ function TournamentCard({ t }: { t: any }) {
            )}
         </div>
 
-        {/* Detailed Info Overlay - Bottom Section of Image */}
         <div className="absolute bottom-12 left-6 right-6 z-20">
           <p className="text-[10px] font-black text-primary mb-1 uppercase tracking-[0.3em] drop-shadow-md">
             {t.type} • {t.subCategory?.replace('_', ' ')}
@@ -186,7 +184,6 @@ function TournamentCard({ t }: { t: any }) {
           )}
         </div>
 
-        {/* Status Bar */}
         <div className="absolute bottom-0 left-0 right-0 bg-primary/95 backdrop-blur-xl py-2.5 flex items-center justify-center gap-4 shadow-xl z-20 border-t border-white/10">
            <div className="flex items-center gap-2">
               <Timer className="w-4 h-4 text-black" />
@@ -216,7 +213,6 @@ function TournamentCard({ t }: { t: any }) {
         </Link>
       </CardFooter>
 
-      {/* Reward Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="glass border-white/10 max-w-sm p-0 overflow-hidden outline-none rounded-[2rem]">
           <div className="p-5 border-b border-white/10 flex justify-between items-center bg-black/50">
@@ -245,6 +241,26 @@ function TournamentCard({ t }: { t: any }) {
   );
 }
 
+function TournamentSkeleton() {
+  return (
+    <Card className="overflow-hidden glass border-white/5 flex flex-col rounded-[2.5rem] shadow-2xl h-[450px]">
+      <div className="relative h-72 bg-muted/20 animate-pulse">
+        <div className="absolute bottom-12 left-6 right-6 space-y-3">
+          <Skeleton className="h-3 w-24 bg-white/10" />
+          <Skeleton className="h-8 w-48 bg-white/10" />
+          <div className="flex gap-4">
+             <Skeleton className="h-6 w-16 rounded-full bg-white/10" />
+             <Skeleton className="h-6 w-16 rounded-full bg-white/10" />
+          </div>
+        </div>
+      </div>
+      <CardFooter className="p-6 flex-1 bg-white/5">
+        <Skeleton className="h-14 w-full rounded-2xl bg-white/10" />
+      </CardFooter>
+    </Card>
+  );
+}
+
 export default function ArenaPage() {
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState('all');
@@ -255,7 +271,6 @@ export default function ArenaPage() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  // Simplified query for robustness across devices
   const tournamentQuery = useMemo(() => {
     return query(collection(db, 'tournaments'), orderBy('startTime', 'desc'));
   }, [db]);
@@ -265,7 +280,6 @@ export default function ArenaPage() {
   const filteredTournaments = useMemo(() => {
     if (!allTournaments) return [];
     return allTournaments.filter(t => {
-      // Visibility Check
       const matchesMain = activeTab === 'all' || t.type === activeTab || (activeTab === 'history' && t.status === 'completed');
       if (!matchesMain) return false;
 
@@ -302,7 +316,6 @@ export default function ArenaPage() {
 
         <div className="relative z-10 flex flex-col gap-6 md:gap-10">
           
-          {/* Main Category Tabs - Pill Group */}
           <div className="flex overflow-x-auto no-scrollbar gap-2 md:gap-4 pb-2">
             {mainTabs.map(tab => (
               <Button 
@@ -330,7 +343,6 @@ export default function ArenaPage() {
             </div>
           ) : (
             <>
-              {/* Secondary Navigation Row: History + Mode Selector */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-3 flex-1">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-1">Select Battle Mode</p>
@@ -354,7 +366,6 @@ export default function ArenaPage() {
                   </ScrollArea>
                 </div>
                 
-                {/* Silver History Button - Space Efficient */}
                 <Button 
                   onClick={() => { setActiveTab('history'); setActiveSub('all'); }} 
                   className={cn(
@@ -366,7 +377,6 @@ export default function ArenaPage() {
                 </Button>
               </div>
 
-              {/* Search & Filter - Modern Flexbox */}
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1 group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -387,9 +397,8 @@ export default function ArenaPage() {
                 </DropdownMenu>
               </div>
 
-              {/* Tournament Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-24">
-                {loading ? Array.from({ length: 6 }).map((_, i) => (<div key={i} className="h-96 w-full rounded-[2rem] bg-muted/20 animate-pulse" />)) : 
+                {loading ? Array.from({ length: 6 }).map((_, i) => (<TournamentSkeleton key={i} />)) : 
                  filteredTournaments.length === 0 ? (
                    <div className="col-span-full py-24 md:py-32 flex flex-col items-center justify-center text-center space-y-6 glass border-white/5 rounded-[2.5rem] md:rounded-[3rem] px-4">
                      <ShieldAlert className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground/30" />

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -37,6 +36,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getRankByWins, getRankByType, RANKS, RankType } from '@/lib/rank-utils';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -44,7 +44,6 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
   const db = useFirestore();
   const { toast } = useToast();
   
-  // Track individual user's vote locally for UI state
   const userVoteRef = useMemo(() => doc(db, 'polls', poll.id, 'votes', userId), [db, poll.id, userId]);
   const { data: userVoteDoc } = useDoc(userVoteRef);
   
@@ -52,7 +51,6 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
   const userSelectedIndices: number[] = userVoteDoc?.indices || [];
 
   const handleVote = async (index: number) => {
-    // If already voted and multiple choices not allowed, prevent re-voting for now
     if (isVoted && !poll.allowMultiple) return;
     
     let newIndices = [...userSelectedIndices];
@@ -69,18 +67,14 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
         incrementMap.totalVotes = increment(1);
       }
     } else {
-      // Logic for single choice: Handle switching votes
-      if (newIndices.includes(index)) return; // Already voted for this
+      if (newIndices.includes(index)) return;
 
       if (newIndices.length > 0) {
-        // Decrement previous
         const oldIdx = newIndices[0];
         incrementMap[`voteCounts.${oldIdx}`] = increment(-1);
-        // Increment new
         incrementMap[`voteCounts.${index}`] = increment(1);
         newIndices = [index];
       } else {
-        // First time voting
         incrementMap[`voteCounts.${index}`] = increment(1);
         incrementMap.totalVotes = increment(1);
         newIndices = [index];
@@ -88,11 +82,8 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
     }
 
     try {
-      // Update poll counts (Atomic)
       await updateDoc(doc(db, 'polls', poll.id), incrementMap);
-      // Update user's personal vote record
       await setDoc(userVoteRef, { id: userId, indices: newIndices, updatedAt: new Date().toISOString() });
-      
       toast({ title: "VOTE REGISTERED" });
     } catch (e) {
       console.error("Voting error", e);
@@ -100,7 +91,7 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
   };
 
   return (
-    <Card className="glass border-primary/20 bg-primary/5 overflow-hidden animate-in fade-in slide-in-from-top-4">
+    <Card className="glass border-primary/20 bg-primary/5 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2 text-primary mb-2">
            <Vote className="w-4 h-4 animate-pulse" />
@@ -147,6 +138,19 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
   );
 }
 
+function StatSkeleton() {
+  return (
+    <Card className="glass border-white/5 bg-white/5 p-6 space-y-4">
+      <div className="flex justify-between">
+        <Skeleton className="h-6 w-6 rounded-lg bg-white/10" />
+        <Skeleton className="h-4 w-12 rounded-full bg-white/10" />
+      </div>
+      <Skeleton className="h-8 w-20 bg-white/10" />
+      <Skeleton className="h-3 w-24 bg-white/10" />
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useUser();
   const db = useFirestore();
@@ -163,10 +167,10 @@ export default function Dashboard() {
   const dashboardBg = bgData?.dashboard;
 
   const pollsQuery = useMemo(() => query(collection(db, 'polls'), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(1)), [db]);
-  const { data: activePolls } = useCollection(pollsQuery);
+  const { data: activePolls, loading: pollsLoading } = useCollection(pollsQuery);
 
   const latestTournamentQuery = useMemo(() => query(collection(db, 'tournaments'), where('status', '==', 'open'), orderBy('startTime', 'asc'), limit(1)), [db]);
-  const { data: latestT } = useCollection(latestTournamentQuery);
+  const { data: latestT, loading: tournamentLoading } = useCollection(latestTournamentQuery);
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
@@ -254,64 +258,81 @@ export default function Dashboard() {
               </div>
               <p className="text-muted-foreground font-medium">Welcome back, <span className="text-foreground font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
             </div>
-            <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest">DEPLOY TO ARENA</Button></NextLink>
+            <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest animate-shimmer">DEPLOY TO ARENA</Button></NextLink>
           </div>
 
-          {activePolls && activePolls.length > 0 && user && (
+          {pollsLoading ? (
+            <Card className="glass border-white/5 p-6 space-y-4">
+              <Skeleton className="h-4 w-32 bg-white/10" />
+              <Skeleton className="h-8 w-full max-w-md bg-white/10" />
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full bg-white/10" />
+                <Skeleton className="h-12 w-full bg-white/10" />
+              </div>
+            </Card>
+          ) : activePolls && activePolls.length > 0 && user ? (
             <div className="grid grid-cols-1 gap-6">
                {activePolls.map((p: any) => <PollCard key={p.id} poll={p} userId={user.id} />)}
             </div>
-          )}
+          ) : null}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="glass border-border/40 dark:border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl group">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" /><Badge variant="outline" className="text-[10px] border-primary/20">VAULT</Badge></div>
-                <p className="text-2xl font-black font-headline text-foreground">🪙 {profile?.balance || 0}</p>
-                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Available Coins</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className={cn("p-1.5 rounded-full", activeBadgeInfo.className)}>
-                    <activeBadgeInfo.icon className="w-5 h-5 text-white" />
-                  </div>
-                  <Badge variant="outline" className="text-[10px] border-border/20">STATUS</Badge>
-                </div>
-                <p className={cn("text-2xl font-black font-headline italic uppercase tracking-tighter", activeBadgeInfo.className, "bg-clip-text text-transparent")}>{activeBadgeInfo.label}</p>
-                <div className="mt-3 space-y-1.5">
-                   <div className="flex justify-between text-[8px] font-black uppercase">
-                      <span className="text-muted-foreground">NEXT RANK: {nextRank?.label || 'MAX'}</span>
-                      <span className="text-primary">{Math.round(progressToNext)}%</span>
-                   </div>
-                   <Progress value={progressToNext} className="h-1.5 bg-white/5" />
-                </div>
-              </CardContent>
-            </Card>
+            {profileLoading ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />) : (
+              <>
+                <Card className="glass border-border/40 dark:border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl group">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" /><Badge variant="outline" className="text-[10px] border-primary/20">VAULT</Badge></div>
+                    <p className="text-2xl font-black font-headline text-foreground">🪙 {profile?.balance || 0}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Available Coins</p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={cn("p-1.5 rounded-full", activeBadgeInfo.className)}>
+                        <activeBadgeInfo.icon className="w-5 h-5 text-white" />
+                      </div>
+                      <Badge variant="outline" className="text-[10px] border-border/20">STATUS</Badge>
+                    </div>
+                    <p className={cn("text-2xl font-black font-headline italic uppercase tracking-tighter", activeBadgeInfo.className, "bg-clip-text text-transparent")}>{activeBadgeInfo.label}</p>
+                    <div className="mt-3 space-y-1.5">
+                       <div className="flex justify-between text-[8px] font-black uppercase">
+                          <span className="text-muted-foreground">NEXT RANK: {nextRank?.label || 'MAX'}</span>
+                          <span className="text-primary">{Math.round(progressToNext)}%</span>
+                       </div>
+                       <Progress value={progressToNext} className="h-1.5 bg-white/5" />
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500 group-hover:rotate-12 transition-transform" /><Badge variant="outline" className="text-[10px] border-border/20">CAREER</Badge></div>
-                <p className="text-2xl font-black font-headline text-foreground">{profile?.wins || 0}</p>
-                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Total Victories</p>
-              </CardContent>
-            </Card>
+                <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4"><Trophy className="w-5 h-5 text-yellow-500 group-hover:rotate-12 transition-transform" /><Badge variant="outline" className="text-[10px] border-border/20">CAREER</Badge></div>
+                    <p className="text-2xl font-black font-headline text-foreground">{profile?.wins || 0}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Total Victories</p>
+                  </CardContent>
+                </Card>
 
-            <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5 group-hover:animate-pulse" /><Badge variant="outline" className="text-[10px] border-border/20">POWER</Badge></div>
-                <p className="text-2xl font-black font-headline uppercase tracking-tighter text-foreground">TH{profile?.townHall || '??'}</p>
-                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Current Requirement</p>
-              </CardContent>
-            </Card>
+                <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4"><Zap className="text-blue-500 w-5 h-5 group-hover:animate-pulse" /><Badge variant="outline" className="text-[10px] border-border/20">POWER</Badge></div>
+                    <p className="text-2xl font-black font-headline uppercase tracking-tighter text-foreground">TH{profile?.townHall || '??'}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Current Requirement</p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
             <div className="lg:col-span-2 space-y-8">
-               {latestT && latestT.length > 0 ? (
-                 <Card className="glass border-white/5 bg-black/20 overflow-hidden rounded-3xl">
+               {tournamentLoading ? (
+                 <Card className="glass border-white/5 h-64 overflow-hidden rounded-3xl">
+                    <Skeleton className="h-full w-full bg-white/10 animate-pulse" />
+                 </Card>
+               ) : latestT && latestT.length > 0 ? (
+                 <Card className="glass border-white/5 bg-black/20 overflow-hidden rounded-3xl animate-in fade-in slide-in-from-left-4 duration-700">
                     <div className="relative h-48">
                        <Image src={latestT[0].imageUrl || 'https://picsum.photos/seed/latest/800/400'} alt="Latest Arena" fill className="object-cover opacity-60" />
                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
@@ -354,7 +375,7 @@ export default function Dashboard() {
                        { icon: Crown, label: "Hall of Champions", val: "New Victory Proof uploaded by Admin", color: "text-yellow-500" },
                        { icon: Timer, label: "System Status", val: "Anti-Cheat AI Protocol V2.1 Operational", color: "text-green-500" }
                      ].map((log, i) => (
-                       <div key={i} className="glass p-4 rounded-2xl border-white/5 flex gap-4 items-center">
+                       <div key={i} className="glass p-4 rounded-2xl border-white/5 flex gap-4 items-center hover:bg-white/5 transition-colors cursor-default">
                           <div className={cn("p-2 rounded-xl bg-white/5 border border-white/5", log.color)}><log.icon className="w-4 h-4" /></div>
                           <div>
                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{log.label}</p>
@@ -367,7 +388,7 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-6">
-               <Card className="glass border-white/5 bg-white/5 p-6 rounded-3xl text-center space-y-4">
+               <Card className="glass border-white/5 bg-white/5 p-6 rounded-3xl text-center space-y-4 animate-in fade-in slide-in-from-right-4 duration-700">
                   <div className="relative inline-block">
                      <div className={cn("p-1.5 rounded-full mx-auto", activeBadgeInfo.className)}>
                         <Avatar className="h-24 w-24 border-4 border-background/20 p-1 bg-background">
