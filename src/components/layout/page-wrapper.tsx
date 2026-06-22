@@ -22,7 +22,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
 
   // Expanded public routes list
   const isPublicRoute = useMemo(() => {
-    const publics = ['/', '/hall-of-champions', '/about', '/rules', '/fair-play'];
+    const publics = ['/', '/hall-of-champions', '/about', '/rules', '/fair-play', '/settings/faq', '/settings/support'];
     return publics.includes(pathname);
   }, [pathname]);
 

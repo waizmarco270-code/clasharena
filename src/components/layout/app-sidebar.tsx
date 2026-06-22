@@ -63,6 +63,7 @@ export function AppSidebar() {
 
   const userNav = [
     { name: 'My Profile', href: '/profile', icon: User, color: 'text-orange-500' },
+    { name: 'Settings', href: '/settings', icon: Settings, color: 'text-gray-400' },
   ];
 
   return (
@@ -147,7 +148,7 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === '/admin'}
                     tooltip="Admin Center"
-                    className={`sidebar-glow-item hover:bg-primary/10 transition-all h-12 px-4 rounded-xl mx-2 w-[calc(100%-1rem)] ${pathname === '/admin' ? 'bg-primary/10 border border-primary/20' : ''}`}
+                    className={`sidebar-glow-item hover:bg-primary/10 transition-all h-12 px-4 rounded-xl mx-2 w-[calc(100%-1rem)] ${pathname.startsWith('/admin') ? 'bg-primary/10 border border-primary/20' : ''}`}
                   >
                     <Link href="/admin" className="flex items-center gap-3">
                       <Shield className="text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.4)]" />
