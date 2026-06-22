@@ -323,18 +323,18 @@ export default function Home() {
                 <ul className="space-y-4 text-sm font-medium text-muted-foreground">
                   <li><Link href="/arena" className="hover:text-primary transition-colors">Tournament Arena</Link></li>
                   <li><Link href="/hall-of-champions" className="hover:text-primary transition-colors">Hall of Champions</Link></li>
-                  <li><Link href="#" className="hover:text-primary transition-colors">Live Leaderboards</Link></li>
-                  <li><Link href="#" className="hover:text-primary transition-colors">Upcoming Events</Link></li>
+                  <li><Link href="/rules" className="hover:text-primary transition-colors">War Protocols</Link></li>
+                  <li><Link href="/fair-play" className="hover:text-primary transition-colors">Integrity System</Link></li>
                 </ul>
               </div>
 
               <div>
                 <h4 className="font-headline font-bold text-lg mb-8 uppercase tracking-widest text-white italic">Information</h4>
                 <ul className="space-y-4 text-sm font-medium text-muted-foreground">
-                  <li><Link href="#" className="hover:text-primary transition-colors">About Us</Link></li>
-                  <li><Link href="#" className="hover:text-primary transition-colors">Rules & Regulations</Link></li>
-                  <li><Link href="#" className="hover:text-primary transition-colors">Terms & Conditions</Link></li>
-                  <li><Link href="#" className="hover:text-primary transition-colors">Contact Us</Link></li>
+                  <li><Link href="/about" className="hover:text-primary transition-colors">About Arena</Link></li>
+                  <li><Link href="/rules" className="hover:text-primary transition-colors">Rules & Regulations</Link></li>
+                  <li><Link href="/fair-play" className="hover:text-primary transition-colors">Fair Play Policy</Link></li>
+                  <li><Link href="/about" className="hover:text-primary transition-colors">Partner Program</Link></li>
                 </ul>
               </div>
 
@@ -363,9 +363,9 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex items-center gap-8 text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">
-                <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-                <Link href="#" className="hover:text-white transition-colors">Safety Center</Link>
-                <Link href="#" className="hover:text-white transition-colors">Partner Program</Link>
+                <Link href="/fair-play" className="hover:text-white transition-colors">Privacy Policy</Link>
+                <Link href="/rules" className="hover:text-white transition-colors">Safety Center</Link>
+                <Link href="/about" className="hover:text-white transition-colors">Partner Program</Link>
               </div>
             </div>
           </div>
