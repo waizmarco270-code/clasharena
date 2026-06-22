@@ -57,7 +57,18 @@ export default function ControlsPage() {
       toast({ variant: "destructive", title: "MIN 2 OPTIONS REQUIRED" });
       return;
     }
-    await addDoc(collection(db, 'polls'), { ...pForm, options: filteredOptions, isActive: true, createdAt: new Date().toISOString() });
+    // Initialize with 0 counts for aggregation efficiency
+    const initialCounts: Record<number, number> = {};
+    filteredOptions.forEach((_, i) => initialCounts[i] = 0);
+
+    await addDoc(collection(db, 'polls'), { 
+      ...pForm, 
+      options: filteredOptions, 
+      voteCounts: initialCounts,
+      totalVotes: 0,
+      isActive: true, 
+      createdAt: new Date().toISOString() 
+    });
     setPForm({ question: '', options: ['', ''], allowMultiple: false, displayMode: 'percentage' });
     toast({ title: "POLL PUBLISHED" });
   };
@@ -176,7 +187,7 @@ export default function ControlsPage() {
                   <CardContent className="space-y-3">
                      <div className="bg-black/40 rounded-xl p-3 border border-white/5 space-y-2">
                         <div className="flex justify-between items-center text-[10px] font-black text-muted-foreground uppercase">
-                           <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Integrity Check</span>
+                           <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.totalVotes || 0} Votes</span>
                            <span className="flex items-center gap-1"><BarChart2 className="w-3 h-3" /> {p.displayMode}</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground leading-tight italic">Poll published on {new Date(p.createdAt).toLocaleDateString()}</p>

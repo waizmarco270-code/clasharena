@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -25,7 +26,7 @@ import {
   Timer
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, orderBy, limit, increment, getDoc, updateDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
@@ -42,51 +43,60 @@ const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 function PollCard({ poll, userId }: { poll: any, userId: string }) {
   const db = useFirestore();
   const { toast } = useToast();
-  const [voted, setVoted] = useState(false);
-  const [userVote, setUserVote] = useState<number[]>([]);
-  const [results, setResults] = useState<{ [key: number]: number }>({});
-  const [totalVotes, setTotalVotes] = useState(0);
-
-  const votesQuery = useMemo(() => query(collection(db, 'polls', poll.id, 'votes')), [db, poll.id]);
-  const { data: allVotes } = useCollection(votesQuery);
-
-  useEffect(() => {
-    if (allVotes) {
-      const counts: { [key: number]: number } = {};
-      let total = 0;
-      allVotes.forEach((v: any) => {
-        if (v.indices) {
-          v.indices.forEach((idx: number) => {
-            counts[idx] = (counts[idx] || 0) + 1;
-          });
-          total++;
-          if (v.id === userId) {
-            setVoted(true);
-            setUserVote(v.indices);
-          }
-        }
-      });
-      setResults(counts);
-      setTotalVotes(total);
-    }
-  }, [allVotes, userId]);
+  
+  // Track individual user's vote locally for UI state
+  const userVoteRef = useMemo(() => doc(db, 'polls', poll.id, 'votes', userId), [db, poll.id, userId]);
+  const { data: userVoteDoc } = useDoc(userVoteRef);
+  
+  const isVoted = !!userVoteDoc;
+  const userSelectedIndices: number[] = userVoteDoc?.indices || [];
 
   const handleVote = async (index: number) => {
-    if (voted && !poll.allowMultiple) return;
+    // If already voted and multiple choices not allowed, prevent re-voting for now
+    if (isVoted && !poll.allowMultiple) return;
     
-    let newIndices = [...userVote];
+    let newIndices = [...userSelectedIndices];
+    let incrementMap: Record<string, any> = {};
+
     if (poll.allowMultiple) {
       if (newIndices.includes(index)) {
         newIndices = newIndices.filter(i => i !== index);
+        incrementMap[`voteCounts.${index}`] = increment(-1);
+        incrementMap.totalVotes = increment(-1);
       } else {
         newIndices.push(index);
+        incrementMap[`voteCounts.${index}`] = increment(1);
+        incrementMap.totalVotes = increment(1);
       }
     } else {
-      newIndices = [index];
+      // Logic for single choice: Handle switching votes
+      if (newIndices.includes(index)) return; // Already voted for this
+
+      if (newIndices.length > 0) {
+        // Decrement previous
+        const oldIdx = newIndices[0];
+        incrementMap[`voteCounts.${oldIdx}`] = increment(-1);
+        // Increment new
+        incrementMap[`voteCounts.${index}`] = increment(1);
+        newIndices = [index];
+      } else {
+        // First time voting
+        incrementMap[`voteCounts.${index}`] = increment(1);
+        incrementMap.totalVotes = increment(1);
+        newIndices = [index];
+      }
     }
 
-    await setDoc(doc(db, 'polls', poll.id, 'votes', userId), { indices: newIndices });
-    toast({ title: "VOTE REGISTERED" });
+    try {
+      // Update poll counts (Atomic)
+      await updateDoc(doc(db, 'polls', poll.id), incrementMap);
+      // Update user's personal vote record
+      await setDoc(userVoteRef, { id: userId, indices: newIndices, updatedAt: new Date().toISOString() });
+      
+      toast({ title: "VOTE REGISTERED" });
+    } catch (e) {
+      console.error("Voting error", e);
+    }
   };
 
   return (
@@ -101,9 +111,9 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
       <CardContent className="space-y-4">
         <div className="grid gap-2">
            {poll.options.map((opt: string, i: number) => {
-             const count = results[i] || 0;
-             const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-             const isSelected = userVote.includes(i);
+             const count = poll.voteCounts?.[i] || 0;
+             const pct = poll.totalVotes > 0 ? Math.round((count / poll.totalVotes) * 100) : 0;
+             const isSelected = userSelectedIndices.includes(i);
              
              return (
                <button 
@@ -129,7 +139,7 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
            })}
         </div>
         <div className="flex justify-between items-center text-[8px] font-black text-muted-foreground uppercase tracking-widest pt-2">
-           <span>Total Warriors Voted: {totalVotes}</span>
+           <span>Total Warriors Voted: {poll.totalVotes || 0}</span>
            {poll.allowMultiple && <span className="text-primary italic">Multiple Choices Enabled</span>}
         </div>
       </CardContent>
@@ -205,7 +215,6 @@ export default function Dashboard() {
     }
   };
 
-  // Rank Progress Logic
   const currentRankInfo = useMemo(() => getRankByWins(profile?.wins || 0), [profile?.wins]);
   const activeBadgeInfo = useMemo(() => getRankByType(profile?.activeBadge as RankType || currentRankInfo.type), [profile?.activeBadge, currentRankInfo.type]);
   const nextRank = useMemo(() => {
@@ -229,7 +238,6 @@ export default function Dashboard() {
         )}
 
         <div className="relative z-10 flex flex-col gap-8">
-          {/* Top Activity Ticker */}
           <div className="w-full bg-black/40 border border-white/5 rounded-full px-6 py-2 overflow-hidden whitespace-nowrap backdrop-blur-xl">
              <div className="inline-block animate-[marquee_20s_linear_infinite] hover:[animation-play-state:paused] cursor-default">
                 <span className="text-[10px] font-black uppercase tracking-widest text-primary mr-20">⚔️ NEW TOURNAMENT "ELITE WARRIORS" IS NOW OPEN</span>
@@ -249,7 +257,6 @@ export default function Dashboard() {
             <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest">DEPLOY TO ARENA</Button></NextLink>
           </div>
 
-          {/* Active Polls Section */}
           {activePolls && activePolls.length > 0 && user && (
             <div className="grid grid-cols-1 gap-6">
                {activePolls.map((p: any) => <PollCard key={p.id} poll={p} userId={user.id} />)}

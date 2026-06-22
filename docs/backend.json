@@ -44,11 +44,13 @@
     },
     "Poll": {
       "title": "Poll",
-      "description": "Community voting polls.",
+      "description": "Community voting polls with aggregated results for efficiency.",
       "type": "object",
       "properties": {
         "question": { "type": "string" },
         "options": { "type": "array", "items": { "type": "string" } },
+        "voteCounts": { "type": "object", "description": "Mapping of option index to vote count" },
+        "totalVotes": { "type": "number" },
         "allowMultiple": { "type": "boolean" },
         "displayMode": { "type": "string", "enum": ["percentage", "number"] },
         "isActive": { "type": "boolean" },
@@ -155,7 +157,7 @@
   "firestore": {
     "/tournaments/{tournamentId}": {
       "schema": "Tournament",
-      "description": "Public collection of tournaments. Everyone can read and list all tournaments freely."
+      "description": "Public collection of tournaments."
     },
     "/announcements/{id}": {
       "schema": "Announcement",
@@ -167,31 +169,31 @@
     },
     "/polls/{id}/votes/{userId}": {
       "schema": "object",
-      "description": "User votes for a poll."
+      "description": "Individual user votes for historical tracking."
     },
     "/tournaments/{tournamentId}/matches/{matchId}": {
       "schema": "TournamentMatch",
-      "description": "Tournament bracket matches. Publicly readable."
+      "description": "Tournament bracket matches."
     },
     "/tournaments/{tournamentId}/messages/{messageId}": {
       "schema": "TournamentMessage",
-      "description": "Real-time arena chat. Readable by participants and admins."
+      "description": "Real-time arena chat."
     },
     "/tournaments/{tournamentId}/registrations/{userId}": {
       "schema": "TournamentRegistration",
-      "description": "User registrations for a specific tournament."
+      "description": "User registrations."
     },
     "/tournaments/{tournamentId}/battle-logs/{logId}": {
       "schema": "BattleLog",
-      "description": "Public battlefield screenshots and captions."
+      "description": "Public battlefield screenshots."
     },
     "/reward-claims/{claimId}": {
       "schema": "RewardClaim",
-      "description": "Public victory proof ledger and private claim management."
+      "description": "Victory proof ledger."
     },
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Private user profiles. Accessible by owner and super admins."
+      "description": "User profiles."
     }
   }
 }

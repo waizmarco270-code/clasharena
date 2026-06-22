@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -22,38 +22,42 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
+  const lastUpdateRef = useRef<number>(0);
 
-  // Avatar and Identity Sync Logic
+  // Avatar and Identity Sync Logic - Optimized to prevent infinite loops and save quota
   useEffect(() => {
+    // Only run if user is loaded and not currently loading the profile from Firestore
     if (!userId || !userRef || !clerkUser || profileLoading) return;
 
     const syncIdentity = async () => {
-      // Check if avatar has changed on Clerk
-      if (clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl) {
-        try {
-          await updateDoc(userRef, {
-            avatarUrl: clerkUser.imageUrl,
-            lastActive: new Date().toISOString()
-          });
-        } catch (e) {
-          // Fail silently
-        }
-      } else {
-        // Just update heartbeat
-        try {
-          await updateDoc(userRef, {
-            lastActive: new Date().toISOString()
-          });
-        } catch (e) {
-          // Fail silently
-        }
+      const now = Date.now();
+      // Throttle updates: Only update heartbeats every 15 minutes to save Firestore writes/reads
+      // 15 mins = 15 * 60 * 1000 = 900,000 ms
+      const shouldSyncAvatar = clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl;
+      const shouldUpdateHeartbeat = now - lastUpdateRef.current > 15 * 60 * 1000;
+
+      if (!shouldSyncAvatar && !shouldUpdateHeartbeat) return;
+
+      const updates: any = {};
+      if (shouldSyncAvatar) updates.avatarUrl = clerkUser.imageUrl;
+      if (shouldUpdateHeartbeat) updates.lastActive = new Date().toISOString();
+
+      try {
+        await updateDoc(userRef, updates);
+        lastUpdateRef.current = now;
+      } catch (e) {
+        // Silently handle errors (likely quota or permissions)
       }
     };
 
     syncIdentity();
-    const interval = setInterval(syncIdentity, 3 * 60 * 1000);
+    // Heartbeat check every 15 minutes while the app is open
+    const interval = setInterval(syncIdentity, 15 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [userId, clerkUser, profile, profileLoading]);
+    
+    // CRITICAL: Removed 'profile' from dependencies to break the update -> re-render -> update loop
+    // Only depend on values that don't change constantly or are managed outside Firestore update
+  }, [userId, clerkUser?.imageUrl, profileLoading]);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -84,7 +88,6 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Strict Redirect for unauthenticated users on private routes
   if (!userId && !isPublicRoute) {
     return null;
   }
