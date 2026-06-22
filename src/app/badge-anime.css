@@ -1,0 +1,95 @@
+
+/* Rookie - Bronze (Simple) */
+.badge-rookie {
+  background: linear-gradient(135deg, #a87e51, #cd7f32);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Amateur - Silver (Pulsing Glow) */
+.badge-amateur {
+  background: linear-gradient(135deg, #bdc3c7, #2c3e50);
+  border: 1px solid rgba(255,255,255,0.2);
+  animation: silver-pulse 3s infinite ease-in-out;
+  box-shadow: 0 0 10px rgba(189, 195, 199, 0.4);
+}
+
+@keyframes silver-pulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(189, 195, 199, 0.4); }
+  50% { box-shadow: 0 0 15px rgba(189, 195, 199, 0.8); }
+}
+
+/* Pro - Orange (Moving Shimmer) */
+.badge-pro {
+  background: linear-gradient(135deg, #ff4500, #ff8c00);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+.badge-pro::after {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer-move 4s infinite linear;
+}
+
+@keyframes shimmer-move {
+  0% { transform: translate(-30%, -30%) rotate(0deg); }
+  100% { transform: translate(30%, 30%) rotate(0deg); }
+}
+
+/* Titan - Golden (Floating & Sparkling) */
+.badge-titan {
+  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  border: 1px solid #ffd700;
+  animation: titan-float 4s infinite ease-in-out;
+  box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+}
+
+@keyframes titan-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); box-shadow: 0 0 30px rgba(241, 196, 15, 0.8); }
+}
+
+/* Master - Dark Red (Inner Glow & Deep Shadows) */
+.badge-master {
+  background: linear-gradient(135deg, #8b0000, #2b0000);
+  border: 2px solid #ff0000;
+  box-shadow: inset 0 0 10px #ff0000, 0 4px 15px rgba(0,0,0,0.6);
+}
+
+/* Champion - Fire Aura (Intense Red/Black & Aura) */
+.badge-champion {
+  background: linear-gradient(135deg, #ff0000, #000000);
+  border: 2px solid #ff4500;
+  position: relative;
+  z-index: 1;
+}
+
+.badge-champion::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: linear-gradient(45deg, #ff4500, #ff0000, #000000);
+  z-index: -1;
+  border-radius: inherit;
+  filter: blur(8px);
+  animation: fire-aura 2s infinite alternate;
+  opacity: 0.8;
+}
+
+@keyframes fire-aura {
+  from { transform: scale(1); opacity: 0.5; }
+  to { transform: scale(1.1); opacity: 0.9; }
+}
+
+/* Global Rank Styles */
+.rank-text {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-style: italic;
+}

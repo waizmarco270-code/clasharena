@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -11,6 +12,8 @@ import { doc } from 'firebase/firestore';
 import { UserButton, useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Image from 'next/image';
+import { getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
+import { cn } from '@/lib/utils';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -28,6 +31,9 @@ export function Header() {
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
   const logoUrl = bgData?.logo;
+
+  const currentRankInfo = useMemo(() => getRankByWins(profile?.wins || 0), [profile?.wins]);
+  const activeBadgeInfo = useMemo(() => getRankByType(profile?.activeBadge as RankType || currentRankInfo.type), [profile?.activeBadge, currentRankInfo.type]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-border/10">
@@ -72,8 +78,8 @@ export function Header() {
                 </span>
                 {isSuperAdmin ? <CheckCircle2 className="w-3 h-3 text-yellow-500" /> : isAdmin && <CheckCircle2 className="w-3 h-3 text-green-500" />}
               </div>
-              <span className="text-[9px] text-muted-foreground font-bold">
-                TH{profile?.townHall || '??'} • {profile?.rank || 'ROOKIE'}
+              <span className={cn("text-[8px] font-black px-1.5 rounded-full uppercase mt-0.5", activeBadgeInfo.className)}>
+                {activeBadgeInfo.label}
               </span>
             </div>
             <UserButton afterSignOutUrl="/" />

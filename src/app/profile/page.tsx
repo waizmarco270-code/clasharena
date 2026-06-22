@@ -24,19 +24,24 @@ import {
   CreditCard,
   CheckCircle2,
   PackageCheck,
-  History,
   Eye,
   Gift,
-  IndianRupee
+  IndianRupee,
+  Lock,
+  Check,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { useFirestore, useDoc, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { RANKS, getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
+import { cn } from '@/lib/utils';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -60,6 +65,10 @@ export default function ProfilePage() {
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
 
   const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
+
+  // Rank Logic
+  const currentRankInfo = useMemo(() => getRankByWins(profile?.wins || 0), [profile?.wins]);
+  const activeBadgeInfo = useMemo(() => getRankByType(profile?.activeBadge as RankType || currentRankInfo.type), [profile?.activeBadge, currentRankInfo.type]);
 
   // Winnings Query
   const winningsQuery = useMemo(() => {
@@ -124,26 +133,46 @@ export default function ProfilePage() {
       .finally(() => setIsSubmitting(false));
   };
 
+  const handleClaimBadge = async (rankType: RankType) => {
+    if (!userRef) return;
+    await updateDoc(userRef, {
+      unlockedBadges: arrayUnion(rankType),
+      activeBadge: rankType, // Auto-set as active on claim
+      rank: rankType // Sync legacy rank field
+    });
+    toast({ title: "BADGE UNLOCKED", description: `You are now a ${rankType}!` });
+  };
+
+  const handleSetActiveBadge = async (rankType: RankType) => {
+    if (!userRef) return;
+    await updateDoc(userRef, { activeBadge: rankType });
+    toast({ title: "BADGE EQUIPPED" });
+  };
+
   return (
     <PageWrapper>
       <div className="max-w-6xl mx-auto space-y-8 pb-20">
         <div className="relative rounded-3xl overflow-hidden glass border-white/5 p-6 md:p-10 bg-gradient-to-br from-primary/5 to-transparent">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
-              <Avatar className="h-32 w-32 border-4 border-primary/20 p-1 bg-background glow-primary">
-                <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
-                <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-2 -right-2 bg-primary px-3 py-1 rounded-full text-[10px] font-black italic shadow-lg">TH {profile?.townHall || '??'}</div>
+              <div className={cn("p-1.5 rounded-full", activeBadgeInfo.className)}>
+                <Avatar className="h-32 w-32 border-4 border-background/20 p-1 bg-background">
+                  <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
+                  <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                </Avatar>
+              </div>
+              <div className={cn("absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-[10px] font-black italic shadow-lg flex items-center gap-1", activeBadgeInfo.className)}>
+                <activeBadgeInfo.icon className="w-3 h-3" /> TH {profile?.townHall || '??'}
+              </div>
             </div>
             <div className="text-center md:text-left flex-1 space-y-4">
               <div className="flex flex-col md:flex-row items-center gap-3">
                 <h1 className="font-headline text-4xl font-black mb-1 uppercase tracking-tight">{profile?.username || 'WARRIOR'}</h1>
                 {isSuperAdmin ? <CheckCircle2 className="w-8 h-8 text-yellow-500 fill-yellow-500/20" /> : isAdmin && <CheckCircle2 className="w-8 h-8 text-green-500" />}
               </div>
-              <p className="text-primary font-bold text-sm tracking-widest">{profile?.tag || '#0000000'} • TOWN HALL {profile?.townHall}</p>
+              <p className="text-primary font-bold text-sm tracking-widest">{profile?.tag || '#0000000'} • {activeBadgeInfo.label} Warrior</p>
               <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                <Badge variant="outline" className="bg-white/5 py-1.5 px-4 font-bold text-[10px]">{profile?.rank || 'ROOKIE'}</Badge>
+                <Badge variant="outline" className={cn("bg-white/5 py-1.5 px-4 font-bold text-[10px] uppercase", activeBadgeInfo.className)}>{activeBadgeInfo.label}</Badge>
                 {isLocked && <Badge variant="outline" className="bg-primary/10 border-primary/20 text-primary py-1.5 px-4 text-[10px] uppercase font-black">LOCKED: {countdown}</Badge>}
                 <Button onClick={() => setEditOpen(true)} className="bg-primary font-black h-9 rounded-xl glow-primary gap-2 px-6"><Edit3 className="w-4 h-4" /> <span className="hidden md:inline">EDIT PROFILE</span></Button>
               </div>
@@ -155,10 +184,66 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[{ label: 'Tournaments', value: profile?.tournamentsPlayed || '0', icon: <Swords className="text-blue-500 w-4 h-4" /> }, { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> }, { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> }, { label: 'Rank', value: profile?.rank || 'ROOKIE', icon: <ShieldCheck className="text-primary w-4 h-4" /> }].map((stat) => (
+              {[{ label: 'Tournaments', value: profile?.tournamentsPlayed || '0', icon: <Swords className="text-blue-500 w-4 h-4" /> }, { label: 'Victories', value: profile?.wins || '0', icon: <Trophy className="text-yellow-500 w-4 h-4" /> }, { label: 'Earnings', value: `🪙 ${profile?.earnings || 0}`, icon: <Zap className="text-orange-500 w-4 h-4" /> }, { label: 'Current Rank', value: activeBadgeInfo.label, icon: <ShieldCheck className="text-primary w-4 h-4" /> }].map((stat) => (
                 <Card key={stat.label} className="glass border-white/5 text-center p-6 group"><div className="flex justify-center mb-3"><div className="p-2 bg-white/5 rounded-xl border border-white/5 group-hover:scale-110 transition-transform">{stat.icon}</div></div><p className="text-2xl font-headline font-black uppercase tracking-tight">{stat.value}</p><p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">{stat.label}</p></Card>
               ))}
             </div>
+
+            {/* Rank Roadmap Section */}
+            <Card className="glass border-white/5 overflow-hidden">
+               <CardHeader className="border-b border-white/5 bg-white/5">
+                 <CardTitle className="font-headline text-lg font-bold flex items-center gap-2 uppercase tracking-tighter">
+                   <Zap className="w-5 h-5 text-yellow-500" /> Rank Roadmap
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-6">
+                  <ScrollArea className="w-full whitespace-nowrap pb-4">
+                    <div className="flex gap-6">
+                       {RANKS.map((rank) => {
+                         const isUnlocked = profile?.unlockedBadges?.includes(rank.type);
+                         const canClaim = !isUnlocked && (profile?.wins || 0) >= rank.minWins;
+                         const isActive = profile?.activeBadge === rank.type;
+                         
+                         return (
+                           <div key={rank.type} className="flex flex-col items-center gap-4 w-48 shrink-0 relative">
+                             <div className={cn(
+                               "h-20 w-20 rounded-full flex items-center justify-center transition-all duration-500",
+                               rank.className,
+                               !isUnlocked && !canClaim ? "grayscale opacity-40 blur-[1px]" : "shadow-xl"
+                             )}>
+                               <rank.icon className={cn("w-10 h-10 text-white", rank.type === 'CHAMPION' ? "animate-pulse" : "")} />
+                             </div>
+                             <div className="text-center">
+                               <p className="font-black text-sm uppercase italic">{rank.label}</p>
+                               <p className="text-[10px] text-muted-foreground font-black">{rank.minWins} WINS REQ.</p>
+                             </div>
+                             
+                             {canClaim ? (
+                               <Button onClick={() => handleClaimBadge(rank.type)} className="w-full h-8 bg-green-600 font-black text-[10px] uppercase rounded-xl animate-shimmer border-t border-white/20">
+                                 CLAIM BADGE
+                               </Button>
+                             ) : isUnlocked ? (
+                               <Button 
+                                 disabled={isActive} 
+                                 onClick={() => handleSetActiveBadge(rank.type)} 
+                                 variant={isActive ? "default" : "outline"} 
+                                 className={cn("w-full h-8 text-[10px] font-black uppercase rounded-xl transition-all", isActive ? "bg-primary border-primary" : "border-white/10 glass")}
+                               >
+                                 {isActive ? <Check className="w-3 h-3 mr-1" /> : ''} {isActive ? 'EQUIPPED' : 'EQUIP'}
+                               </Button>
+                             ) : (
+                               <div className="flex items-center gap-1 text-[9px] font-black text-muted-foreground/60 uppercase">
+                                 <Lock className="w-3 h-3" /> {(profile?.wins || 0)} / {rank.minWins} WINS
+                               </div>
+                             )}
+                           </div>
+                         );
+                       })}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+               </CardContent>
+            </Card>
 
             {/* Winnings Ledger */}
             <Card className="glass border-white/5 overflow-hidden">

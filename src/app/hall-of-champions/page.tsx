@@ -15,6 +15,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getRankByType, RankType } from '@/lib/rank-utils';
 
 export default function HallOfChampions() {
   const db = useFirestore();
@@ -47,23 +48,28 @@ export default function HallOfChampions() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {topChampions?.map((champ: any, i: number) => (
-              <Card key={champ.id} className={cn("glass bg-card/40 border-border/50 dark:border-white/5 relative overflow-hidden group py-10", i === 0 ? "glow-primary scale-110 border-yellow-500/30" : "")}>
-                <CardContent className="flex flex-col items-center">
-                  <div className="mb-6">{i === 0 ? <Crown className="text-yellow-500 w-12 h-12" /> : <Medal className="text-gray-400 w-8 h-8" />}</div>
-                  <Avatar className="h-24 w-24 border-4 border-border/10 mb-4 group-hover:border-primary/40 transition-all">
-                    <AvatarImage src={champ.avatarUrl} />
-                    <AvatarFallback className="text-2xl font-black">{champ.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-headline text-2xl font-bold mb-1">{champ.username}</h3>
-                  <Badge variant="secondary" className="mb-4">{i === 0 ? 'ELITE CHAMPION' : 'PRO WARRIOR'}</Badge>
-                  <div className="grid grid-cols-2 gap-4 w-full px-6">
-                    <div className="text-center p-3 bg-muted/30 rounded-xl"><p className="text-[10px] text-muted-foreground uppercase font-bold">Wins</p><p className="text-xl font-headline font-bold">{champ.wins || 0}</p></div>
-                    <div className="text-center p-3 bg-muted/30 rounded-xl"><p className="text-[10px] text-muted-foreground uppercase font-bold">Played</p><p className="text-xl font-headline font-bold text-primary">{champ.tournamentsPlayed || 0}</p></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {topChampions?.map((champ: any, i: number) => {
+              const rankInfo = getRankByType(champ.activeBadge as RankType || 'ROOKIE');
+              return (
+                <Card key={champ.id} className={cn("glass bg-card/40 border-border/50 dark:border-white/5 relative overflow-hidden group py-10", i === 0 ? "glow-primary scale-110 border-yellow-500/30" : "")}>
+                  <CardContent className="flex flex-col items-center">
+                    <div className="mb-6">{i === 0 ? <Crown className="text-yellow-500 w-12 h-12" /> : <Medal className="text-gray-400 w-8 h-8" />}</div>
+                    <div className={cn("p-1.5 rounded-full mb-4 group-hover:scale-110 transition-all duration-500", rankInfo.className)}>
+                      <Avatar className="h-24 w-24 border-4 border-background/10">
+                        <AvatarImage src={champ.avatarUrl} />
+                        <AvatarFallback className="text-2xl font-black">{champ.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <h3 className="font-headline text-2xl font-bold mb-1">{champ.username}</h3>
+                    <Badge variant="secondary" className={cn("mb-4 uppercase font-black", rankInfo.className)}>{rankInfo.label} Warrior</Badge>
+                    <div className="grid grid-cols-2 gap-4 w-full px-6">
+                      <div className="text-center p-3 bg-muted/30 rounded-xl"><p className="text-[10px] text-muted-foreground uppercase font-bold">Wins</p><p className="text-xl font-headline font-bold">{champ.wins || 0}</p></div>
+                      <div className="text-center p-3 bg-muted/30 rounded-xl"><p className="text-[10px] text-muted-foreground uppercase font-bold">Played</p><p className="text-xl font-headline font-bold text-primary">{champ.tournamentsPlayed || 0}</p></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
