@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -77,7 +78,8 @@ export default function Home() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  const topChampionsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(4)), [db]);
+  // Limit to top 3 champions for the landing page wall
+  const topChampionsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(3)), [db]);
   const { data: champions } = useCollection(topChampionsQuery);
 
   useEffect(() => {
@@ -92,14 +94,11 @@ export default function Home() {
   return (
     <PageWrapper>
       <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden min-h-screen relative bg-black">
-        {/* Cinematic Overlays */}
         <div className="fixed inset-0 z-0 pointer-events-none">
            <NeuralBackground />
-           {/* Drifting Embers Effect */}
            <div className="absolute inset-0 opacity-40 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] animate-pulse" />
         </div>
         
-        {/* Landing Page Header */}
         <header className="fixed top-0 left-0 right-0 z-[100] h-20 glass-dark border-b border-white/5 backdrop-blur-2xl">
            <div className="container mx-auto h-full px-4 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-3">
@@ -125,7 +124,6 @@ export default function Home() {
            </div>
         </header>
 
-        {/* Hero Section */}
         <section className="relative min-h-[100svh] flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
           <div className="absolute inset-0 z-0 transition-transform duration-1000 ease-out hover:scale-105">
             <Image 
@@ -166,7 +164,6 @@ export default function Home() {
                 </SignInButton>
               ) : null}
 
-              {/* Stats Grid Above the Fold */}
               <div className="grid grid-cols-3 gap-3 md:gap-6 w-full max-w-3xl mt-8">
                  <StatCard icon={Users} label="Warriors" value="2,400+" delay="duration-300" />
                  <StatCard icon={Swords} label="Live Arenas" value="12 Active" delay="duration-500" />
@@ -176,7 +173,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works Section */}
         <section className="py-24 md:py-40 relative z-10 bg-black/40 backdrop-blur-sm border-y border-white/5">
            <div className="container mx-auto px-6">
               <div className="text-center mb-20">
@@ -197,7 +193,6 @@ export default function Home() {
            </div>
         </section>
 
-        {/* Live Transparency Section */}
         <section className="py-24 md:py-40 relative z-10">
            <div className="container mx-auto px-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -243,7 +238,6 @@ export default function Home() {
            </div>
         </section>
 
-        {/* Feature Highlights Section */}
         <section className="py-24 md:py-40 container mx-auto px-6 relative z-10 border-t border-white/5">
           <div className="text-center mb-20 relative">
             <h2 className="font-headline text-4xl md:text-6xl font-black mb-6 uppercase tracking-tighter text-white">
@@ -271,7 +265,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Legends Wall Section */}
         <section className="py-24 md:py-40 relative z-10 bg-gradient-to-b from-transparent via-primary/[0.02] to-transparent">
            <div className="container mx-auto px-6">
               <div className="flex flex-col md:flex-row items-end justify-between mb-20 gap-8">
@@ -281,14 +274,10 @@ export default function Home() {
                     </h2>
                     <p className="text-muted-foreground uppercase font-black text-xs tracking-widest">The eternal record of war</p>
                  </div>
-                 <Link href="/hall-of-champions">
-                    <Button variant="outline" className="border-white/10 hover:bg-white/5 font-black uppercase tracking-widest text-[10px] h-14 px-10 rounded-2xl gap-3">
-                       VIEW ALL CHAMPIONS <Star className="w-4 h-4 text-yellow-500" />
-                    </Button>
-                 </Link>
+                 {/* REMOVED: View All Champions button as per user request */}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  {champions?.map((champ: any, i: number) => (
                     <div key={champ.id} className="glass p-6 md:p-10 rounded-[2.5rem] flex flex-col items-center gap-4 text-center hover:bg-primary/5 transition-all border-white/5 group">
                        <div className="relative">
@@ -305,7 +294,7 @@ export default function Home() {
                        </div>
                     </div>
                  ))}
-                 {(!champions || champions.length === 0) && Array.from({ length: 4 }).map((_, i) => (
+                 {(!champions || champions.length === 0) && Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="glass p-10 rounded-[2.5rem] flex flex-col items-center gap-4 text-center opacity-20 border-dashed border-white/20">
                        <div className="h-32 w-32 rounded-full bg-white/10" />
                        <div className="h-4 w-24 bg-white/10 rounded-full" />
@@ -315,7 +304,6 @@ export default function Home() {
            </div>
         </section>
 
-        {/* SaaS Footer */}
         <footer className="py-24 border-t border-white/5 bg-black/90 relative z-10">
           <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">

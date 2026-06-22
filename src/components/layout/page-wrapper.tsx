@@ -4,46 +4,56 @@
 import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useDoc, useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
+  const { user: clerkUser } = useUser();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
 
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
-  
-  // Memoized profile fetch to prevent unnecessary re-renders
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   const isPublicRoute = pathname === '/' || pathname === '/hall-of-champions';
 
-  // Optimized Presence Tracking - Independent of pathname to prevent navigation lag
+  // Avatar and Identity Sync Logic
   useEffect(() => {
-    if (!userId || !userRef) return;
+    if (!userId || !userRef || !clerkUser || profileLoading) return;
 
-    const updatePresence = async () => {
-      try {
-        await updateDoc(userRef, {
-          lastActive: new Date().toISOString()
-        });
-      } catch (e) {
-        // Silently fail
+    const syncIdentity = async () => {
+      // Check if avatar has changed on Clerk
+      if (clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl) {
+        try {
+          await updateDoc(userRef, {
+            avatarUrl: clerkUser.imageUrl,
+            lastActive: new Date().toISOString()
+          });
+        } catch (e) {
+          // Fail silently
+        }
+      } else {
+        // Just update heartbeat
+        try {
+          await updateDoc(userRef, {
+            lastActive: new Date().toISOString()
+          });
+        } catch (e) {
+          // Fail silently
+        }
       }
     };
 
-    updatePresence();
-    
-    // Heartbeat every 3 minutes is enough. Pathname removed from dependencies.
-    const interval = setInterval(updatePresence, 3 * 60 * 1000);
+    syncIdentity();
+    const interval = setInterval(syncIdentity, 3 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [userId, userRef]);
+  }, [userId, clerkUser, profile, profileLoading]);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -72,6 +82,11 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // Strict Redirect for unauthenticated users on private routes
+  if (!userId && !isPublicRoute) {
+    return null;
   }
 
   if (pathname === '/' && !userId) {
