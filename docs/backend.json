@@ -31,6 +31,30 @@
       },
       "required": ["name", "type", "subCategory", "entryFee", "maxPlayers", "status", "startTime", "registrationStartTime", "registrationEndTime", "rewardType"]
     },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Global app announcements.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "war", "payout", "system"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Poll": {
+      "title": "Poll",
+      "description": "Community voting polls.",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "allowMultiple": { "type": "boolean" },
+        "displayMode": { "type": "string", "enum": ["percentage", "number"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "TournamentMatch": {
       "title": "Tournament Match",
       "description": "A single match within a tournament bracket.",
@@ -119,7 +143,8 @@
         "tournamentsPlayed": { "type": "number" },
         "isAdmin": { "type": "boolean" },
         "isSuperAdmin": { "type": "boolean" },
-        "lastActive": { "type": "string", "format": "date-time" }
+        "lastActive": { "type": "string", "format": "date-time" },
+        "lastReadNotificationsAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -130,6 +155,18 @@
     "/tournaments/{tournamentId}": {
       "schema": "Tournament",
       "description": "Public collection of tournaments. Everyone can read and list all tournaments freely."
+    },
+    "/announcements/{id}": {
+      "schema": "Announcement",
+      "description": "Global announcements."
+    },
+    "/polls/{id}": {
+      "schema": "Poll",
+      "description": "Community polls."
+    },
+    "/polls/{id}/votes/{userId}": {
+      "schema": "object",
+      "description": "User votes for a poll."
     },
     "/tournaments/{tournamentId}/matches/{matchId}": {
       "schema": "TournamentMatch",

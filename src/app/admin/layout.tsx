@@ -12,7 +12,8 @@ import {
   UserCog, 
   Settings, 
   Monitor,
-  Loader2
+  Loader2,
+  Terminal
 } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -51,12 +52,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'arenahub', label: 'Arena Hub', icon: Swords, href: '/admin/arenahub' },
     { id: 'fulfillment', label: 'Fulfillment Hub', icon: PackageCheck, href: '/admin/fulfillment' },
     { id: 'wallets', label: 'Wallet Logs', icon: Wallet, href: '/admin/wallets' },
+    { id: 'controls', label: 'Controls', icon: Terminal, href: '/admin/controls' },
     { id: 'users', label: 'User Management', icon: UserCog, href: '/admin/users', superOnly: true },
     { id: 'gateway', label: 'Gateway', icon: Settings, href: '/admin/gateway' },
     { id: 'backgrounds', label: 'Backgrounds', icon: Monitor, href: '/admin/backgrounds' },
   ];
-
-  const currentTab = tabs.find(t => pathname.includes(t.href))?.id || 'arenahub';
 
   return (
     <PageWrapper>

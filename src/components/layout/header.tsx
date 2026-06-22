@@ -1,19 +1,22 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Shield, Wallet, CheckCircle2 } from 'lucide-react';
+import { Shield, Wallet, CheckCircle2, Bell, X, Megaphone, Calendar } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useDoc, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirestore, useCollection } from '@/firebase';
+import { doc, updateDoc, query, collection, orderBy, limit } from 'firebase/firestore';
 import { UserButton, useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Image from 'next/image';
 import { getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -27,6 +30,9 @@ export function Header() {
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
+  const announcementsQuery = useMemo(() => query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(10)), [db]);
+  const { data: announcements } = useCollection(announcementsQuery);
+
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
@@ -35,6 +41,17 @@ export function Header() {
   const currentRankInfo = useMemo(() => getRankByWins(profile?.wins || 0), [profile?.wins]);
   const activeBadgeInfo = useMemo(() => getRankByType(profile?.activeBadge as RankType || currentRankInfo.type), [profile?.activeBadge, currentRankInfo.type]);
 
+  const unreadCount = useMemo(() => {
+    if (!announcements || !profile) return 0;
+    const lastRead = profile.lastReadNotificationsAt ? new Date(profile.lastReadNotificationsAt).getTime() : 0;
+    return announcements.filter((a: any) => new Date(a.createdAt).getTime() > lastRead).length;
+  }, [announcements, profile]);
+
+  const handleMarkRead = async () => {
+    if (!userRef || unreadCount === 0) return;
+    await updateDoc(userRef, { lastReadNotificationsAt: new Date().toISOString() });
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-dark h-16 border-b border-border/10">
       <div className="container mx-auto h-full px-4 flex items-center justify-between">
@@ -42,17 +59,60 @@ export function Header() {
           <SidebarTrigger className="hover:bg-primary/10 hover:text-primary" />
           <Link href="/" className="flex items-center gap-2 md:hidden">
             <div className="relative w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden">
-               {logoUrl ? (
-                 <Image src={logoUrl} alt="Logo" fill className="object-cover" />
-               ) : (
-                 "C"
-               )}
+               {logoUrl ? <Image src={logoUrl} alt="Logo" fill className="object-cover" /> : "C"}
             </div>
           </Link>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
+
+          {/* Notification Bell */}
+          <Popover onOpenChange={(open) => open && handleMarkRead()}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative group">
+                 <Bell className={cn(
+                   "h-5 w-5 transition-colors",
+                   unreadCount > 0 ? "text-red-500 animate-bounce" : "text-yellow-500"
+                 )} />
+                 {unreadCount > 0 && (
+                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-background">
+                     {unreadCount}
+                   </span>
+                 )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="glass border-white/10 w-80 p-0 overflow-hidden" align="end">
+               <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                    <Megaphone className="w-3 h-3" /> Area Announcements
+                  </p>
+               </div>
+               <ScrollArea className="h-[350px]">
+                  {announcements?.length === 0 ? (
+                    <div className="p-10 text-center space-y-2 opacity-40">
+                       <Bell className="w-8 h-8 mx-auto mb-2" />
+                       <p className="text-[10px] font-black uppercase">No New Intel</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-white/5">
+                       {announcements?.map((a: any) => (
+                         <div key={a.id} className="p-4 space-y-2 hover:bg-white/5 transition-colors">
+                            <div className="flex justify-between items-start gap-2">
+                               <p className="font-bold text-xs uppercase text-foreground">{a.title}</p>
+                               <Badge variant="outline" className="text-[8px] border-primary/20 text-primary shrink-0">{a.type}</Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">{a.content}</p>
+                            <div className="flex items-center gap-1.5 text-[8px] font-black text-muted-foreground uppercase">
+                               <Calendar className="w-2.5 h-2.5" /> {format(new Date(a.createdAt), 'MMM dd, HH:mm')}
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                  )}
+               </ScrollArea>
+            </PopoverContent>
+          </Popover>
           
           <Link href="/wallet" className="flex items-center gap-2 bg-muted/50 px-2 sm:px-3 py-1.5 rounded-full border border-border/10 hover:bg-primary/10 transition-colors group">
             <span className="text-xs sm:text-sm font-black">🪙 {profile?.balance || 0}</span>
