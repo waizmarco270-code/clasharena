@@ -1,9 +1,8 @@
-
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -12,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   Swords, 
   Trophy, 
-  TrendingUp, 
   Zap, 
   ArrowRight,
   ShieldCheck,
@@ -26,8 +24,8 @@ import {
   History,
   Timer
 } from 'lucide-react';
-import { useDoc, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, limit, addDoc, updateDoc, increment, deleteDoc, getDoc } from 'firebase/firestore';
+import { useDoc, useFirestore, useCollection } from '@/firebase';
+import { doc, setDoc, query, collection, where, orderBy, limit } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
@@ -57,13 +55,15 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
       const counts: { [key: number]: number } = {};
       let total = 0;
       allVotes.forEach((v: any) => {
-        v.indices.forEach((idx: number) => {
-          counts[idx] = (counts[idx] || 0) + 1;
-        });
-        total++;
-        if (v.id === userId) {
-          setVoted(true);
-          setUserVote(v.indices);
+        if (v.indices) {
+          v.indices.forEach((idx: number) => {
+            counts[idx] = (counts[idx] || 0) + 1;
+          });
+          total++;
+          if (v.id === userId) {
+            setVoted(true);
+            setUserVote(v.indices);
+          }
         }
       });
       setResults(counts);
@@ -265,7 +265,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             
-            {/* Real Rank Badge Card */}
             <Card className="glass border-border/40 dark:border-white/5 hover:bg-muted/10 transition-colors backdrop-blur-xl group">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
@@ -338,7 +337,6 @@ export default function Dashboard() {
                  </div>
                )}
 
-               {/* Marco's Special: Recent Arena Activity Feed */}
                <div className="space-y-4">
                   <h3 className="font-headline text-lg font-black uppercase italic flex items-center gap-2">
                     <History className="w-5 h-5 text-primary" /> MISSION LOGS
@@ -361,7 +359,6 @@ export default function Dashboard() {
                </div>
             </div>
             
-            {/* Side Column: Profile Snippet */}
             <div className="space-y-6">
                <Card className="glass border-white/5 bg-white/5 p-6 rounded-3xl text-center space-y-4">
                   <div className="relative inline-block">
@@ -394,7 +391,7 @@ export default function Dashboard() {
       </div>
 
       <Dialog open={setupOpen} onOpenChange={() => {}}>
-        <DialogContent className="glass border-border/20 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col">
+        <DialogContent className="glass border-border/20 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col outline-none">
           <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="setup-form" onSubmit={handleSetupSubmit} className="space-y-8 pb-8">
@@ -412,6 +409,6 @@ export default function Dashboard() {
           <div className="p-6 border-t border-border/20 bg-background/50"><Button form="setup-form" type="submit" className="w-full bg-primary text-white font-black h-14 rounded-2xl shadow-xl glow-primary" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : <ShieldCheck className="mr-2" />}SECURE IDENTITY</Button></div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageWrapper>
   );
 }
