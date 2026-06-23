@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -166,11 +167,15 @@ export default function Dashboard() {
   const { data: bgData } = useDoc(backgroundsRef);
   const dashboardBg = bgData?.dashboard;
 
-  const pollsQuery = useMemo(() => query(collection(db, 'polls'), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(1)), [db]);
-  const { data: activePolls, loading: pollsLoading } = useCollection(pollsQuery);
+  // Simple query to avoid composite index requirement
+  const pollsQuery = useMemo(() => query(collection(db, 'polls'), orderBy('createdAt', 'desc'), limit(5)), [db]);
+  const { data: allPolls, loading: pollsLoading } = useCollection(pollsQuery);
+  const activePoll = useMemo(() => allPolls?.find(p => p.isActive), [allPolls]);
 
-  const latestTournamentQuery = useMemo(() => query(collection(db, 'tournaments'), where('status', '==', 'open'), orderBy('startTime', 'asc'), limit(1)), [db]);
-  const { data: latestT, loading: tournamentLoading } = useCollection(latestTournamentQuery);
+  // Simple query for tournaments
+  const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'asc'), limit(10)), [db]);
+  const { data: allT, loading: tournamentLoading } = useCollection(tournamentQuery);
+  const latestT = useMemo(() => allT?.find(t => t.status === 'open'), [allT]);
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
@@ -245,7 +250,7 @@ export default function Dashboard() {
           <div className="w-full bg-black/40 border border-white/5 rounded-full px-6 py-2 overflow-hidden whitespace-nowrap backdrop-blur-xl">
              <div className="inline-block animate-[marquee_20s_linear_infinite] hover:[animation-play-state:paused] cursor-default">
                 <span className="text-[10px] font-black uppercase tracking-widest text-primary mr-20">⚔️ NEW TOURNAMENT "ELITE WARRIORS" IS NOW OPEN</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white mr-20">🏆 WARRIOR {profile?.username || 'MARCO'} IS RISING IN STANDINGS</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white mr-20">🏆 WARRIOR {profile?.username || 'WARRIOR'} IS RISING IN STANDINGS</span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-green-500 mr-20">💰 ₹ 45,000 DISTRIBUTED TO CHAMPIONS THIS MONTH</span>
              </div>
           </div>
@@ -270,9 +275,9 @@ export default function Dashboard() {
                 <Skeleton className="h-12 w-full bg-white/10" />
               </div>
             </Card>
-          ) : activePolls && activePolls.length > 0 && user ? (
+          ) : activePoll && user ? (
             <div className="grid grid-cols-1 gap-6">
-               {activePolls.map((p: any) => <PollCard key={p.id} poll={p} userId={user.id} />)}
+               <PollCard poll={activePoll} userId={user.id} />
             </div>
           ) : null}
 
@@ -331,25 +336,25 @@ export default function Dashboard() {
                  <Card className="glass border-white/5 h-64 overflow-hidden rounded-3xl">
                     <Skeleton className="h-full w-full bg-white/10 animate-pulse" />
                  </Card>
-               ) : latestT && latestT.length > 0 ? (
+               ) : latestT ? (
                  <Card className="glass border-white/5 bg-black/20 overflow-hidden rounded-3xl animate-in fade-in slide-in-from-left-4 duration-700">
                     <div className="relative h-48">
-                       <Image src={latestT[0].imageUrl || 'https://picsum.photos/seed/latest/800/400'} alt="Latest Arena" fill className="object-cover opacity-60" />
+                       <Image src={latestT.imageUrl || 'https://picsum.photos/seed/latest/800/400'} alt="Latest Arena" fill className="object-cover opacity-60" />
                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                        <div className="absolute bottom-6 left-6 right-6">
                           <div className="flex items-center gap-2 mb-2">
                              <Badge className="bg-red-600 animate-pulse uppercase font-black text-[10px]">LIVE RECRUITMENT</Badge>
-                             <Badge variant="outline" className="glass text-[10px] font-black uppercase text-white">TH {latestT[0].townHall || 'ANY'}</Badge>
+                             <Badge variant="outline" className="glass text-[10px] font-black uppercase text-white">TH {latestT.townHall || 'ANY'}</Badge>
                           </div>
-                          <h3 className="text-3xl font-headline font-black uppercase italic tracking-tighter text-white">{latestT[0].name}</h3>
+                          <h3 className="text-3xl font-headline font-black uppercase italic tracking-tighter text-white">{latestT.name}</h3>
                        </div>
                     </div>
                     <CardContent className="p-6 flex justify-between items-center">
                        <div className="space-y-1">
                           <p className="text-[10px] font-black uppercase text-muted-foreground">Reward Pool</p>
-                          <p className="text-xl font-headline font-black text-primary">{latestT[0].prizePool}</p>
+                          <p className="text-xl font-headline font-black text-primary">{latestT.prizePool}</p>
                        </div>
-                       <NextLink href={`/arena/tournament/${latestT[0].id}`}>
+                       <NextLink href={`/arena/tournament/${latestT.id}`}>
                           <Button className="bg-white text-black font-black uppercase h-12 px-8 rounded-xl hover:scale-105 transition-transform">JOIN BATTLE <ArrowRight className="ml-2 w-4 h-4" /></Button>
                        </NextLink>
                     </CardContent>

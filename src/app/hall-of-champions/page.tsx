@@ -33,17 +33,17 @@ export default function HallOfChampions() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  const historyQuery = useMemo(() => query(collection(db, 'tournaments'), where('status', '==', 'completed'), orderBy('completedAt', 'desc'), limit(10)), [db]);
-  const { data: completedTournaments } = useCollection(historyQuery);
+  // Simplified queries to avoid index errors
+  const historyQueryRaw = useMemo(() => query(collection(db, 'tournaments'), orderBy('completedAt', 'desc'), limit(20)), [db]);
+  const { data: allHistory } = useCollection(historyQueryRaw);
+  const completedTournaments = useMemo(() => allHistory?.filter(t => t.status === 'completed').slice(0, 10), [allHistory]);
 
   const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(10)), [db]);
   const { data: rewardClaims } = useCollection(claimsQuery);
 
-  // Champions Query - Top performers who are not hidden
-  const championsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(10)), [db]);
+  const championsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(20)), [db]);
   const { data: allUsers } = useCollection(championsQuery);
 
-  // Filter out hidden users client-side for immediate results
   const topChampions = useMemo(() => {
     if (!allUsers) return [];
     return allUsers.filter(u => !u.isHidden).slice(0, 3);
@@ -111,7 +111,7 @@ export default function HallOfChampions() {
                 </Card>
               );
             })}
-            {topChampions.length === 0 && (
+            {(!topChampions || topChampions.length === 0) && (
               <div className="col-span-full py-20 text-center opacity-40"><p className="font-black uppercase tracking-widest italic">Awaiting New Champions</p></div>
             )}
           </div>

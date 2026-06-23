@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, where, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -23,8 +23,10 @@ export default function FulfillmentPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), where('status', '==', 'pending'), orderBy('createdAt', 'desc')), [db]);
-  const { data: pendingClaims } = useCollection(claimsQuery);
+  // Simplified query for index-less operation
+  const claimsQueryRaw = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(50)), [db]);
+  const { data: allClaims } = useCollection(claimsQueryRaw);
+  const pendingClaims = useMemo(() => allClaims?.filter(c => c.status === 'pending'), [allClaims]);
 
   const [activeClaim, setActiveClaim] = useState<any | null>(null);
   const [fulfillmentProof, setFulfillmentProof] = useState('');
