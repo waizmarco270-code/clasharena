@@ -70,12 +70,20 @@ export default function ProfilePage() {
   const currentRankInfo = useMemo(() => getRankByWins(profile?.wins || 0), [profile?.wins]);
   const activeBadgeInfo = useMemo(() => getRankByType(profile?.activeBadge as RankType || currentRankInfo.type), [profile?.activeBadge, currentRankInfo.type]);
 
-  // Winnings Query
+  // Winnings Query - Simplified for index-less operation
   const winningsQuery = useMemo(() => {
     if (!user) return null;
-    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
-  }, [db, user]);
-  const { data: myWinnings } = useCollection(winningsQuery);
+    return query(collection(db, 'reward-claims'), where('userId', '==', user.id));
+  }, [db, user?.id]);
+  const { data: rawWinnings } = useCollection(winningsQuery);
+
+  // Client-side sort for winnings
+  const myWinnings = useMemo(() => {
+    if (!rawWinnings) return [];
+    return [...rawWinnings].sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [rawWinnings]);
 
   useEffect(() => {
     if (!profile?.profileLockedUntil) return;
@@ -320,3 +328,4 @@ export default function ProfilePage() {
     </PageWrapper>
   );
 }
+
