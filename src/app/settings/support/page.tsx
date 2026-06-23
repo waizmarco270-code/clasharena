@@ -22,16 +22,18 @@ import {
   Clock,
   Check,
   X,
-  AlertCircle
+  AlertCircle,
+  Ticket
 } from 'lucide-react';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser, useFirestore, useCollection } from '@/firebase';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, query, where, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 export default function SupportPage() {
   const { user } = useUser();
@@ -55,6 +57,15 @@ export default function SupportPage() {
   }, [db, user]);
 
   const { data: myTickets, loading: ticketsLoading } = useCollection(ticketsQuery);
+
+  // Calculate remaining tickets for today (last 24h)
+  const ticketsRemaining = useMemo(() => {
+    if (!myTickets) return 2;
+    const now = Date.now();
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+    const recentCount = myTickets.filter(t => new Date(t.createdAt).getTime() > twentyFourHoursAgo).length;
+    return Math.max(0, 2 - recentCount);
+  }, [myTickets]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,31 +94,46 @@ export default function SupportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || submitting) return;
+
+    if (ticketsRemaining <= 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "QUOTA EXHAUSTED", 
+        description: "You have used your 2 daily support tickets. Reset in 24h." 
+      });
+      return;
+    }
+
     if (!form.category || !form.subject || !form.description) {
       toast({ variant: "destructive", title: "COMPLETE FORM" });
       return;
     }
 
     setSubmitting(true);
+    const ticketData = {
+      userId: user.id,
+      username: user.firstName || 'Warrior',
+      category: form.category,
+      subject: form.subject,
+      description: form.description,
+      screenshotUrl: screenshotUrl,
+      status: 'pending',
+      adminReply: '',
+      repliedAt: null,
+      createdAt: new Date().toISOString()
+    };
+
     try {
-      await addDoc(collection(db, 'support-tickets'), {
-        userId: user.id,
-        username: user.firstName || 'Warrior',
-        category: form.category,
-        subject: form.subject,
-        description: form.description,
-        screenshotUrl: screenshotUrl,
-        status: 'pending',
-        adminReply: '',
-        repliedAt: null,
-        createdAt: new Date().toISOString()
-      });
-      
+      await addDoc(collection(db, 'support-tickets'), ticketData);
       toast({ title: "INTEL DISPATCHED", description: "Our officers will review your request." });
       setForm({ category: '', subject: '', description: '' });
       setScreenshotUrl('');
     } catch (err) {
-      toast({ variant: "destructive", title: "DISPATCH FAILED" });
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'support-tickets',
+        operation: 'create',
+        requestResourceData: ticketData
+      }));
     } finally {
       setSubmitting(false);
     }
@@ -124,11 +150,20 @@ export default function SupportPage() {
               <h1 className="font-headline text-4xl font-black uppercase italic tracking-tighter text-white">CONTACT <span className="text-green-500">INTELLIGENCE</span></h1>
               <p className="text-muted-foreground text-xs font-bold uppercase tracking-tight">Direct encrypted link to the high command center.</p>
            </div>
-           <div className="bg-green-600/10 border border-green-500/20 px-6 py-4 rounded-2xl flex items-center gap-4">
-              <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center text-white glow-primary"><ShieldCheck className="w-6 h-6" /></div>
-              <div>
-                 <p className="text-[10px] font-black text-green-500 uppercase leading-none mb-1">Encrypted Link</p>
-                 <p className="text-xs font-bold text-white uppercase tracking-tighter">Status: Active</p>
+           <div className="flex gap-4">
+              <div className="bg-primary/10 border border-primary/20 px-6 py-4 rounded-2xl flex items-center gap-4">
+                 <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white glow-primary"><Ticket className="w-6 h-6" /></div>
+                 <div>
+                    <p className="text-[10px] font-black text-primary uppercase leading-none mb-1">Quota Pool</p>
+                    <p className="text-xs font-black text-white uppercase tracking-tighter">{ticketsRemaining} / 2 REMAINING</p>
+                 </div>
+              </div>
+              <div className="hidden sm:flex bg-green-600/10 border border-green-500/20 px-6 py-4 rounded-2xl items-center gap-4">
+                 <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center text-white glow-primary"><ShieldCheck className="w-6 h-6" /></div>
+                 <div>
+                    <p className="text-[10px] font-black text-green-500 uppercase leading-none mb-1">Encrypted Link</p>
+                    <p className="text-xs font-bold text-white uppercase tracking-tighter">Status: Active</p>
+                 </div>
               </div>
            </div>
         </div>
@@ -183,9 +218,9 @@ export default function SupportPage() {
                        <p className="text-[9px] text-muted-foreground italic text-center uppercase tracking-widest">Instruction: Screenshot must be clear and under 5MB.</p>
                     </div>
 
-                    <Button type="submit" disabled={submitting || uploading} className="w-full h-16 bg-green-600 hover:bg-green-700 text-white font-black uppercase text-lg rounded-2xl shadow-xl glow-primary transition-all active:scale-95">
+                    <Button type="submit" disabled={submitting || uploading || ticketsRemaining <= 0} className="w-full h-16 bg-green-600 hover:bg-green-700 text-white font-black uppercase text-lg rounded-2xl shadow-xl glow-primary transition-all active:scale-95">
                        {submitting ? <Loader2 className="animate-spin mr-2" /> : <Send className="w-6 h-6 mr-3" />}
-                       DISPATCH INTEL TO ADMIN
+                       {ticketsRemaining > 0 ? 'DISPATCH INTEL TO ADMIN' : 'QUOTA EXHAUSTED (24H)'}
                     </Button>
                  </form>
               </Card>
