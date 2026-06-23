@@ -113,7 +113,7 @@
     },
     "RewardClaim": {
       "title": "Reward Claim",
-      "description": "A request/record for a tournament reward fulfillment.",
+      "description": "A request/record for a tournament reward fulfillment. Updated for Item Protocol.",
       "type": "object",
       "properties": {
         "tournamentId": { "type": "string" },
@@ -124,8 +124,10 @@
         "rewardValue": { "type": "string" },
         "rewardItemName": { "type": "string" },
         "rewardImageUrl": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "itemLink": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "verifying", "reviewing", "completed"] },
         "proofImageUrl": { "type": "string" },
+        "proofImageUrl2": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" }
       }

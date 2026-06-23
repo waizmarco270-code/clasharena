@@ -5,7 +5,25 @@ import { useMemo, useState } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, Medal, Crown, Star, ArrowUpRight, Loader2, PackageCheck, Eye, Gift, IndianRupee, Zap, ShieldCheck, Settings, EyeOff } from 'lucide-react';
+import { 
+  Trophy, 
+  Medal, 
+  Crown, 
+  Star, 
+  ArrowUpRight, 
+  Loader2, 
+  PackageCheck, 
+  Eye, 
+  Gift, 
+  IndianRupee, 
+  Zap, 
+  ShieldCheck, 
+  Settings, 
+  EyeOff,
+  Link as LinkIcon,
+  ExternalLink,
+  Camera
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,13 +51,13 @@ export default function HallOfChampions() {
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 
-  // Simplified queries to avoid index errors
   const historyQueryRaw = useMemo(() => query(collection(db, 'tournaments'), orderBy('completedAt', 'desc'), limit(20)), [db]);
   const { data: allHistory } = useCollection(historyQueryRaw);
   const completedTournaments = useMemo(() => allHistory?.filter(t => t.status === 'completed').slice(0, 10), [allHistory]);
 
-  const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(10)), [db]);
-  const { data: rewardClaims } = useCollection(claimsQuery);
+  const claimsQuery = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(20)), [db]);
+  const { data: allClaims } = useCollection(claimsQuery);
+  const verifiedClaims = useMemo(() => allClaims?.filter(c => c.status === 'completed'), [allClaims]);
 
   const championsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(20)), [db]);
   const { data: allUsers } = useCollection(championsQuery);
@@ -49,7 +67,7 @@ export default function HallOfChampions() {
     return allUsers.filter(u => !u.isHidden).slice(0, 3);
   }, [allUsers]);
 
-  const [selectedProof, setSelectedProof] = useState<string | null>(null);
+  const [selectedProof, setSelectedProof] = useState<any>(null);
 
   const handleToggleVisibility = async () => {
     if (!userRef || !myProfile) return;
@@ -116,17 +134,60 @@ export default function HallOfChampions() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 gap-10">
             <div className="space-y-6">
-              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter"><Star className="text-primary fill-primary" /> Battle Ledger</h2>
-              <div className="glass rounded-2xl overflow-hidden border-border/50 dark:border-white/5">
+              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter text-green-500"><ShieldCheck className="w-6 h-6" /> Legend's Proof Ledger</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {verifiedClaims?.map((claim: any) => (
+                    <Card key={claim.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-primary/40 transition-all flex flex-col">
+                       <div className="relative h-40">
+                          <Image src={claim.rewardImageUrl || 'https://picsum.photos/seed/gift/400/200'} alt="Reward" fill className="object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                          <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                             <div className="p-2 bg-primary rounded-xl"><Gift className="w-4 h-4 text-white" /></div>
+                             <span className="text-xs font-black uppercase text-white shadow-xl">{claim.rewardItemName}</span>
+                          </div>
+                       </div>
+                       <CardContent className="p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                             <Avatar className="h-8 w-8 border border-white/10"><AvatarImage src={claim.avatarUrl} /><AvatarFallback className="text-[10px]">{claim.username[0]}</AvatarFallback></Avatar>
+                             <div>
+                                <p className="text-xs font-black uppercase text-white">{claim.username}</p>
+                                <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-widest">Arena Champion</p>
+                             </div>
+                          </div>
+                          <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-1">
+                             <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
+                             <p className="text-[10px] font-bold text-white uppercase truncate">{claim.tournamentName}</p>
+                          </div>
+                          <div className="flex gap-2">
+                             <Button size="sm" onClick={() => setSelectedProof(claim)} className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 h-10 text-[9px] font-black uppercase"><Eye className="w-3 h-3 mr-2" /> VIEW PROOFS</Button>
+                             {claim.itemLink && (
+                               <Button asChild size="sm" variant="outline" className="h-10 w-10 p-0 border-white/10"><a href={claim.itemLink} target="_blank"><LinkIcon className="w-3 h-3" /></a></Button>
+                             )}
+                          </div>
+                       </CardContent>
+                    </Card>
+                 ))}
+                 {(!verifiedClaims || verifiedClaims.length === 0) && (
+                   <div className="col-span-full py-20 text-center glass border-dashed border-white/10 rounded-[2rem] opacity-30">
+                      <PackageCheck className="w-12 h-12 mx-auto mb-4" />
+                      <p className="font-black uppercase tracking-widest">Victory Proofs are being audited...</p>
+                   </div>
+                 )}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter"><Star className="text-primary fill-primary" /> Mission Archives</h2>
+              <div className="glass rounded-[2rem] overflow-hidden border-border/50 dark:border-white/5">
                 <Table>
                   <TableHeader className="bg-muted/10">
                     <TableRow className="border-border/10 hover:bg-transparent">
                       <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Tournament</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Champion</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Prize</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground text-right">View</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Reward Pool</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground text-right">Phase</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -139,68 +200,7 @@ export default function HallOfChampions() {
                       </TableRow>
                     ))}
                     {(!completedTournaments || completedTournaments.length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-10 opacity-40">
-                          <p className="text-[10px] font-black uppercase italic">No Battles Recorded</p>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter text-green-500"><ShieldCheck className="w-6 h-6" /> Proof of Victory</h2>
-              <div className="glass rounded-2xl overflow-hidden border-border/50 dark:border-white/5">
-                <Table>
-                  <TableHeader className="bg-green-500/5">
-                    <TableRow className="border-border/10 hover:bg-transparent">
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Warrior</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Reward Won</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground text-right">Receipt</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rewardClaims?.map((claim: any) => (
-                      <TableRow key={claim.id} className="border-border/10 hover:bg-muted/5 transition-colors">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-6 w-6 border border-white/10">
-                              <AvatarImage src={claim.avatarUrl} />
-                              <AvatarFallback className="text-[8px] font-black">{claim.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-bold uppercase text-[10px]">{claim.username}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20 text-[9px] font-black uppercase">
-                            {claim.rewardType === 'money' ? `₹ ${claim.rewardValue}` : claim.rewardItemName || 'Prize'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={claim.status === 'completed' ? 'default' : 'outline'} className={cn(claim.status === 'completed' ? "bg-green-600" : "border-yellow-500 text-yellow-500", "text-[8px] font-black")}>
-                            {claim.status === 'completed' ? 'PAID' : 'PENDING'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {claim.proofImageUrl ? (
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedProof(claim.proofImageUrl)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          ) : (
-                            <span className="text-[8px] text-muted-foreground italic">Syncing</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {(!rewardClaims || rewardClaims.length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-10 opacity-40">
-                          <p className="text-[10px] font-black uppercase italic">No Proofs Logged</p>
-                        </TableCell>
-                      </TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-10 opacity-40"><p className="text-[10px] font-black uppercase italic">Archives syncing...</p></TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -211,13 +211,61 @@ export default function HallOfChampions() {
       </div>
 
       <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
-        <DialogContent className="glass border-white/10 max-w-2xl">
-          <DialogHeader><DialogTitle className="font-headline text-xl uppercase italic">Delivery <span className="text-primary">Receipt</span></DialogTitle></DialogHeader>
-          {selectedProof && (
-            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black">
-              <Image src={selectedProof} alt="Reward Receipt" fill className="object-contain" />
-            </div>
-          )}
+        <DialogContent className="glass border-white/10 max-w-4xl p-0 overflow-hidden outline-none rounded-[2.5rem] flex flex-col h-[85vh]">
+          <div className="bg-primary p-6 flex justify-between items-center shrink-0">
+             <div className="flex items-center gap-3">
+                <Camera className="w-8 h-8 text-white" />
+                <DialogTitle className="font-headline text-xl uppercase italic text-white">Victory Evidence <span className="text-white/60"># {selectedProof?.tournamentName}</span></DialogTitle>
+             </div>
+          </div>
+          <ScrollArea className="flex-1">
+             <div className="p-8 space-y-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 1: Claim Screen</Label>
+                      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
+                         {selectedProof?.proofImageUrl && <Image src={selectedProof.proofImageUrl} alt="Proof 1" fill className="object-contain" />}
+                         <a href={selectedProof?.proofImageUrl} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
+                      </div>
+                   </div>
+                   <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 2: Base Confirmation</Label>
+                      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
+                         {selectedProof?.proofImageUrl2 && <Image src={selectedProof.proofImageUrl2} alt="Proof 2" fill className="object-contain" />}
+                         <a href={selectedProof?.proofImageUrl2} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="bg-white/5 p-8 rounded-3xl border border-white/10 space-y-6">
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                      <div>
+                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Champion Status</p>
+                         <p className="text-sm font-black text-yellow-500 uppercase">{selectedProof?.username}</p>
+                      </div>
+                      <div>
+                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Reward Item</p>
+                         <p className="text-sm font-black text-white uppercase">{selectedProof?.rewardItemName}</p>
+                      </div>
+                      <div>
+                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Victory Date</p>
+                         <p className="text-sm font-black text-white uppercase">{selectedProof && new Date(selectedProof.completedAt).toLocaleDateString()}</p>
+                      </div>
+                   </div>
+                   {selectedProof?.itemLink && (
+                     <div className="pt-6 border-t border-white/5">
+                        <p className="text-[9px] font-black uppercase text-muted-foreground mb-2">Original Giveaway Link (Audit Reference)</p>
+                        <div className="bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-[10px] text-primary truncate">
+                           {selectedProof.itemLink}
+                        </div>
+                     </div>
+                   )}
+                </div>
+             </div>
+          </ScrollArea>
+          <div className="p-6 border-t border-white/10 bg-black/40 text-center shrink-0">
+             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em]">VERIFIED BY CLASH ARENA TRANSPARENCY PROTOCOL</p>
+          </div>
         </DialogContent>
       </Dialog>
     </PageWrapper>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,21 @@ import {
   Target,
   Crown,
   History,
-  Timer
+  Timer,
+  Gift,
+  ExternalLink,
+  Camera,
+  ImagePlus,
+  AlertTriangle,
+  Send,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, limit, increment, getDoc, updateDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -139,6 +146,264 @@ function PollCard({ poll, userId }: { poll: any, userId: string }) {
   );
 }
 
+function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmin: boolean, userId: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [itemLink, setItemLink] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showClaimPopup, setShowClaimPopup] = useState(false);
+  const [timer, setTimer] = useState(15);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [proofs, setProofs] = useState({ ss1: '', ss2: '' });
+  const fileInputRef1 = useRef<HTMLInputElement>(null);
+  const fileInputRef2 = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let interval: any;
+    if (showClaimPopup && timer > 0) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showClaimPopup, timer]);
+
+  const handleAdminDeployLink = async () => {
+    if (!itemLink.trim() || loading) return;
+    setLoading(true);
+    await updateDoc(doc(db, 'reward-claims', claim.id), {
+      itemLink: itemLink.trim(),
+      status: 'approved'
+    });
+    setLoading(false);
+    toast({ title: "ITEM LINK DEPLOYED" });
+  };
+
+  const handleImageUpload = async (num: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(num);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setProofs(prev => ({ ...prev, [num === 1 ? 'ss1' : 'ss2']: data.secure_url }));
+        toast({ title: `SCREENSHOT ${num} READY` });
+      }
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleWinnerConfirmSubmission = async () => {
+    if (!proofs.ss1 || !proofs.ss2 || loading) return;
+    setLoading(true);
+    await updateDoc(doc(db, 'reward-claims', claim.id), {
+      proofImageUrl: proofs.ss1,
+      proofImageUrl2: proofs.ss2,
+      status: 'reviewing'
+    });
+    setLoading(false);
+    toast({ title: "INTEL DISPATCHED", description: "Admin will verify your proofs now." });
+  };
+
+  const handleAdminFinalApproval = async () => {
+    if (loading) return;
+    setLoading(true);
+    await updateDoc(doc(db, 'reward-claims', claim.id), {
+      status: 'completed',
+      completedAt: new Date().toISOString()
+    });
+    setLoading(false);
+    toast({ title: "REWARD VERIFIED & ARCHIVED" });
+  };
+
+  const isWinner = userId === claim.userId;
+  const status = claim.status;
+
+  return (
+    <Card className="glass border-yellow-500/40 bg-yellow-500/5 overflow-hidden animate-in fade-in zoom-in duration-700 relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 animate-pulse" />
+      <CardHeader className="pb-4">
+        <div className="flex justify-between items-start">
+           <div className="flex items-center gap-3">
+              <div className="p-3 bg-yellow-500/20 rounded-2xl border border-yellow-500/30">
+                 <Trophy className="w-6 h-6 text-yellow-500 animate-bounce" />
+              </div>
+              <div>
+                 <p className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.3em]">Victory Verification Portal</p>
+                 <CardTitle className="font-headline text-2xl font-black uppercase italic tracking-tighter">Congratulations, <span className="text-white">{claim.username}</span></CardTitle>
+              </div>
+           </div>
+           <Badge className="bg-yellow-500 text-black font-black uppercase">{status}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+              <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
+              <p className="text-xs font-bold uppercase truncate">{claim.tournamentName}</p>
+           </div>
+           <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+              <p className="text-[8px] font-black text-muted-foreground uppercase">Victory Rank</p>
+              <p className="text-xs font-bold uppercase text-yellow-500">1st Position (Champion)</p>
+           </div>
+           <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+              <p className="text-[8px] font-black text-muted-foreground uppercase">Reward Prize</p>
+              <p className="text-xs font-bold uppercase text-primary">{claim.rewardItemName || `₹ ${claim.rewardValue}`}</p>
+           </div>
+        </div>
+
+        {/* ADMIN SIDE: DEPLOY LINK */}
+        {isAdmin && status === 'pending' && claim.rewardType === 'item' && (
+          <div className="bg-primary/5 p-6 rounded-3xl border border-primary/20 space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center gap-2 text-primary">
+                <LinkIcon className="w-4 h-4" />
+                <h4 className="text-xs font-black uppercase tracking-widest">Deploy Item Giveaway Link</h4>
+             </div>
+             <Input 
+               value={itemLink} 
+               onChange={e => setItemLink(e.target.value)} 
+               placeholder="PASTE CLASH OF CLANS ITEM LINK HERE..." 
+               className="bg-white/5 border-white/10 h-12 font-bold"
+             />
+             <Button onClick={handleAdminDeployLink} disabled={!itemLink.trim() || loading} className="w-full h-12 bg-primary font-black uppercase rounded-xl">
+                {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM LINK DEPLOYMENT'}
+             </Button>
+          </div>
+        )}
+
+        {/* WINNER SIDE: WAITING OR CLAIMING */}
+        {isWinner && (
+          <>
+            {status === 'pending' && (
+              <div className="bg-white/5 p-6 rounded-3xl text-center space-y-2 border border-white/10 italic">
+                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-yellow-500 mb-2" />
+                 <p className="text-sm font-bold text-white">SECURE LINK GENERATION IN PROGRESS...</p>
+                 <p className="text-[10px] text-muted-foreground uppercase font-black">You will get your rewards link here within 5-10 min of approval.</p>
+              </div>
+            )}
+
+            {status === 'approved' && (
+              <div className="space-y-4">
+                 <div className="bg-green-600/10 p-6 rounded-3xl border border-green-500/20 flex flex-col items-center gap-4">
+                    <CheckCircle2 className="w-12 h-12 text-green-500" />
+                    <div className="text-center">
+                       <h4 className="font-black text-lg uppercase italic">REWARD LINK IS READY</h4>
+                       <p className="text-[10px] text-muted-foreground uppercase font-black">Open the portal to claim your item legendary warrior.</p>
+                    </div>
+                    <Button onClick={() => setShowClaimPopup(true)} className="w-full h-14 bg-green-600 hover:bg-green-700 font-black text-xl rounded-2xl glow-primary">
+                       CLAIM REWARD <ChevronRight className="ml-2" />
+                    </Button>
+                 </div>
+              </div>
+            )}
+
+            {(status === 'verifying' || status === 'reviewing') && (
+              <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6">
+                 <div className="flex items-center gap-3 text-yellow-500">
+                    <Camera className="w-6 h-6" />
+                    <h4 className="text-xs font-black uppercase tracking-widest">Upload Proof of Claim (2 Screenshots)</h4>
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[1, 2].map(num => (
+                      <div key={num} onClick={() => (num === 1 ? fileInputRef1 : fileInputRef2).current?.click()} className="relative aspect-video rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
+                         {proofs[num === 1 ? 'ss1' : 'ss2'] ? (
+                           <Image src={proofs[num === 1 ? 'ss1' : 'ss2']} alt="Proof" fill className="object-cover" />
+                         ) : (
+                           <>
+                             {uploading === num ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
+                             <p className="text-[9px] font-black uppercase text-muted-foreground">Select SS #{num}</p>
+                           </>
+                         )}
+                         <input type="file" ref={num === 1 ? fileInputRef1 : fileInputRef2} className="hidden" accept="image/*" onChange={e => handleImageUpload(num as any, e)} />
+                      </div>
+                    ))}
+                 </div>
+
+                 {status === 'verifying' ? (
+                   <Button onClick={handleWinnerConfirmSubmission} disabled={!proofs.ss1 || !proofs.ss2 || loading} className="w-full h-14 bg-primary font-black uppercase rounded-2xl">
+                      {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM SUBMISSION & SECURE REWARD'}
+                   </Button>
+                 ) : (
+                   <div className="bg-blue-600/10 p-4 rounded-xl border border-blue-500/20 text-center">
+                      <p className="text-xs font-bold text-blue-500 uppercase tracking-widest flex items-center justify-center gap-2">
+                        <Timer className="w-4 h-4" /> SUBMITTED • ADMIN IS REVIEWING YOUR PROOFS
+                      </p>
+                   </div>
+                 )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ADMIN SIDE: REVIEW PROOFS */}
+        {isAdmin && status === 'reviewing' && (
+          <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6">
+             <div className="flex items-center gap-3 text-blue-500">
+                <ShieldCheck className="w-6 h-6" />
+                <h4 className="text-xs font-black uppercase tracking-widest">Verification Dossier (Submitted by {claim.username})</h4>
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+                <a href={claim.proofImageUrl} target="_blank" className="relative aspect-video rounded-xl overflow-hidden border border-white/10"><Image src={claim.proofImageUrl} alt="SS1" fill className="object-cover" /><div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><ExternalLink className="w-6 h-6 text-white" /></div></a>
+                <a href={claim.proofImageUrl2} target="_blank" className="relative aspect-video rounded-xl overflow-hidden border border-white/10"><Image src={claim.proofImageUrl2} alt="SS2" fill className="object-cover" /><div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><ExternalLink className="w-6 h-6 text-white" /></div></a>
+             </div>
+             <Button onClick={handleAdminFinalApproval} disabled={loading} className="w-full h-14 bg-green-600 hover:bg-green-700 font-black uppercase text-lg rounded-2xl shadow-xl glow-primary">
+                {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM PROOFS & ARCHIVE VICTORY'}
+             </Button>
+          </div>
+        )}
+      </CardContent>
+
+      {/* CLAIM POPUP WITH TIMER */}
+      <Dialog open={showClaimPopup} onOpenChange={() => { if (timer === 0) setShowClaimPopup(false); }}>
+        <DialogContent className="glass border-red-500/40 max-w-lg p-0 overflow-hidden outline-none rounded-[2.5rem]">
+           <div className="bg-red-600 p-6 flex items-center gap-4">
+              <ShieldAlert className="w-10 h-10 text-white animate-pulse" />
+              <div>
+                 <DialogTitle className="text-white font-headline text-xl font-black uppercase italic">INTEGRITY PROTOCOL</DialogTitle>
+                 <p className="text-[10px] font-black text-white/80 uppercase">Most Important Security Step</p>
+              </div>
+           </div>
+           <div className="p-8 space-y-6">
+              <div className="bg-black/40 border border-white/10 p-6 rounded-3xl space-y-4">
+                 <div className="flex gap-4 items-start">
+                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-black shrink-0">1</div>
+                    <p className="text-sm font-bold uppercase text-white/90">Click "CLAIM REWARD" to open Clash of Clans.</p>
+                 </div>
+                 <div className="flex gap-4 items-start">
+                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-black shrink-0">2</div>
+                    <p className="text-sm font-bold uppercase text-white/90">TAKE 2 SCREENSHOTS: One of the 'Claim' screen and one of the Reward added to your base.</p>
+                 </div>
+              </div>
+              <div className="bg-red-600/10 border border-red-500/20 p-6 rounded-3xl space-y-2">
+                 <div className="flex items-center gap-2 text-red-500"><AlertTriangle className="w-5 h-5" /><h5 className="text-xs font-black uppercase">BAN WARNING</h5></div>
+                 <p className="text-[10px] leading-relaxed text-muted-foreground uppercase font-bold">FAILURE TO PROVIDE VALID SCREENSHOT PROOFS WILL RESULT IN A **LIFETIME BAN** FROM THE CLASH ARENA ECOSYSTEM. NO EXCEPTIONS.</p>
+              </div>
+           </div>
+           <div className="p-6 border-t border-white/10 bg-black/40 flex flex-col gap-3">
+              {timer > 0 ? (
+                <Button disabled className="w-full h-14 bg-white/5 text-muted-foreground font-black uppercase rounded-2xl">
+                   READY IN {timer} SECONDS...
+                </Button>
+              ) : (
+                <Button asChild onClick={async () => {
+                   await updateDoc(doc(db, 'reward-claims', claim.id), { status: 'verifying' });
+                   setShowClaimPopup(false);
+                }} className="w-full h-16 bg-green-600 hover:bg-green-700 font-black text-xl uppercase rounded-2xl shadow-xl glow-primary">
+                   <a href={claim.itemLink} target="_blank">CLAIM REWARD <ExternalLink className="ml-2" /></a>
+                </Button>
+              )}
+              {timer > 10 && <p className="text-[9px] text-center text-muted-foreground uppercase font-black">Reading instructions is mandatory for arena integrity.</p>}
+           </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 function StatSkeleton() {
   return (
     <Card className="glass border-white/5 bg-white/5 p-6 space-y-4">
@@ -167,15 +432,21 @@ export default function Dashboard() {
   const { data: bgData } = useDoc(backgroundsRef);
   const dashboardBg = bgData?.dashboard;
 
-  // Simple query to avoid composite index requirement
   const pollsQuery = useMemo(() => query(collection(db, 'polls'), orderBy('createdAt', 'desc'), limit(5)), [db]);
   const { data: allPolls, loading: pollsLoading } = useCollection(pollsQuery);
   const activePoll = useMemo(() => allPolls?.find(p => p.isActive), [allPolls]);
 
-  // Simple query for tournaments
   const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'asc'), limit(10)), [db]);
   const { data: allT, loading: tournamentLoading } = useCollection(tournamentQuery);
   const latestT = useMemo(() => allT?.find(t => t.status === 'open'), [allT]);
+
+  // Reward Claims Monitoring (Priority 1)
+  const claimsQuery = useMemo(() => {
+    if (!user) return null;
+    if (isAdmin) return query(collection(db, 'reward-claims'), where('status', 'in', ['pending', 'reviewing']), limit(5));
+    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing']), limit(1));
+  }, [db, user, isAdmin]);
+  const { data: activeClaims } = useCollection(claimsQuery);
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
@@ -265,6 +536,15 @@ export default function Dashboard() {
             </div>
             <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest animate-shimmer">DEPLOY TO ARENA</Button></NextLink>
           </div>
+
+          {/* Reward Verification Portal (Top Priority) */}
+          {activeClaims && activeClaims.length > 0 && user && (
+            <div className="space-y-4">
+               {activeClaims.map((claim: any) => (
+                 <RewardVerificationCard key={claim.id} claim={claim} isAdmin={isAdmin} userId={user.id} />
+               ))}
+            </div>
+          )}
 
           {pollsLoading ? (
             <Card className="glass border-white/5 p-6 space-y-4">
