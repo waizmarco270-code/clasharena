@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -13,7 +12,8 @@ import {
   Settings, 
   Monitor,
   Loader2,
-  Terminal
+  Terminal,
+  Headset
 } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -51,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const tabs = [
     { id: 'arenahub', label: 'Arena Hub', icon: Swords, href: '/admin/arenahub' },
     { id: 'fulfillment', label: 'Fulfillment Hub', icon: PackageCheck, href: '/admin/fulfillment' },
+    { id: 'support', label: 'Support Intel', icon: Headset, href: '/admin/support' },
     { id: 'wallets', label: 'Wallet Logs', icon: Wallet, href: '/admin/wallets' },
     { id: 'controls', label: 'Controls', icon: Terminal, href: '/admin/controls' },
     { id: 'users', label: 'User Management', icon: UserCog, href: '/admin/users', superOnly: true },

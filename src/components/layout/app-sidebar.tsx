@@ -29,7 +29,9 @@ import {
   Youtube,
   Send,
   MessageCircle,
-  Users
+  Users,
+  Headset,
+  LifeBuoy
 } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -162,10 +164,28 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooterComponent className="p-4 border-t border-white/5 bg-black/20">
+      <SidebarFooterComponent className="p-4 border-t border-white/5 bg-black/20 mt-auto">
         <div className="flex flex-col gap-4 group-data-[collapsible=icon]:items-center">
-          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 group-data-[collapsible=icon]:hidden">Connect with us</p>
-          <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4">
+          {/* Support Highlight Section */}
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/settings/support'}
+                tooltip="Support Desk"
+                className="bg-green-600/10 hover:bg-green-600/20 border border-green-500/20 h-11 px-4 rounded-xl transition-all"
+              >
+                <Link href="/settings/support" className="flex items-center gap-3">
+                  <Headset className="text-green-500 w-5 h-5 animate-pulse" />
+                  <span className="font-black text-xs tracking-widest text-green-500 uppercase group-data-[collapsible=icon]:hidden">Support Desk</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+
+          <div className="h-[1px] bg-white/5 w-full group-data-[collapsible=icon]:hidden" />
+
+          <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4 pb-2">
             <Link href="https://youtube.com" target="_blank" className="text-red-500 hover:scale-125 transition-transform">
               <Youtube className="w-5 h-5" />
             </Link>
@@ -178,11 +198,6 @@ export function AppSidebar() {
             <Link href="#" className="text-amber-500 hover:scale-125 transition-transform">
               <Users className="w-5 h-5" />
             </Link>
-          </div>
-          <div className="pt-2 group-data-[collapsible=icon]:hidden">
-            <p className="text-[7px] font-bold text-muted-foreground/30 uppercase text-center leading-tight">
-              © 2026 CLASH ARENA<br />LEGENDARY EDITION
-            </p>
           </div>
         </div>
       </SidebarFooterComponent>
