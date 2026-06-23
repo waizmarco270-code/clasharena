@@ -30,7 +30,9 @@ import {
   ImagePlus,
   AlertTriangle,
   Send,
-  Link as LinkIcon
+  Link as LinkIcon,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, limit, increment, getDoc, updateDoc } from 'firebase/firestore';
@@ -339,7 +341,19 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
           </>
         )}
 
-        {/* ADMIN SIDE: REVIEW PROOFS */}
+        {/* ADMIN SIDE: REVIEW PROOFS & STATUS MONITORING */}
+        {isAdmin && (status === 'approved' || status === 'verifying') && (
+           <div className="bg-white/5 p-6 rounded-3xl border border-white/10 flex flex-col items-center gap-4 animate-pulse">
+              <Clock className="w-10 h-10 text-muted-foreground opacity-40" />
+              <div className="text-center">
+                 <h4 className="font-black text-sm uppercase">WAITING FOR WARRIOR...</h4>
+                 <p className="text-[10px] text-muted-foreground uppercase font-black">
+                   {status === 'approved' ? 'The champion has received the link and is claiming the reward.' : 'The champion is uploading proof screenshots.'}
+                 </p>
+              </div>
+           </div>
+        )}
+
         {isAdmin && status === 'reviewing' && (
           <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6">
              <div className="flex items-center gap-3 text-blue-500">
@@ -443,7 +457,7 @@ export default function Dashboard() {
   // Reward Claims Monitoring (Priority 1)
   const claimsQuery = useMemo(() => {
     if (!user) return null;
-    if (isAdmin) return query(collection(db, 'reward-claims'), where('status', 'in', ['pending', 'reviewing']), limit(5));
+    if (isAdmin) return query(collection(db, 'reward-claims'), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing']), limit(5));
     return query(collection(db, 'reward-claims'), where('userId', '==', user.id), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing']), limit(1));
   }, [db, user, isAdmin]);
   const { data: activeClaims } = useCollection(claimsQuery);
