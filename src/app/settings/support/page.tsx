@@ -47,17 +47,24 @@ export default function SupportPage() {
   const [form, setForm] = useState({ category: '', subject: '', description: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch user's tickets
+  // Simplified query for index-less operation
   const ticketsQuery = useMemo(() => {
     if (!user) return null;
     return query(
       collection(db, 'support-tickets'),
-      where('userId', '==', user.id),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.id)
     );
-  }, [db, user]);
+  }, [db, user?.id]);
 
-  const { data: myTickets, loading: ticketsLoading } = useCollection(ticketsQuery);
+  const { data: rawTickets, loading: ticketsLoading } = useCollection(ticketsQuery);
+
+  // Manual client-side sort to avoid composite index requirement
+  const myTickets = useMemo(() => {
+    if (!rawTickets) return [];
+    return [...rawTickets].sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [rawTickets]);
 
   // Calculate remaining tickets for today (last 24h)
   const ticketsRemaining = useMemo(() => {
