@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser } from "@clerk/nextjs";
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, query, where, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -36,7 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 export default function SupportPage() {
-  const { user } = useUser();
+  const { user, isLoaded: authLoaded } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
@@ -105,14 +106,14 @@ export default function SupportPage() {
     }
 
     if (!form.category || !form.subject || !form.description) {
-      toast({ variant: "destructive", title: "COMPLETE FORM" });
+      toast({ variant: "destructive", title: "COMPLETE FORM", description: "All intel fields are required." });
       return;
     }
 
     setSubmitting(true);
     const ticketData = {
       userId: user.id,
-      username: user.firstName || 'Warrior',
+      username: user.username || user.firstName || 'Warrior',
       category: form.category,
       subject: form.subject,
       description: form.description,
@@ -129,6 +130,7 @@ export default function SupportPage() {
       setForm({ category: '', subject: '', description: '' });
       setScreenshotUrl('');
     } catch (err) {
+      console.error("Submission failed", err);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: 'support-tickets',
         operation: 'create',
@@ -138,6 +140,8 @@ export default function SupportPage() {
       setSubmitting(false);
     }
   };
+
+  if (!authLoaded) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
     <PageWrapper>
@@ -194,23 +198,23 @@ export default function SupportPage() {
 
                     <div className="space-y-2">
                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Detailed Situation</Label>
-                       <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="EXPLAIN THE ISSUE WITH FULL CONTEXT..." className="bg-white/5 min-h-[150px] rounded-xl border-white/10 font-medium leading-relaxed text-sm" />
+                       <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="EXPLAIN THE ISSUE WITH FULL CONTEXT..." className="bg-white/5 min-h-[120px] rounded-xl border-white/10 font-medium leading-relaxed text-sm" />
                     </div>
 
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Visual Evidence (Screenshot)</Label>
                        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                           {screenshotUrl ? (
-                            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border-2 border-green-500/40">
-                               <Image src={screenshotUrl} alt="Evidence" fill className="object-cover" />
+                            <div className="relative aspect-video w-full max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-green-500/40 shadow-2xl bg-black">
+                               <Image src={screenshotUrl} alt="Evidence" fill className="object-contain" />
                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Badge className="bg-white text-black font-black">CHANGE PHOTO</Badge>
                                </div>
                             </div>
                           ) : (
-                            <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3 hover:bg-white/5 transition-all bg-white/[0.02]">
+                            <div className="aspect-video w-full max-w-sm mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3 hover:bg-white/5 transition-all bg-white/[0.02]">
                                {uploading ? <Loader2 className="w-10 h-10 animate-spin text-green-500" /> : <Camera className="w-10 h-10 text-muted-foreground opacity-40" />}
-                               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Select Clear Evidence</p>
+                               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Select Evidence</p>
                             </div>
                           )}
                           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
