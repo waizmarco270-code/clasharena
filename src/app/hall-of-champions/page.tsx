@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -33,6 +32,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { getRankByType, RankType } from '@/lib/rank-utils';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
