@@ -333,9 +333,9 @@ export default function Home() {
                 <h4 className="font-headline font-bold text-lg mb-8 uppercase tracking-widest text-white italic">Information</h4>
                 <ul className="space-y-4 text-sm font-medium text-muted-foreground">
                   <li><Link href="/about" className="hover:text-primary transition-colors">About Arena</Link></li>
-                  <li><Link href="/rules" className="hover:text-primary transition-colors">Rules & Regulations</Link></li>
-                  <li><Link href="/fair-play" className="hover:text-primary transition-colors">Fair Play Policy</Link></li>
-                  <li><Link href="/about" className="hover:text-primary transition-colors">Partner Program</Link></li>
+                  <li><Link href="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link></li>
+                  <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                  <li><Link href="/refund-policy" className="hover:text-primary transition-colors">Refund Policy</Link></li>
                 </ul>
               </div>
 
@@ -363,10 +363,11 @@ export default function Home() {
                   Powered by <span className="text-white">EmityGate.com</span> • Developed by <span className="text-primary italic">WaizMarco</span>
                 </p>
               </div>
-              <div className="flex items-center gap-8 text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">
-                <Link href="/fair-play" className="hover:text-white transition-colors">Privacy Policy</Link>
-                <Link href="/rules" className="hover:text-white transition-colors">Safety Center</Link>
-                <Link href="/about" className="hover:text-white transition-colors">Partner Program</Link>
+              <div className="flex items-center gap-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 flex-wrap justify-center md:justify-end">
+                <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                <Link href="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link>
+                <Link href="/refund-policy" className="hover:text-white transition-colors">Refund Policy</Link>
+                <Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link>
               </div>
             </div>
           </div>
