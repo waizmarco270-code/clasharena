@@ -97,6 +97,7 @@ export default function WalletHistoryPage() {
                 <TableHeader className="bg-white/[0.02]">
                   <TableRow className="border-white/5 hover:bg-transparent">
                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Transaction ID</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Method</TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Amount</TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Date</TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
@@ -107,6 +108,13 @@ export default function WalletHistoryPage() {
                   {logs.map((log: any) => (
                     <TableRow key={log.id} className="border-white/5 hover:bg-white/5 transition-colors">
                       <TableCell className="font-mono font-bold text-xs text-primary">{log.transactionId}</TableCell>
+                      <TableCell className="text-xs font-bold uppercase tracking-wider">
+                        {log.method === 'Automatic' ? (
+                          <Badge variant="outline" className="border-green-500/30 text-green-400 bg-green-500/5">⚡ AUTOMATIC</Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/5">📝 MANUAL</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="font-headline font-black">🪙 {log.amount}</TableCell>
                       <TableCell className="text-xs text-muted-foreground font-medium">
                         <div className="flex items-center gap-2">

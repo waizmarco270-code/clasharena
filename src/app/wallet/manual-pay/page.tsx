@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   ShieldAlert as ShieldIcon
 } from 'lucide-react';
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser } from '@clerk/nextjs';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -28,11 +29,12 @@ import Link from 'next/link';
 
 function ManualPayContent() {
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useUser();
+  const { user, isLoaded: authLoaded } = useUser();
+  const authLoading = !authLoaded;
   const db = useFirestore();
   const { toast } = useToast();
   
-  const userRef = useMemo(() => user ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
+  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
 
   // Fetch Admin Payment Settings
@@ -91,8 +93,8 @@ function ManualPayContent() {
     setSubmitting(true);
     const requestRef = doc(db, 'recharge-requests', txId);
     const requestData = {
-      userId: user.uid, // Using Firebase UID
-      username: profile?.username || user.displayName || 'Warrior',
+      userId: user.id, // Using Clerk User ID
+      username: profile?.username || user.fullName || user.firstName || 'Warrior',
       amount: amount,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
@@ -101,7 +103,24 @@ function ManualPayContent() {
     };
 
     setDoc(requestRef, requestData)
-      .then(() => {
+      .then(async () => {
+        try {
+          await fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audience: 'admins',
+              title: 'Manual Recharge Alert ⚡',
+              body: `${requestData.username} requested 🪙 ${requestData.amount} Coins. Review details now!`,
+              data: {
+                type: 'manual_recharge',
+                transactionId: requestData.transactionId
+              }
+            })
+          });
+        } catch (e) {
+          console.error("Admin notification trigger failed:", e);
+        }
         setShowSuccess(true);
       })
       .catch(async (err) => {

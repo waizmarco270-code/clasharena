@@ -37,6 +37,7 @@ import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import Image from 'next/image';
+import { AppLogoImage } from '@/components/ui/app-logo-image';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -73,16 +74,7 @@ export function AppSidebar() {
       <SidebarHeader className="h-20 flex flex-col justify-center px-4 border-b border-white/5">
         <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0 shadow-xl">
-             {logoUrl ? (
-               <Image 
-                  src={logoUrl} 
-                  alt="Logo" 
-                  fill 
-                  className="object-cover" 
-               />
-             ) : (
-               <span className="relative z-10">C</span>
-             )}
+             <AppLogoImage fallbackUrl={logoUrl} fill className="object-cover" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
             <span className="font-headline font-black text-lg tracking-tight uppercase leading-none truncate whitespace-nowrap">

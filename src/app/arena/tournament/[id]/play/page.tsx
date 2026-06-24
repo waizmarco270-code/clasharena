@@ -324,7 +324,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   };
 
   const endTournament = async () => {
-    if (!isAdmin || !matches || ending || !registrations) return;
+    if (!isAdmin || !matches || ending || !registrations || !t) return;
     const finalMatch = matches.find((m: any) => m.round === totalRounds);
     if (!finalMatch || !finalMatch.winnerId) { toast({ variant: "destructive", title: "FINAL NOT DECIDED" }); return; }
     setEnding(true);
@@ -347,12 +347,25 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
       // Create Fulfillment Claim Record
       const claimRef = doc(collection(db, 'reward-claims'));
-      const claimData = {
+      const claimData: {
+        tournamentId: string;
+        tournamentName: string;
+        userId: string;
+        username: string;
+        rewardType: string;
+        rewardValue: string;
+        rewardItemName: string;
+        rewardImageUrl: string;
+        status: string;
+        proofImageUrl: string;
+        createdAt: string;
+        completedAt?: string;
+      } = {
         tournamentId: id,
-        tournamentName: t.name,
+        tournamentName: t.name || '',
         userId: winnerId,
-        username: winnerName,
-        rewardType: t.rewardType,
+        username: winnerName || '',
+        rewardType: t.rewardType || '',
         rewardValue: t.rewardValue || '0',
         rewardItemName: t.rewardItemName || '',
         rewardImageUrl: t.rewardImageUrl || '',

@@ -1,4 +1,3 @@
-'use client';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDKtuQ5McByifhpP-S7HZomgGaeE9Z6c_8",

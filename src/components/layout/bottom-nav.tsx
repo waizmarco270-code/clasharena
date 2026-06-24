@@ -1,83 +1,88 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, Swords, Trophy, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { LayoutDashboard, Swords, Trophy, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const navItems = [
+    {
+      route: '/dashboard',
+      label: 'Hub',
+      icon: LayoutDashboard,
+      activeColor: 'text-emerald-400',
+      activeBg: 'bg-emerald-500/[0.06] border-emerald-500/20',
+      animationClass: 'animate-nav-bounce',
+      glowColor: 'bg-emerald-500/20'
+    },
+    {
+      route: '/arena',
+      label: 'Arena',
+      icon: Swords,
+      activeColor: 'text-red-500',
+      activeBg: 'bg-red-500/[0.06] border-red-500/20',
+      animationClass: 'animate-nav-swing',
+      glowColor: 'bg-red-500/20'
+    },
+    {
+      route: '/hall-of-champions',
+      label: 'Hall',
+      icon: Trophy,
+      activeColor: 'text-amber-400',
+      activeBg: 'bg-amber-500/[0.06] border-amber-500/20',
+      animationClass: 'animate-nav-glow',
+      glowColor: 'bg-amber-500/20'
+    },
+    {
+      route: '/profile',
+      label: 'Profile',
+      icon: User,
+      activeColor: 'text-purple-400',
+      activeBg: 'bg-purple-500/[0.06] border-purple-500/20',
+      animationClass: 'animate-nav-float',
+      glowColor: 'bg-purple-500/20'
+    }
+  ];
 
   return (
-    <div 
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-primary/20 bg-gradient-to-t from-black via-black/95 to-black/90 backdrop-blur-2xl transition-all duration-500 ease-in-out shadow-[0_-10px_30px_rgba(0,0,0,0.8)]",
-        isCollapsed ? "translate-y-[calc(100%-12px)] h-20" : "px-6 pb-6 pt-3 translate-y-0"
-      )}
-    >
-      {/* Smart Toggle Tab */}
-      <button 
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className={cn(
-          "absolute -top-7 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-xl border border-primary/20 rounded-t-2xl px-6 py-1.5 flex items-center justify-center transition-all hover:bg-primary/20 group",
-          isCollapsed ? "border-b-0 shadow-[0_-5px_15px_rgba(255,69,0,0.3)]" : ""
-        )}
-      >
-        {isCollapsed ? (
-          <ChevronUp className="w-5 h-5 text-primary animate-bounce" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-primary/60 group-hover:text-primary transition-colors" />
-        )}
-      </button>
-
-      {/* Navigation Content */}
-      <nav className={cn(
-        "flex items-center justify-around relative transition-opacity duration-300",
-        isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
-      )}>
-        {/* Glow effect for active link */}
-        <div className="absolute inset-0 flex justify-around pointer-events-none">
-          {['/dashboard', '/arena', '/hall-of-champions', '/profile'].map((route, i) => (
-            <div 
-              key={i} 
-              className={cn(
-                "w-12 h-12 bg-primary/20 rounded-full blur-xl transition-opacity duration-500",
-                pathname === route ? 'opacity-100' : 'opacity-0'
-              )} 
-            />
-          ))}
-        </div>
-
-        <Link href="/dashboard" className="flex flex-col items-center gap-1.5 group relative z-10">
-          <div className={`p-2 rounded-xl transition-all duration-300 ${pathname === '/dashboard' ? 'bg-primary/20 scale-110' : 'group-hover:bg-white/5'}`}>
-            <LayoutDashboard className={`h-6 w-6 transition-colors ${pathname === '/dashboard' ? 'text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.6)]' : 'text-muted-foreground/60'}`} />
-          </div>
-          <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground/60'}`}>Hub</span>
-        </Link>
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 w-[92%] max-w-sm h-14 z-50 md:hidden rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.65)] flex items-center justify-around px-2">
+      {navItems.map((item) => {
+        const isActive = pathname === item.route;
+        const Icon = item.icon;
         
-        <Link href="/arena" className="flex flex-col items-center gap-1.5 group relative z-10">
-          <div className={`p-2 rounded-xl transition-all duration-300 ${pathname === '/arena' ? 'bg-primary/20 scale-110' : 'group-hover:bg-white/5'}`}>
-            <Swords className={`h-6 w-6 transition-colors ${pathname === '/arena' ? 'text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.6)]' : 'text-muted-foreground/60'}`} />
-          </div>
-          <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${pathname === '/arena' ? 'text-primary' : 'text-muted-foreground/60'}`}>Arena</span>
-        </Link>
-
-        <Link href="/hall-of-champions" className="flex flex-col items-center gap-1.5 group relative z-10">
-          <div className={`p-2 rounded-xl transition-all duration-300 ${pathname === '/hall-of-champions' ? 'bg-primary/20 scale-110' : 'group-hover:bg-white/5'}`}>
-            <Trophy className={`h-6 w-6 transition-colors ${pathname === '/hall-of-champions' ? 'text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.6)]' : 'text-muted-foreground/60'}`} />
-          </div>
-          <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${pathname === '/hall-of-champions' ? 'text-primary' : 'text-muted-foreground/60'}`}>Hall</span>
-        </Link>
-
-        <Link href="/profile" className="flex flex-col items-center gap-1.5 group relative z-10">
-          <div className={`p-2 rounded-xl transition-all duration-300 ${pathname === '/profile' ? 'bg-primary/20 scale-110' : 'group-hover:bg-white/5'}`}>
-            <User className={`h-6 w-6 transition-colors ${pathname === '/profile' ? 'text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.6)]' : 'text-muted-foreground/60'}`} />
-          </div>
-          <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground/60'}`}>Profile</span>
-        </Link>
-      </nav>
+        return (
+          <Link 
+            key={item.route} 
+            href={item.route} 
+            className="flex flex-col items-center justify-center w-16 h-12 relative group"
+          >
+            {/* Glow background for active item */}
+            {isActive && (
+              <div className={cn("absolute inset-0 rounded-xl blur-md pointer-events-none transition-all duration-300", item.glowColor)} />
+            )}
+            
+            <div className={cn(
+              "flex flex-col items-center justify-center rounded-xl px-3 py-1 transition-all duration-300 border border-transparent w-full",
+              isActive ? cn("scale-105 bg-white/[0.03]", item.activeBg) : "group-hover:bg-white/[0.02]"
+            )}>
+              <Icon className={cn(
+                "h-5 w-5 transition-all duration-300",
+                isActive ? cn(item.activeColor, item.animationClass) : "text-muted-foreground/60 group-hover:text-white/80"
+              )} />
+              
+              <span className={cn(
+                "text-[8px] font-black uppercase tracking-wider mt-0.5 transition-colors duration-300",
+                isActive ? item.activeColor : "text-muted-foreground/50 group-hover:text-white/60"
+              )}>
+                {item.label}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

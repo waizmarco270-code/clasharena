@@ -24,6 +24,7 @@ import {
   Crown,
   History,
   Timer,
+  Clock,
   Gift,
   ExternalLink,
   Camera,
@@ -525,7 +526,7 @@ export default function Dashboard() {
     <PageWrapper>
       <div className="relative min-h-screen">
         {dashboardBg && (
-          <div className="fixed inset-0 z-0 pointer-events-none">
+          <div className="fixed-bg">
             <Image src={dashboardBg} alt="Dashboard Background" fill className="object-cover opacity-50 saturate-150" priority />
             <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/10 to-background" />
           </div>

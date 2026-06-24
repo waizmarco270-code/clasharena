@@ -129,7 +129,28 @@ export default function ArenaHubPage() {
         status: 'upcoming', 
         createdAt: new Date().toISOString() 
       })
-        .then(() => { toast({ title: "ARENA DEPLOYED" }); setTOpen(false); resetTForm(); })
+        .then(async () => {
+          try {
+            await fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audience: 'broadcast',
+                title: 'New Tournament Active! ⚔️',
+                body: `Arena "${tournamentData.name}" has been deployed for Town Hall ${tournamentData.townHall || 'any'}. Join now!`,
+                data: {
+                  type: 'new_tournament',
+                  name: tournamentData.name
+                }
+              })
+            });
+          } catch (e) {
+            console.error("Failed to send tournament push alert:", e);
+          }
+          toast({ title: "ARENA DEPLOYED" });
+          setTOpen(false);
+          resetTForm();
+        })
         .finally(() => setTLoading(false));
     }
   };

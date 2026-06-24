@@ -12,6 +12,8 @@ import { doc, updateDoc, query, collection, orderBy, limit } from 'firebase/fire
 import { UserButton, useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Image from 'next/image';
+import { AppLogoImage } from '@/components/ui/app-logo-image';
+import { Badge } from '@/components/ui/badge';
 import { getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -59,7 +61,7 @@ export function Header() {
           <SidebarTrigger className="hover:bg-primary/10 hover:text-primary" />
           <Link href="/" className="flex items-center gap-2 md:hidden">
             <div className="relative w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden">
-               {logoUrl ? <Image src={logoUrl} alt="Logo" fill className="object-cover" /> : "C"}
+               <AppLogoImage fallbackUrl={logoUrl} fill className="object-cover" />
             </div>
           </Link>
         </div>
@@ -123,9 +125,9 @@ export function Header() {
 
           {isAdmin && (
             <Link href="/admin">
-              <Button variant="outline" size="sm" className="flex gap-1 sm:gap-2 border-primary/20 hover:bg-primary/10 h-8 sm:h-10 px-2 sm:px-4">
-                <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-                <span className="text-[10px] sm:text-xs font-black uppercase italic">ADMIN</span>
+              <Button variant="outline" size="icon" className="border-primary/20 hover:bg-primary/10 h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="sr-only">Admin Panel</span>
               </Button>
             </Link>
           )}

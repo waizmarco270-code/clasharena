@@ -71,6 +71,27 @@ export default function FulfillmentPage() {
         });
       }
 
+      // Trigger user push alert
+      try {
+        const detail = activeClaim.rewardType === 'money' ? `₹ ${activeClaim.rewardValue}` : activeClaim.rewardItemName;
+        await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'user',
+            userId: activeClaim.userId,
+            title: 'Reward Delivered! 🏆',
+            body: `Your reward (${detail}) for tournament "${activeClaim.tournamentName}" has been delivered. Tap to review!`,
+            data: {
+              type: 'reward_fulfillment',
+              claimId: activeClaim.id
+            }
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send player reward notification:", e);
+      }
+
       toast({ title: "REWARD DELIVERED" });
       setActiveClaim(null);
       setFulfillmentProof('');

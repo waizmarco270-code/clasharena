@@ -20,6 +20,7 @@ import {
   PlayCircle
 } from 'lucide-react';
 import Image from 'next/image';
+import { AppLogoImage } from '@/components/ui/app-logo-image';
 import { NeuralBackground } from '@/components/ui/neural-background';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { useRouter } from 'next/navigation';
@@ -92,7 +93,7 @@ export default function Home() {
   return (
     <PageWrapper>
       <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden min-h-screen relative bg-black">
-        <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="fixed-bg">
            <NeuralBackground />
            <div className="absolute inset-0 opacity-40 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] animate-pulse" />
         </div>
@@ -101,7 +102,7 @@ export default function Home() {
            <div className="container mx-auto h-full px-4 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-3">
                  <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 overflow-hidden shadow-2xl">
-                    {logoUrl ? <Image src={logoUrl} alt="Logo" fill className="object-cover" /> : <span>C</span>}
+                    <AppLogoImage fallbackUrl={logoUrl} fill className="object-cover" />
                  </div>
                  <span className="font-headline font-black text-2xl tracking-tighter uppercase italic hidden md:block">
                    CLASH <span className="text-primary">ARENA</span>

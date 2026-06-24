@@ -41,7 +41,7 @@ const adminResultVerificationPrompt = ai.definePrompt({
   input: { schema: AdminResultVerificationInputSchema },
   output: { schema: AdminResultVerificationOutputSchema },
   config: {
-    model: ai.model('gemini-2.5-flash-image'), // Specify the vision model
+    model: 'googleai/gemini-2.5-flash', // Specify the vision model
     responseModalities: ['TEXT'], // We expect JSON text output
   },
   prompt: `You are an expert Clash of Clans tournament verifier. Your task is to analyze a match result screenshot, detect the scores, and compare them against reported scores.
@@ -108,7 +108,7 @@ const adminResultVerificationFlow = ai.defineFlow(
       } catch (e: any) {
         console.error('Failed to parse AI response as JSON or validate:', e);
         return {
-          verificationStatus: 'failed',
+          verificationStatus: 'failed' as const,
           aiDetectedScore1: null,
           aiDetectedScore2: null,
           reason: `AI output was not valid JSON or did not match schema: ${e.message}`,

@@ -45,7 +45,28 @@ export default function ControlsPage() {
 
   const handleAddAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addDoc(collection(db, 'announcements'), { ...aForm, createdAt: new Date().toISOString() });
+    const docData = { ...aForm, createdAt: new Date().toISOString() };
+    await addDoc(collection(db, 'announcements'), docData);
+    
+    // Broadcast push alert
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: 'broadcast',
+          title: `Announcement: ${docData.title} 📢`,
+          body: docData.content.substring(0, 100) + (docData.content.length > 100 ? '...' : ''),
+          data: {
+            type: 'announcement',
+            title: docData.title
+          }
+        })
+      });
+    } catch (e) {
+      console.error("Failed to send announcement push alert:", e);
+    }
+
     setAForm({ title: '', content: '', type: 'info' });
     toast({ title: "ANNOUNCEMENT BROADCASTED" });
   };
@@ -61,14 +82,36 @@ export default function ControlsPage() {
     const initialCounts: Record<number, number> = {};
     filteredOptions.forEach((_, i) => initialCounts[i] = 0);
 
-    await addDoc(collection(db, 'polls'), { 
+    const docData = { 
       ...pForm, 
       options: filteredOptions, 
       voteCounts: initialCounts,
       totalVotes: 0,
       isActive: true, 
       createdAt: new Date().toISOString() 
-    });
+    };
+
+    await addDoc(collection(db, 'polls'), docData);
+
+    // Broadcast push alert
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: 'broadcast',
+          title: `New Community Poll! 🗳️`,
+          body: docData.question,
+          data: {
+            type: 'poll',
+            question: docData.question
+          }
+        })
+      });
+    } catch (e) {
+      console.error("Failed to send poll push alert:", e);
+    }
+
     setPForm({ question: '', options: ['', ''], allowMultiple: false, displayMode: 'percentage' });
     toast({ title: "POLL PUBLISHED" });
   };
