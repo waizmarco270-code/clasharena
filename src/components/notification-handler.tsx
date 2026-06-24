@@ -1,73 +1,167 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { Button } from '@/components/ui/button';
+import { Bell, X, ShieldAlert, Sparkles } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function NotificationHandler() {
   const { user } = useUser();
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  const setupNotifications = async () => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window) || !('PushManager' in window)) {
+      console.log('Push notifications are not supported in this browser.');
+      return;
+    }
+
+    try {
+      // Register our FCM background service worker
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/'
+      });
+      
+      console.log('Messaging service worker registration active.');
+
+      // Dynamically import Firebase scripts to avoid Next.js compile/SSR errors
+      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { getMessaging, getToken } = await import('firebase/messaging');
+      const { firebaseConfig } = await import('@/firebase/config');
+
+      // Initialize client-side app instance
+      const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+      const messaging = getMessaging(app);
+
+      // Request FCM Registration Token using public VAPID certificate
+      const token = await getToken(messaging, {
+        vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
+        serviceWorkerRegistration: registration
+      });
+
+      if (token) {
+        console.log('FCM registration token acquired.');
+        
+        // Store the token and subscribe the device to the broadcast topic
+        await fetch('/api/notifications/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user?.id, token })
+        });
+      }
+    } catch (err) {
+      console.warn('FCM registration initialization failed:', err);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
 
-    const setupNotifications = async () => {
-      // 1. Check browser capabilities
-      if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window) || !('PushManager' in window)) {
-        console.log('Push notifications are not supported in this browser.');
-        return;
+    // Check if permission is already granted
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted') {
+        setShowPrompt(true);
+      } else {
+        // If already granted, set up background listeners directly
+        setupNotifications();
       }
-
-      try {
-        // 2. Request browser permission to show notifications
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.log('Web Push permission not granted.');
-          return;
-        }
-
-        // 3. Register our FCM background service worker
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-          scope: '/'
-        });
-        
-        console.log('Messaging service worker registration active.');
-
-        // 4. Dynamically import Firebase scripts to avoid Next.js compile/SSR errors
-        const { initializeApp, getApps, getApp } = await import('firebase/app');
-        const { getMessaging, getToken } = await import('firebase/messaging');
-        const { firebaseConfig } = await import('@/firebase/config');
-
-        // 5. Initialize client-side app instance
-        const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-        const messaging = getMessaging(app);
-
-        // 6. Request FCM Registration Token using our public VAPID certificate
-        const token = await getToken(messaging, {
-          vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
-          serviceWorkerRegistration: registration
-        });
-
-        if (token) {
-          console.log('FCM registration token acquired.');
-          
-          // 7. Store the token and subscribe the device to the broadcast topic
-          await fetch('/api/notifications/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, token })
-          });
-        }
-      } catch (err) {
-        console.warn('FCM registration initialization failed:', err);
-      }
-    };
-
-    // Delay initialization slightly to prioritize main page paint resources
-    const delayTimer = setTimeout(() => {
-      setupNotifications();
-    }, 2000);
-
-    return () => clearTimeout(delayTimer);
+    }
   }, [user]);
 
-  return null;
+  const handleRequestPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    
+    setIsProcessing(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setShowPrompt(false);
+        toast({
+          title: "Alerts Activated 🔔",
+          description: "You will now receive instant tournament updates and rewards alerts.",
+        });
+        await setupNotifications();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Notifications Blocked ❌",
+          description: "Please enable notifications in your browser settings to receive alerts.",
+        });
+      }
+    } catch (error) {
+      console.error("Error requesting notifications:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+  };
+
+  if (!showPrompt) return null;
+
+  return (
+    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-primary/40 bg-zinc-950 p-8 shadow-[0_0_50px_rgba(255,69,0,0.3)] text-center animate-in zoom-in-95 duration-300">
+        
+        {/* Glowing background elements */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl" />
+
+        {/* Close button */}
+        <button 
+          onClick={handleDismiss} 
+          className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Glowing Notification Bell Icon */}
+        <div className="relative mx-auto mb-6 w-20 h-20 rounded-full border-2 border-primary/50 bg-zinc-900 flex items-center justify-center shadow-[0_0_24px_rgba(255,69,0,0.4)] animate-pulse">
+          <Bell className="w-10 h-10 text-primary drop-shadow-[0_0_8px_rgba(255,69,0,0.5)]" />
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full animate-bounce">
+            <Sparkles className="w-3 h-3 fill-white" />
+          </div>
+        </div>
+
+        {/* Alert Content */}
+        <h3 className="font-headline text-2xl font-black uppercase italic tracking-tight text-white mb-2 leading-none">
+          ACTIVATE <span className="text-primary">NOTIFICATIONS</span>
+        </h3>
+        <p className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">
+          CRITICAL ACTION REQUIRED
+        </p>
+
+        {/* COC Legendary Notice Box */}
+        <div className="bg-red-950/20 border border-red-500/20 rounded-2xl p-5 mb-6 text-left space-y-2">
+          <p className="text-xs text-white font-semibold leading-relaxed">
+            ⚠️ To receive latest updates related to <span className="text-primary font-black uppercase">Tournaments</span>, claiming your <span className="text-yellow-500 font-black uppercase">Rewards</span>, and coin <span className="text-emerald-500 font-black uppercase">Recharges</span>, you must enable push notifications.
+          </p>
+          <p className="text-[11px] text-muted-foreground leading-normal">
+            Missing match alerts will result in automatic disqualification or delayed reward fulfillment.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3">
+          <Button 
+            disabled={isProcessing}
+            onClick={handleRequestPermission} 
+            className="w-full bg-gradient-to-r from-red-600 to-primary hover:from-red-600/90 hover:to-primary/90 text-white font-black py-6 rounded-2xl glow-primary border-t border-white/20 uppercase tracking-widest text-xs shadow-2xl animate-shimmer"
+          >
+            {isProcessing ? "ACTIVATING..." : "ALLOW NOTIFICATIONS"}
+          </Button>
+          <button 
+            onClick={handleDismiss} 
+            className="text-[11px] font-black uppercase tracking-wider text-muted-foreground hover:text-white transition-colors mt-2"
+          >
+            I'LL RISK IT, CLOSE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
