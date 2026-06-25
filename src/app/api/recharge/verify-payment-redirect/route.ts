@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
+import { adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: Request) {
   try {
-    // Initialize Firebase Client SDK inside the request handler
-    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    if (!adminDb) {
+      console.error("Firebase Admin DB helper is not initialized!");
+      return new Response("Firebase Admin DB uninitialized", { status: 500 });
+    }
 
     // 1. Parse url-encoded form body sent by Razorpay redirect
     const formData = await request.formData();
@@ -53,36 +53,39 @@ export async function POST(request: Request) {
     }
 
     // 4. Check if this payment transaction was already processed
-    const requestRef = doc(db, 'recharge-requests', paymentId);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = adminDb.collection('recharge-requests').doc(paymentId);
+    const requestSnap = await requestRef.get();
 
-    if (requestSnap.exists()) {
+    if (requestSnap.exists) {
       // Replay prevention: redirect to success page directly without double crediting
-      return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${amount}`, request.url));
+      return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${amount}`, request.url), 303);
     }
 
-    // 5. Fetch user profile to get actual username
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    const username = userSnap.exists() ? (userSnap.data()?.username || 'Warrior') : 'Warrior';
+    // 5. Run atomic transaction to update user balance and record the recharge request
+    await adminDb.runTransaction(async (transaction: any) => {
+      const userRef = adminDb.collection('users').doc(userId);
+      const userSnap = await transaction.get(userRef);
+      const username = userSnap.exists ? (userSnap.data()?.username || 'Warrior') : 'Warrior';
 
-    // 6. Update user's coin balance
-    await updateDoc(userRef, {
-      balance: increment(amount)
+      // Increment balance
+      transaction.update(userRef, {
+        balance: FieldValue.increment(amount)
+      });
+
+      // Write recharge record
+      transaction.set(requestRef, {
+        userId,
+        username,
+        amount,
+        transactionId: paymentId,
+        orderId: orderId || '',
+        status: 'approved',
+        method: 'Automatic',
+        createdAt: new Date().toISOString()
+      });
     });
 
-    // 7. Write the transaction audit record
-    await setDoc(requestRef, {
-      userId,
-      username,
-      amount,
-      transactionId: paymentId,
-      status: 'approved',
-      method: 'Automatic',
-      createdAt: new Date().toISOString()
-    });
-
-    // 8. Redirect back to wallet with success triggers
+    // 6. Redirect back to wallet with success triggers
     return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${amount}`, request.url), 303);
   } catch (err: any) {
     console.error("Redirect payment error:", err);

@@ -126,12 +126,22 @@ function WalletPageContent() {
     setLoading(true);
     setMethodDialogOpen(false);
 
+    if (!user?.id) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please sign in to recharge your wallet.",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       // 1. Create order on Next.js server route
       const res = await fetch('/api/recharge/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount, userId: user.id })
       });
       
       const data = await res.json();
