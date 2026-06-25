@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, X, Smartphone, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export function PwaInstaller() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -49,26 +50,28 @@ export function PwaInstaller() {
     sessionStorage.setItem('pwa_install_dismissed', 'true');
   };
 
-  if (!isVisible) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-yellow-500/30 bg-zinc-950 p-8 shadow-[0_0_50px_rgba(255,69,0,0.25)] text-center animate-in zoom-in-95 duration-300">
+    <Dialog open={isVisible} onOpenChange={setIsVisible}>
+      <DialogContent className="glass border-yellow-500/30 max-w-md p-8 overflow-hidden outline-none rounded-[2.5rem] bg-zinc-950/95 text-center [&>button]:hidden">
+        <DialogTitle className="sr-only">Install Clash Arena App</DialogTitle>
+        <DialogDescription className="sr-only">
+          Install the Clash Arena Progressive Web App to get lag-free matches and quick navigation.
+        </DialogDescription>
         
         {/* Glowing background highlights */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button 
           onClick={handleDismiss} 
-          className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
+          className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 z-10"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Dynamic App Icon */}
-        <div className="relative mx-auto mb-6 w-24 h-24 rounded-3xl border-2 border-yellow-500/40 bg-gradient-to-br from-primary to-yellow-600 p-1 glow-primary rotate-3 shadow-[0_12px_24px_rgba(255,69,0,0.3)]">
+        <div className="relative mx-auto mb-6 w-24 h-24 rounded-3xl border-2 border-yellow-500/40 bg-gradient-to-br from-primary to-yellow-600 p-1 glow-primary rotate-3 shadow-[0_12px_24px_rgba(255,69,0,0.3)] pointer-events-none">
           <div className="relative w-full h-full rounded-2xl overflow-hidden bg-black">
             <Image 
               src="/logo.png" 
@@ -92,7 +95,7 @@ export function PwaInstaller() {
         </p>
 
         {/* Feature summary */}
-        <div className="bg-white/5 border border-white/5 rounded-2xl p-4 mb-6 space-y-3 text-left">
+        <div className="bg-white/5 border border-white/5 rounded-2xl p-4 mb-6 space-y-3 text-left pointer-events-auto">
           <div className="flex gap-3 items-start">
             <div className="p-1 bg-primary/20 rounded-lg text-primary mt-0.5">
               <Smartphone className="w-4 h-4" />
@@ -114,7 +117,7 @@ export function PwaInstaller() {
         </div>
 
         {/* Call to Actions */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 pointer-events-auto">
           <Button 
             onClick={handleInstall} 
             className="w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-white font-black py-6 rounded-2xl glow-primary border-t border-white/20 uppercase tracking-widest text-xs shadow-2xl"
@@ -128,7 +131,7 @@ export function PwaInstaller() {
             CONTINUE IN BROWSER
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
