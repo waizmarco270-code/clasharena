@@ -1,13 +1,13 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef, use } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Swords, 
   Users, 
@@ -21,15 +21,11 @@ import {
   XCircle, 
   ShieldAlert, 
   Crown, 
-  Move, 
-  Zap, 
-  Layout, 
   Plus, 
   Minus, 
   Maximize2, 
   Minimize2, 
   Monitor, 
-  Check, 
   Lock, 
   Pin, 
   Reply, 
@@ -40,7 +36,8 @@ import {
   AlertCircle, 
   ArrowRight,
   Save,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Zap
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment } from 'firebase/firestore';
@@ -55,6 +52,7 @@ import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import Image from 'next/image';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -97,10 +95,18 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Protocol States
-  const [editClanUid, setEditClanUid] = useState('');
-  const [editClanLink, setEditClanLink] = useState('');
+  // Custom Clan states
+  const [editClan1Tag, setEditClan1Tag] = useState('');
+  const [editClan1Link, setEditClan1Link] = useState('');
+  const [editClan2Tag, setEditClan2Tag] = useState('');
+  const [editClan2Link, setEditClan2Link] = useState('');
   const [savingProtocol, setSavingProtocol] = useState(false);
+
+  // Dialog status states
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   // Battle Log States
   const [logImageUrl, setLogImageUrl] = useState('');
@@ -118,8 +124,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
   useEffect(() => {
     if (t) {
-      setEditClanUid(t.clanUid || '');
-      setEditClanLink(t.clanLink || '');
+      setEditClan1Tag(t.clan1Tag || '#2J9VCQ99C');
+      setEditClan1Link(t.clan1Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2J9VCQ99C');
+      setEditClan2Tag(t.clan2Tag || '#2RGY920RY');
+      setEditClan2Link(t.clan2Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2RGY920RY');
     }
   }, [t]);
 
@@ -169,11 +177,13 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     setSavingProtocol(true);
     try {
       await updateDoc(tRef, {
-        clanUid: editClanUid,
-        clanLink: editClanLink,
+        clan1Tag: editClan1Tag,
+        clan1Link: editClan1Link,
+        clan2Tag: editClan2Tag,
+        clan2Link: editClan2Link,
         updatedAt: new Date().toISOString()
       });
-      toast({ title: "PROTOCOL UPDATED", description: "Clan intel secured and deployed." });
+      toast({ title: "PROTOCOL UPDATED", description: "Clan configurations secured." });
     } catch (e) {
       toast({ variant: "destructive", title: "UPDATE FAILED" });
     } finally {
@@ -198,13 +208,16 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !messageText.trim() || !hasFullAccess) return;
-    if (isTournamentCompleted && !isAdmin) return;
-    if (!isAdmin) {
-      const now = Date.now();
-      if (now - lastSentTime < 10000) return;
-      setLastSentTime(now);
-      setCooldown(10);
+
+    // Rate limiting check
+    const now = Date.now();
+    if (!isAdmin && now - lastSentTime < 3000) {
+      setCooldown(3);
+      toast({ variant: "destructive", title: "COOL DOWN IN EFFECT", description: "Wait 3 seconds between transmissions." });
+      return;
     }
+
+    setLastSentTime(now);
     const msgData: any = {
       userId: user.id,
       username: profile?.username || user.firstName || 'Warrior',
@@ -296,7 +309,29 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           }
         }
       }
-      toast({ title: "BRACKET DEPLOYED" });
+
+      // Generate Clan Assignments & Codes
+      const totalPlayers = registrations.length;
+      const updatePromises = registrations.map(async (p: any) => {
+        let assignedClan = 'Clan 1';
+        const codeNum = Math.floor(1000 + Math.random() * 9000);
+        const joinCode = `ARENA-${codeNum}`;
+
+        if (totalPlayers >= 8) {
+          const playerIdx = initialPlayers.findIndex(ip => ip.id === p.userId);
+          if (playerIdx !== -1) {
+            assignedClan = (playerIdx % 2 === 0) ? 'Clan 1' : 'Clan 2';
+          }
+        } else {
+          assignedClan = 'Clan 1';
+        }
+
+        const regDocRef = doc(db, 'tournaments', id, 'registrations', p.userId);
+        return updateDoc(regDocRef, { assignedClan, joinCode });
+      });
+      await Promise.all(updatePromises);
+
+      toast({ title: "BRACKET & CLANS DEPLOYED" });
     } catch (e) { toast({ variant: "destructive", title: "GENERATION FAILED" }); } finally { setGenerating(false); }
   };
 
@@ -332,35 +367,16 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       const winnerId = finalMatch.winnerId;
       const winnerName = winnerId === finalMatch.player1Id ? finalMatch.player1Name : finalMatch.player2Name;
       
-      // Update tournament
       await updateDoc(tRef, { status: 'completed', winnerId, winnerName, completedAt: new Date().toISOString() });
       
-      // Update stats for ALL participants (Played +1)
       await Promise.all(registrations.map(reg => 
-        updateDoc(doc(db, 'users', reg.userId), { 
-          tournamentsPlayed: increment(1) 
-        })
+        updateDoc(doc(db, 'users', reg.userId), { tournamentsPlayed: increment(1) })
       ));
 
-      // Extra update for Winner (Wins +1)
       await updateDoc(doc(db, 'users', winnerId), { wins: increment(1) });
 
-      // Create Fulfillment Claim Record
       const claimRef = doc(collection(db, 'reward-claims'));
-      const claimData: {
-        tournamentId: string;
-        tournamentName: string;
-        userId: string;
-        username: string;
-        rewardType: string;
-        rewardValue: string;
-        rewardItemName: string;
-        rewardImageUrl: string;
-        status: string;
-        proofImageUrl: string;
-        createdAt: string;
-        completedAt?: string;
-      } = {
+      const claimData: any = {
         tournamentId: id,
         tournamentName: t.name || '',
         userId: winnerId,
@@ -374,7 +390,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         createdAt: new Date().toISOString()
       };
       
-      // Handle automatic coin credit
       if (t.rewardType === 'coin') {
         const amount = parseInt(t.rewardValue) || 0;
         await updateDoc(doc(db, 'users', winnerId), {
@@ -388,8 +403,80 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
       triggerConfetti();
       toast({ title: "ARENA ARCHIVED", description: `${winnerName} IS THE CHAMPION!` });
+      setEndDialogOpen(false);
       setTimeout(() => router.push('/arena'), 6000);
     } finally { setEnding(false); }
+  };
+
+  const handleCancelTournament = async () => {
+    if (!isAdmin || !t || cancelling) return;
+    if (!cancelReason.trim()) {
+      toast({ variant: "destructive", title: "REASON REQUIRED", description: "Cancellation reason is mandatory." });
+      return;
+    }
+    setCancelling(true);
+    try {
+      await updateDoc(tRef, {
+        status: 'cancelled',
+        cancelReason: cancelReason.trim(),
+        cancelledAt: new Date().toISOString()
+      });
+
+      if (t.entryFee > 0 && registrations && registrations.length > 0) {
+        const refundPromises = registrations.map(async (reg: any) => {
+          await updateDoc(doc(db, 'users', reg.userId), {
+            balance: increment(t.entryFee)
+          });
+          const refundRef = doc(collection(db, 'recharge-requests'));
+          await setDoc(refundRef, {
+            userId: reg.userId,
+            username: reg.username || 'Warrior',
+            amount: t.entryFee,
+            transactionId: `cancel_refund_${id}_${reg.userId}`,
+            status: 'approved',
+            method: 'Refund',
+            createdAt: new Date().toISOString()
+          });
+        });
+        await Promise.all(refundPromises);
+      }
+
+      toast({ title: "TOURNAMENT CANCELLED", description: "All entry fees have been fully refunded." });
+      setCancelDialogOpen(false);
+    } catch (e) {
+      toast({ variant: "destructive", title: "CANCELLATION FAILED" });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleKickPlayer = async (userId: string, username: string) => {
+    if (!isAdmin || !t) return;
+    if (!confirm(`Are you sure you want to kick ${username} from this tournament?`)) return;
+    try {
+      await deleteDoc(doc(db, 'tournaments', id, 'registrations', userId));
+      await updateDoc(tRef, { currentPlayers: increment(-1) });
+
+      if (t.entryFee > 0) {
+        await updateDoc(doc(db, 'users', userId), {
+          balance: increment(t.entryFee)
+        });
+        const refundRef = doc(collection(db, 'recharge-requests'));
+        await setDoc(refundRef, {
+          userId,
+          username,
+          amount: t.entryFee,
+          transactionId: `kick_refund_${id}_${userId}`,
+          status: 'approved',
+          method: 'Refund',
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      toast({ title: "WARRIOR KICKED", description: `${username} has been removed and refunded.` });
+    } catch (e) {
+      toast({ variant: "destructive", title: "KICK FAILED" });
+    }
   };
 
   function generateDemoMatches(size: number) {
@@ -416,6 +503,44 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
   if (tLoading) return <PageWrapper><div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-primary" /></div></PageWrapper>;
 
+  // Render Cancelled Screen
+  if (t?.status === 'cancelled') {
+    const userReg = registrations?.find((r: any) => r.userId === user?.id);
+    const hasRefund = t.entryFee > 0 && userReg;
+
+    return (
+      <PageWrapper>
+        <div className="max-w-md mx-auto py-20 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+          <div className="relative inline-flex p-6 bg-red-950/40 rounded-3xl border border-red-500/20 shadow-2xl">
+            <ShieldAlert className="w-16 h-16 text-red-500 animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-headline text-3xl font-black uppercase italic tracking-tighter text-red-500">ARENA DECOMMISSIONED</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tournament Cancelled by Command Center</p>
+          </div>
+          <div className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] text-left space-y-4">
+            <div>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-wider mb-1">Reason for Cancellation</p>
+              <p className="text-sm font-bold text-white leading-relaxed">{t.cancelReason || 'Schedule adjustment or server updates.'}</p>
+            </div>
+            {hasRefund && (
+              <div className="pt-4 border-t border-white/5 bg-green-500/5 p-3 rounded-xl border border-green-500/10 text-center">
+                <p className="text-[10px] font-black text-green-500 uppercase tracking-widest">Entry Fee Refunded</p>
+                <p className="text-lg font-black text-white mt-1">🪙 {t.entryFee} Coins Credited</p>
+              </div>
+            )}
+            <p className="text-[9px] text-center text-muted-foreground uppercase font-black tracking-widest pt-2">We apologize for the inconvenience.</p>
+          </div>
+          <NextLink href="/arena" className="block">
+            <Button className="w-full bg-white text-black hover:bg-white/90 font-headline font-black italic uppercase tracking-wider rounded-xl h-12 shadow-lg">
+              RETURN TO ARENA BOARD
+            </Button>
+          </NextLink>
+        </div>
+      </PageWrapper>
+    );
+  }
+
   return (
     <PageWrapper>
       <div className={cn("max-w-7xl mx-auto flex flex-col gap-6 pb-20", isFullscreen ? "fixed inset-0 z-[100] bg-background p-0 max-w-none h-screen overflow-hidden" : "")}>
@@ -433,7 +558,17 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                  <>
                    <DropdownDemo onSelect={setDemoSize} current={demoSize} />
                    {t?.status !== 'completed' && (
-                     <><Button variant="outline" size="sm" onClick={generateFixtures} disabled={generating} className="bg-primary/10 border-primary/20 text-primary font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">{generating ? <Loader2 className="animate-spin" /> : <Swords className="w-4 h-4 mr-2" />} GENERATE FIXTURES</Button><Button variant="destructive" size="sm" onClick={endTournament} disabled={ending} className="font-black uppercase text-[10px] h-11 px-6 shadow-xl glow-primary shrink-0">{ending ? <Loader2 className="animate-spin" /> : <Trophy className="w-4 h-4 mr-2" />} END ARENA</Button></>
+                     <>
+                       <Button variant="outline" size="sm" onClick={generateFixtures} disabled={generating} className="bg-primary/10 border-primary/20 text-primary font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">
+                         {generating ? <Loader2 className="animate-spin" /> : <Swords className="w-4 h-4 mr-2" />} GENERATE FIXTURES
+                       </Button>
+                       <Button variant="destructive" size="sm" onClick={() => setEndDialogOpen(true)} disabled={ending} className="font-black uppercase text-[10px] h-11 px-6 shadow-xl glow-primary shrink-0">
+                         {ending ? <Loader2 className="animate-spin" /> : <Trophy className="w-4 h-4 mr-2" />} END ARENA
+                       </Button>
+                       <Button variant="ghost" size="sm" onClick={() => setCancelDialogOpen(true)} disabled={cancelling} className="bg-red-950/20 border border-red-500/20 text-red-500 hover:bg-red-900/30 font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">
+                         <X className="w-4 h-4 mr-2" /> CANCEL ARENA
+                       </Button>
+                     </>
                    )}
                  </>
               )}
@@ -448,9 +583,19 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             <TabsList className="bg-muted/30 border border-white/5 w-full justify-start overflow-x-auto no-scrollbar h-14 p-1">
               <TabsTrigger value="fixtures" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Swords className="w-4 h-4 mr-2" /> Bracket</TabsTrigger>
               <TabsTrigger value="logs" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Camera className="w-4 h-4 mr-2" /> Battle Logs</TabsTrigger>
-              {hasFullAccess ? (<><TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger><TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><MessageSquare className="w-4 h-4 mr-2" /> Chat Arena</TabsTrigger><TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger></>) : (<Badge variant="outline" className="h-full px-4 rounded-lg bg-black/40 text-[9px] font-black uppercase opacity-60 flex items-center gap-2"><Lock className="w-3 h-3" /> PARTICIPANTS ONLY</Badge>)}
+              {hasFullAccess ? (
+                <>
+                  <TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger>
+                  <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><MessageSquare className="w-4 h-4 mr-2" /> Chat Arena</TabsTrigger>
+                  <TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger>
+                  <TabsTrigger value="rules" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldAlert className="w-4 h-4 mr-2" /> Rules</TabsTrigger>
+                </>
+              ) : (
+                <Badge variant="outline" className="h-full px-4 rounded-lg bg-black/40 text-[9px] font-black uppercase opacity-60 flex items-center gap-2"><Lock className="w-3 h-3" /> PARTICIPANTS ONLY</Badge>
+              )}
             </TabsList>
           )}
+          
           <TabsContent value="fixtures" className={cn("mt-4 outline-none relative group", isFullscreen ? "m-0 h-full" : "h-[80vh]")}>
             <Card className={cn("glass border-white/5 relative overflow-hidden bg-[#0a0a0a] shadow-2xl transition-all duration-300", isFullscreen ? "h-full rounded-none border-0" : "h-full rounded-[2.5rem]")}>
                <div className="absolute top-6 left-6 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl">
@@ -495,6 +640,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
             </Card>
           </TabsContent>
+
           <TabsContent value="logs" className="mt-4 outline-none">
             <div className="flex flex-col gap-8">
               {isAdmin && (
@@ -518,10 +664,62 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
               </Card>
             </div>
           </TabsContent>
+
           {(!isFullscreen && hasFullAccess) && (
             <>
-              <TabsContent value="members" className="mt-4 outline-none"><Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40"><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{registrations?.map((r: any) => (<div key={r.userId} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all"><Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20"><AvatarImage src={r.avatarUrl} /><AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback></Avatar><div className="overflow-hidden"><p className="font-black uppercase text-sm truncate text-white">{r.username}</p><p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p></div></div>))}</div></Card></TabsContent>
+              <TabsContent value="members" className="mt-4 outline-none">
+                <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {registrations?.map((r: any) => (
+                      <div key={r.userId} className="relative flex flex-col justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all gap-4">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20">
+                            <AvatarImage src={r.avatarUrl} />
+                            <AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div className="overflow-hidden">
+                            <p className="font-black uppercase text-sm truncate text-white">{r.username}</p>
+                            <p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p>
+                          </div>
+                        </div>
+
+                        {/* Clan & Join Code Data (Admin/SuperAdmin only) */}
+                        {isAdmin && (
+                          <div className="pt-3 border-t border-white/5 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black text-muted-foreground uppercase">Assigned Clan:</span>
+                              <Badge className={cn("text-[9px] font-black uppercase", r.assignedClan === 'Clan 2' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white')}>
+                                {r.assignedClan || 'Clan 1'}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black text-muted-foreground uppercase">Join Code:</span>
+                              <span className="text-[10px] font-mono font-bold text-yellow-500 bg-white/5 px-2 py-0.5 rounded">
+                                {r.joinCode || 'AWAITING'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Kick Player button (Admin/SuperAdmin only) */}
+                        {isAdmin && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleKickPlayer(r.userId, r.username)}
+                            className="w-full mt-2 h-9 text-[9px] font-black uppercase bg-red-950/20 text-red-500 border border-red-500/10 hover:bg-red-900/30 rounded-xl"
+                          >
+                            <X className="w-3.5 h-3.5 mr-1" /> KICK WARRIOR
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </TabsContent>
+              
               <TabsContent value="chat" className="mt-4 outline-none"><Card className="glass border-white/5 flex flex-col h-[75vh] rounded-[2rem] overflow-hidden bg-black/40">{pinnedMessages.length > 0 && (<div className="bg-primary/10 border-b border-primary/20 p-2 flex items-center gap-3 overflow-x-auto no-scrollbar"><Pin className="w-4 h-4 text-primary shrink-0 ml-2" />{pinnedMessages.map((pm: any) => (<div key={pm.id} className="bg-black/40 px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-2 shrink-0 max-w-[200px]"><p className="text-[10px] font-bold text-white truncate">{pm.text}</p><Button size="icon" variant="ghost" className="h-4 w-4 text-primary" onClick={() => togglePinMessage(pm)}><X className="w-2 h-2" /></Button></div>))}</div>)}<div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">{messages?.map((msg: any) => (<div key={msg.id} className={cn("flex items-start gap-3 group", msg.userId === user?.id ? "flex-row-reverse" : "")}><Avatar className="h-8 w-8 border-2 border-white/10"><AvatarImage src={msg.avatarUrl} /><AvatarFallback className="text-xs">{msg.username[0]}</AvatarFallback></Avatar><div className={cn("max-w-[80%] space-y-1", msg.userId === user?.id ? "items-end flex flex-col" : "")}><div className="flex items-center gap-2 px-1"><span className="text-[9px] font-black uppercase text-muted-foreground">{msg.username}</span>{msg.isAdmin && <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary">ADMIN</Badge>}</div><div className="relative">{msg.replyTo && (<div className="bg-black/30 border-l-4 border-primary/50 p-2 mb-1 rounded-t-lg text-[10px] opacity-80"><p className="font-black text-primary uppercase">{msg.replyTo.username}</p><p className="text-white truncate">{msg.replyTo.text}</p></div>)}<div className={cn("px-4 py-2.5 rounded-2xl text-sm relative", msg.userId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 text-white/90 border border-white/5 rounded-tl-none", msg.isPinned ? "border-primary/50 ring-1 ring-primary/20" : "")}>{msg.text}{msg.isPinned && <Pin className="w-3 h-3 text-primary absolute -top-1.5 -right-1.5 fill-primary" />}</div><div className={cn("absolute -top-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", msg.userId === user?.id ? "right-0" : "left-0")}><Button size="icon" variant="ghost" className="h-6 w-6 rounded-full bg-black/60" onClick={() => setReplyingTo(msg)}><Reply className="w-3 h-3" /></Button>{isAdmin && (<Button size="icon" variant="ghost" className={cn("h-6 w-6 rounded-full bg-black/60", msg.isPinned ? "text-primary" : "")} onClick={() => togglePinMessage(msg)}><Pin className="w-3 h-3" /></Button>)}</div></div></div></div>))}</div><div className="p-4 border-t border-white/5 bg-black/40 space-y-3">{replyingTo && (<div className="bg-white/5 border-l-4 border-primary p-3 rounded-lg flex items-center justify-between"><div className="overflow-hidden"><p className="text-[10px] font-black text-primary uppercase">Replying to {replyingTo.username}</p><p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p></div><Button size="icon" variant="ghost" onClick={() => setReplyingTo(null)}><X className="w-4 h-4" /></Button></div>)}<form onSubmit={handleSendMessage} className="flex gap-3 relative"><div className="flex-1 relative"><Input value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder={isTournamentCompleted && !isAdmin ? "Arena archived. Chat is locked." : cooldown > 0 && !isAdmin ? `Wait ${cooldown}s...` : "Type a message..."} className="bg-white/5 rounded-xl h-12 pr-12" disabled={(cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)} />{cooldown > 0 && !isAdmin && !isTournamentCompleted && (<div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-primary"><Clock className="w-3.5 h-3.5 animate-spin" /><span className="text-[10px] font-black">{cooldown}s</span></div>)}{isTournamentCompleted && !isAdmin && (<div className="absolute right-3 top-1/2 -translate-y-1/2"><Lock className="w-4 h-4 text-muted-foreground" /></div>)}</div><Button type="submit" size="icon" className="h-12 w-12 bg-primary rounded-xl shrink-0" disabled={!messageText.trim() || (cooldown > 0 && !isAdmin) || (isTournamentCompleted && !isAdmin)}><Send className="w-5 h-5" /></Button></form></div></Card></TabsContent>
+              
               <TabsContent value="protocol" className="mt-4 outline-none">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card className="glass border-white/5 rounded-[2rem] overflow-hidden bg-black/40 p-8 space-y-8">
@@ -530,50 +728,96 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                       {isAdmin ? (
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">War Clan Tag</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Clan 1 Tag</Label>
                             <Input 
-                              value={editClanUid} 
-                              onChange={(e) => setEditClanUid(e.target.value)} 
-                              placeholder="e.g. #ABC123XY"
+                              value={editClan1Tag} 
+                              onChange={(e) => setEditClan1Tag(e.target.value)} 
+                              placeholder="#2J9VCQ99C"
                               className="bg-white/5 h-12 uppercase"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Invite Link</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Clan 1 Invite Link</Label>
                             <div className="relative">
                               <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                               <Input 
-                                value={editClanLink} 
-                                onChange={(e) => setEditClanLink(e.target.value)} 
+                                value={editClan1Link} 
+                                onChange={(e) => setEditClan1Link(e.target.value)} 
                                 placeholder="https://link.clashofclans.com/..."
-                                className="bg-white/5 h-12 pl-10"
+                                className="bg-white/5 h-12 pl-10 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2 pt-2 border-t border-white/5">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Clan 2 Tag</Label>
+                            <Input 
+                              value={editClan2Tag} 
+                              onChange={(e) => setEditClan2Tag(e.target.value)} 
+                              placeholder="#2RGY920RY"
+                              className="bg-white/5 h-12 uppercase"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Clan 2 Invite Link</Label>
+                            <div className="relative">
+                              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                              <Input 
+                                value={editClan2Link} 
+                                onChange={(e) => setEditClan2Link(e.target.value)} 
+                                placeholder="https://link.clashofclans.com/..."
+                                className="bg-white/5 h-12 pl-10 text-xs"
                               />
                             </div>
                           </div>
                           <Button 
                             onClick={handleSaveProtocol} 
                             disabled={savingProtocol}
-                            className="w-full h-12 bg-primary font-black uppercase rounded-xl glow-primary"
+                            className="w-full h-12 bg-primary text-white font-black uppercase rounded-xl glow-primary mt-4"
                           >
-                            {savingProtocol ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE PROTOCOL
+                            {savingProtocol ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} SAVE CLAN PROTOCOLS
                           </Button>
                         </div>
                       ) : (
                         <div className="space-y-6">
-                          <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                            <span className="text-[10px] font-black uppercase text-muted-foreground">War Clan Tag</span>
-                            <span className="text-lg font-black text-primary uppercase">{t?.clanUid || 'AWAITING ADMIN'}</span>
-                          </div>
-                          {t?.clanLink && (
-                            <Button asChild className="w-full h-14 bg-green-600 font-black uppercase rounded-xl shadow-xl glow-primary">
-                              <a href={t.clanLink} target="_blank">JOIN CLAN PROTOCOL <ArrowRight className="ml-2 w-4 h-4" /></a>
-                            </Button>
-                          )}
-                          {!t?.clanLink && (
-                            <div className="text-center py-4 bg-white/5 rounded-xl border border-dashed border-white/10">
-                              <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">Waiting for clan link deployment</p>
-                            </div>
-                          )}
+                          {(() => {
+                            const userReg = registrations?.find((r: any) => r.userId === user?.id);
+                            const userClan = userReg?.assignedClan || 'Clan 1';
+                            const userJoinCode = userReg?.joinCode || 'AWAITING CODE';
+                            
+                            const activeClanName = userClan === 'Clan 2' ? 'CLASH ARENA 2' : 'CLASH ARENA 1';
+                            const activeClanTag = userClan === 'Clan 2' ? (t?.clan2Tag || '#2RGY920RY') : (t?.clan1Tag || '#2J9VCQ99C');
+                            const activeClanLink = userClan === 'Clan 2' ? (t?.clan2Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2RGY920RY') : (t?.clan1Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2J9VCQ99C');
+
+                            return (
+                              <div className="space-y-6">
+                                <div className="flex flex-col items-center gap-1 p-4 rounded-xl border border-white/5 bg-white/[0.01] text-center">
+                                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Your Assigned Clan</span>
+                                  <span className="text-xl font-black text-primary italic tracking-tight uppercase">{activeClanName}</span>
+                                  <span className="text-[10px] font-bold text-white/60 tracking-wider font-mono">{activeClanTag}</span>
+                                </div>
+
+                                <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-center space-y-2">
+                                  <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest block">Your Clan Verification Code</span>
+                                  <span className="text-2xl font-mono font-black text-white bg-black/40 px-4 py-1.5 rounded-lg inline-block border border-white/10 select-all cursor-pointer" title="Click to select code">
+                                    {userJoinCode}
+                                  </span>
+                                  <p className="text-[8px] text-muted-foreground uppercase font-black tracking-wider leading-relaxed">
+                                    You must paste this code in the Clash of Clans invitation text box when joining.
+                                  </p>
+                                </div>
+
+                                {activeClanLink ? (
+                                  <Button asChild className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-black uppercase rounded-xl shadow-xl glow-primary">
+                                    <a href={activeClanLink} target="_blank">JOIN ARENA <ArrowRight className="ml-2 w-4 h-4" /></a>
+                                  </Button>
+                                ) : (
+                                  <div className="text-center py-4 bg-white/5 rounded-xl border border-dashed border-white/10">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">Waiting for clan link deployment</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -591,14 +835,120 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                   </Card>
                 </div>
               </TabsContent>
+
+              <TabsContent value="rules" className="mt-4 outline-none">
+                <Card className="glass border-white/5 rounded-[2rem] bg-black/40 p-8 space-y-8">
+                  <h3 className="font-headline text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
+                    <ShieldAlert className="text-primary" /> ARENA ENGAGEMENT RULES
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      {[
+                        { title: "Clan Assignment", desc: "You must join only your assigned clan (CLASH ARENA 1 or CLASH ARENA 2) using your unique verification code. Access to the opposing clan is prohibited." },
+                        { title: "Invite Verification", desc: "Copy your verification code (ARENA-XXXX) and paste it in the invite request message. Invites without valid matching codes will be rejected by administrators." },
+                      ].map((item, i) => (
+                        <div key={i} className="p-5 bg-white/5 border border-white/5 rounded-2xl space-y-2 hover:border-primary/20 transition-all">
+                          <h4 className="font-bold text-sm text-primary uppercase">{i + 1}. {item.title}</h4>
+                          <p className="text-xs font-medium text-muted-foreground leading-relaxed">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { title: "Target Rules", desc: "You are strictly required to attack only your assigned match opponent's base (as shown in the Fixtures bracket). Attacking any other base will result in instant dismissal and ban." },
+                        { title: "ESPORTS MODE ACTIVATED", desc: "All battles and matchups will run strictly in eSports mode settings. Competitive rules are actively monitored." }
+                      ].map((item, i) => (
+                        <div key={i} className={cn("p-5 border rounded-2xl space-y-2 hover:border-primary/20 transition-all", item.title === "ESPORTS MODE ACTIVATED" ? "bg-primary/5 border-primary/20" : "bg-white/5 border-white/5")}>
+                          <h4 className={cn("font-bold text-sm uppercase", item.title === "ESPORTS MODE ACTIVATED" ? "text-primary glow-primary filter drop-shadow-[0_0_6px_rgba(255,69,0,0.7)]" : "text-primary")}>
+                            {i + 3}. {item.title}
+                          </h4>
+                          <p className="text-xs font-medium text-muted-foreground leading-relaxed">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
             </>
           )}
         </Tabs>
       </div>
+
+      {/* End Tournament Confirmation */}
+      <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
+        <DialogContent className="glass border-primary/20 max-w-md p-6 rounded-3xl bg-black/90">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase text-center flex items-center justify-center gap-2 text-white">
+              <Trophy className="w-6 h-6 text-yellow-500 animate-bounce" /> END TOURNAMENT
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs uppercase font-bold text-muted-foreground tracking-wider">
+              Confirm Tournament Archival
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-sm font-medium text-white/90">
+              This action will confirm the champion, distribute the rewards ledger, and lock the tournament permanently.
+            </p>
+          </div>
+          <div className="flex gap-4 mt-4">
+            <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setEndDialogOpen(false)}>
+              CANCEL
+            </Button>
+            <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 font-black uppercase" onClick={endTournament} disabled={ending}>
+              {ending ? <Loader2 className="animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} CONFIRM END
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Tournament Confirmation */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="glass border-red-500/20 max-w-md p-6 rounded-3xl bg-black/90">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase text-center flex items-center justify-center gap-2 text-red-500">
+              <ShieldAlert className="w-6 h-6 animate-pulse" /> CANCEL TOURNAMENT
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs uppercase font-bold text-muted-foreground tracking-wider">
+              Confirm Decommissioning & Refunds
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-white">Reason for Cancellation</p>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="e.g. Technical updates, timezone overlaps..."
+              className="min-h-[80px] bg-white/5 border-white/10 rounded-xl text-xs font-medium"
+            />
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase leading-normal">
+              Warning: All registrations will be removed, and coin entry fees will be refunded instantly to players' wallets.
+            </p>
+          </div>
+          <div className="flex gap-4 mt-4">
+            <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setCancelDialogOpen(false)}>
+              ABORT
+            </Button>
+            <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl h-12 font-black uppercase" onClick={handleCancelTournament} disabled={!cancelReason.trim() || cancelling}>
+              {cancelling ? <Loader2 className="animate-spin mr-2" /> : <X className="w-4 h-4 mr-2" />} DECOMMISSION
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }
 
 function DropdownDemo({ onSelect, current }: { onSelect: (size: number | null) => void, current: number | null }) {
   return (<div className="flex items-center gap-2 mr-4 bg-muted/20 px-4 py-1 rounded-xl border border-white/10 shrink-0"><Layout className="w-4 h-4 text-muted-foreground" /><span className="text-[10px] font-black uppercase text-muted-foreground mr-2">DEMO MODE:</span><div className="flex gap-1">{[2, 4, 8, 16, 32, 64].map(size => (<Button key={size} size="sm" variant="ghost" onClick={() => onSelect(current === size ? null : size)} className={cn("h-8 px-2 text-[10px] font-black uppercase", current === size ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}>{size}</Button>))}</div></div>);
+}
+
+function Layout({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </svg>
+  );
 }

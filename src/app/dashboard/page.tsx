@@ -533,14 +533,6 @@ export default function Dashboard() {
         )}
 
         <div className="relative z-10 flex flex-col gap-8">
-          <div className="w-full bg-black/40 border border-white/5 rounded-full px-6 py-2 overflow-hidden whitespace-nowrap backdrop-blur-xl">
-             <div className="inline-block animate-[marquee_20s_linear_infinite] hover:[animation-play-state:paused] cursor-default">
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary mr-20">⚔️ NEW TOURNAMENT "ELITE WARRIORS" IS NOW OPEN</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white mr-20">🏆 WARRIOR {profile?.username || 'WARRIOR'} IS RISING IN STANDINGS</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-green-500 mr-20">💰 ₹ 45,000 DISTRIBUTED TO CHAMPIONS THIS MONTH</span>
-             </div>
-          </div>
-
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-1 text-foreground">
