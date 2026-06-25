@@ -13,7 +13,8 @@ import {
   Monitor,
   Loader2,
   Terminal,
-  Headset
+  Headset,
+  Wrench
 } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -57,6 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'users', label: 'User Management', icon: UserCog, href: '/admin/users', superOnly: true },
     { id: 'gateway', label: 'Gateway', icon: Settings, href: '/admin/gateway' },
     { id: 'backgrounds', label: 'Backgrounds', icon: Monitor, href: '/admin/backgrounds' },
+    { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/admin/maintenance' },
   ];
 
   return (

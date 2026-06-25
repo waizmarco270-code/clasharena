@@ -9,6 +9,7 @@ import { BottomNav } from './bottom-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 import { useAuth, useUser } from "@clerk/nextjs";
+import { MaintenanceGuard } from '@/components/maintenance-guard';
 
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
@@ -94,17 +95,19 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background">
-        {userId && <AppSidebar />}
-        <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent">
-          <Header />
-          <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full overflow-x-hidden">
-            {children}
-          </main>
-          {userId && <BottomNav />}
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+    <MaintenanceGuard>
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex min-h-screen w-full bg-background">
+          {userId && <AppSidebar />}
+          <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent">
+            <Header />
+            <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+              {children}
+            </main>
+            {userId && <BottomNav />}
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </MaintenanceGuard>
   );
 }

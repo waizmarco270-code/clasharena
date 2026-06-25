@@ -99,5 +99,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // Rules for Releases (What's New)
+    match /releases/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }
