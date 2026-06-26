@@ -117,12 +117,53 @@ export default function ArenaHubPage() {
       updatedAt: new Date().toISOString()
     };
 
+    const formatRegTime = (startStr: string, endStr: string) => {
+      try {
+        const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+        const start = new Date(startStr).toLocaleString('en-US', options);
+        const end = new Date(endStr).toLocaleString('en-US', options);
+        return `${start} - ${end}`;
+      } catch (e) {
+        return "";
+      }
+    };
+
+    const regTimeline = (tForm.registrationStartTime && tForm.registrationEndTime)
+      ? formatRegTime(tForm.registrationStartTime, tForm.registrationEndTime)
+      : "";
+
     if (editTId) {
+      const updateBody = `Arena "${tournamentData.name}" has been updated.${regTimeline ? ` Registration: ${regTimeline}.` : ''} Check the new battlefield details!`;
       updateDoc(doc(db, 'tournaments', editTId), tournamentData)
-        .then(() => { toast({ title: "ARENA UPDATED" }); setTOpen(false); resetTForm(); })
+        .then(async () => {
+          try {
+            await fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audience: 'broadcast',
+                title: 'Tournament Updated! ⚔️',
+                body: updateBody,
+                imageUrl: tournamentData.imageUrl || undefined,
+                redirectUrl: `/arena/tournament/${editTId}`,
+                data: {
+                  type: 'update_tournament',
+                  name: tournamentData.name,
+                  id: editTId
+                }
+              })
+            });
+          } catch (e) {
+            console.error("Failed to send tournament update push alert:", e);
+          }
+          toast({ title: "ARENA UPDATED" });
+          setTOpen(false);
+          resetTForm();
+        })
         .finally(() => setTLoading(false));
     } else {
       const tRef = doc(collection(db, 'tournaments'));
+      const deployBody = `Arena "${tournamentData.name}" has been deployed for Town Hall ${tournamentData.townHall || 'any'}.${regTimeline ? ` Registration: ${regTimeline}.` : ''} Join now!`;
       setDoc(tRef, { 
         ...tournamentData, 
         currentPlayers: 0, 
@@ -137,10 +178,13 @@ export default function ArenaHubPage() {
               body: JSON.stringify({
                 audience: 'broadcast',
                 title: 'New Tournament Active! ⚔️',
-                body: `Arena "${tournamentData.name}" has been deployed for Town Hall ${tournamentData.townHall || 'any'}. Join now!`,
+                body: deployBody,
+                imageUrl: tournamentData.imageUrl || undefined,
+                redirectUrl: `/arena/tournament/${tRef.id}`,
                 data: {
                   type: 'new_tournament',
-                  name: tournamentData.name
+                  name: tournamentData.name,
+                  id: tRef.id
                 }
               })
             });

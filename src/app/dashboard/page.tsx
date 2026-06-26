@@ -946,9 +946,19 @@ export default function Dashboard() {
   const { data: allPolls, loading: pollsLoading } = useCollection(pollsQuery);
   const activePoll = useMemo(() => allPolls?.find(p => p.isActive), [allPolls]);
 
-  const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'asc'), limit(10)), [db]);
+  const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc'), limit(15)), [db]);
   const { data: allT, loading: tournamentLoading } = useCollection(tournamentQuery);
-  const latestT = useMemo(() => allT?.find(t => t.status === 'open'), [allT]);
+  const latestTournaments = useMemo(() => {
+    if (!allT) return [];
+    return allT
+      .filter(t => t.status === 'open' || t.status === 'upcoming')
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      })
+      .slice(0, 3);
+  }, [allT]);
 
   // Reward Claims Monitoring (Priority 1)
   const claimsQuery = useMemo(() => {
@@ -1135,29 +1145,37 @@ export default function Dashboard() {
                  <Card className="glass border-white/5 h-64 overflow-hidden rounded-3xl">
                     <Skeleton className="h-full w-full bg-white/10 animate-pulse" />
                  </Card>
-               ) : latestT ? (
-                 <Card className="glass border-white/5 bg-black/20 overflow-hidden rounded-3xl animate-in fade-in slide-in-from-left-4 duration-700">
-                    <div className="relative h-48">
-                       <Image src={latestT.imageUrl || 'https://picsum.photos/seed/latest/800/400'} alt="Latest Arena" fill className="object-cover opacity-60" />
-                       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                       <div className="absolute bottom-6 left-6 right-6">
-                          <div className="flex items-center gap-2 mb-2">
-                             <Badge className="bg-red-600 animate-pulse uppercase font-black text-[10px]">LIVE RECRUITMENT</Badge>
-                             <Badge variant="outline" className="glass text-[10px] font-black uppercase text-white">TH {latestT.townHall || 'ANY'}</Badge>
-                          </div>
-                          <h3 className="text-3xl font-headline font-black uppercase italic tracking-tighter text-white">{latestT.name}</h3>
-                       </div>
-                    </div>
-                    <CardContent className="p-6 flex justify-between items-center">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground">Reward Pool</p>
-                          <p className="text-xl font-headline font-black text-primary">{latestT.prizePool}</p>
-                       </div>
-                       <NextLink href={`/arena/tournament/${latestT.id}`}>
-                          <Button className="bg-white text-black font-black uppercase h-12 px-8 rounded-xl hover:scale-105 transition-transform">JOIN BATTLE <ArrowRight className="ml-2 w-4 h-4" /></Button>
-                       </NextLink>
-                    </CardContent>
-                 </Card>
+               ) : latestTournaments.length > 0 ? (
+                  <div className="space-y-4">
+                    {latestTournaments.map((t) => (
+                      <Card key={t.id} className="glass border-white/5 bg-black/20 overflow-hidden rounded-[2rem] hover:border-primary/30 transition-all group relative animate-in fade-in slide-in-from-left-4 duration-500">
+                         <div className="relative h-40">
+                            <Image src={t.imageUrl || 'https://picsum.photos/seed/latest/800/400'} alt="Latest Arena" fill className="object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                            <div className="absolute bottom-4 left-6 right-6">
+                               <div className="flex items-center gap-2 mb-2">
+                                  <Badge className={cn("uppercase font-black text-[9px] px-2 py-0.5 rounded", t.status === 'open' ? "bg-red-600 animate-pulse" : "bg-blue-600")}>
+                                     {t.status === 'open' ? 'LIVE RECRUITMENT' : 'UPCOMING'}
+                                  </Badge>
+                                  <Badge variant="outline" className="glass text-[9px] font-black uppercase text-white px-2 py-0.5 rounded">TH {t.townHall || 'ANY'}</Badge>
+                               </div>
+                               <h3 className="text-2xl font-headline font-black uppercase italic tracking-tighter text-white">{t.name}</h3>
+                            </div>
+                         </div>
+                         <CardContent className="p-5 flex justify-between items-center bg-black/35">
+                            <div className="space-y-0.5">
+                               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Reward Pool</p>
+                               <p className="text-lg font-headline font-black text-primary">{t.prizePool}</p>
+                            </div>
+                            <NextLink href={`/arena/tournament/${t.id}`}>
+                               <Button className="bg-white text-black font-black uppercase h-10 px-6 rounded-xl hover:scale-105 transition-transform text-xs">
+                                 JOIN BATTLE <ArrowRight className="ml-2 w-3.5 h-3.5" />
+                               </Button>
+                            </NextLink>
+                         </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                ) : (
                  <div className="bg-muted/20 border border-border/20 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 backdrop-blur-2xl">
                     <ShieldAlert className="w-16 h-16 text-primary animate-pulse" />

@@ -31,13 +31,15 @@ import {
   MessageCircle,
   Users,
   Headset,
-  LifeBuoy
+  LifeBuoy,
+  BookOpen
 } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import Image from 'next/image';
 import { AppLogoImage } from '@/components/ui/app-logo-image';
+import { useUnreadArenasCount } from '@/hooks/use-unread-arenas';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -45,6 +47,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const db = useFirestore();
+  const unreadCount = useUnreadArenasCount();
 
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
@@ -62,6 +65,7 @@ export function AppSidebar() {
     { name: 'Coin Vault', href: '/wallet', icon: Wallet, color: 'text-emerald-500' },
     { name: 'Transaction Logs', href: '/wallet/history', icon: History, color: 'text-amber-500' },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy, color: 'text-purple-500' },
+    { name: 'Battle Guide', href: '/guide', icon: BookOpen, color: 'text-pink-500' },
   ];
 
   const userNav = [
@@ -100,10 +104,20 @@ export function AppSidebar() {
                     tooltip={item.name}
                     className={`sidebar-glow-item hover:bg-white/[0.05] transition-all h-12 px-4 rounded-xl mx-2 w-[calc(100%-1rem)] ${pathname === item.href ? 'bg-white/[0.05]' : ''}`}
                   >
-                    <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={`${item.color} ${pathname === item.href ? 'scale-110 drop-shadow-[0_0_8px_currentColor]' : ''} transition-transform`} />
-                      <span className={`font-bold text-sm tracking-tight ${pathname === item.href ? 'text-white' : 'text-muted-foreground'}`}>
-                        {item.name}
+                    <Link href={item.href} className="flex items-center gap-3 w-full">
+                      <div className="relative">
+                        <item.icon className={`${item.color} ${pathname === item.href ? 'scale-110 drop-shadow-[0_0_8px_currentColor]' : ''} transition-transform`} />
+                        {item.href === '/arena' && unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-600 border border-black rounded-full flex items-center justify-center animate-pulse" />
+                        )}
+                      </div>
+                      <span className={`font-bold text-sm tracking-tight ${pathname === item.href ? 'text-white' : 'text-muted-foreground'} flex items-center justify-between w-full group-data-[collapsible=icon]:hidden`}>
+                        <span>{item.name}</span>
+                        {item.href === '/arena' && unreadCount > 0 && (
+                          <span className="ml-auto px-1.5 py-0.5 bg-red-600 border border-black rounded-full text-[9px] font-black text-white animate-pulse">
+                            {unreadCount}
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </SidebarMenuButton>
@@ -178,16 +192,16 @@ export function AppSidebar() {
           <div className="h-[1px] bg-white/5 w-full group-data-[collapsible=icon]:hidden" />
 
           <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4 pb-2">
-            <Link href="https://youtube.com" target="_blank" className="text-red-500 hover:scale-125 transition-transform">
+            <Link href="https://youtube.com/@slyclasher?si=SXY9ktt1B3qNrfZq" target="_blank" className="text-red-500 hover:scale-125 transition-transform" title="SlyClasher YouTube">
               <Youtube className="w-5 h-5" />
             </Link>
-            <Link href="https://wa.me" target="_blank" className="text-green-500 hover:scale-125 transition-transform">
+            <Link href="https://whatsapp.com/channel/0029VbD00mO2Jl8HKwsJHH0V" target="_blank" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp Channel">
               <MessageCircle className="w-5 h-5" />
             </Link>
-            <Link href="https://t.me" target="_blank" className="text-blue-400 hover:scale-125 transition-transform">
-              <Send className="w-5 h-5" />
+            <Link href="https://whatsapp.com/channel/0029VbDCBiE9mrGdmwx9690K" target="_blank" className="text-orange-500 hover:scale-125 transition-transform" title="Official Arena WhatsApp Channel">
+              <Swords className="w-5 h-5" />
             </Link>
-            <Link href="#" className="text-amber-500 hover:scale-125 transition-transform">
+            <Link href="https://link.clashofclans.com/?action=OpenGlobalChat&chatId=P15fb9c0ffd14442faadd5f264fb9651a" target="_blank" className="text-amber-500 hover:scale-125 transition-transform" title="In-Game Community">
               <Users className="w-5 h-5" />
             </Link>
           </div>

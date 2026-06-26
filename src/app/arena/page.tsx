@@ -268,6 +268,11 @@ export default function ArenaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [thFilter, setThFilter] = useState<number | null>(null);
 
+  useEffect(() => {
+    localStorage.setItem('last_arena_visit_time', new Date().toISOString());
+    window.dispatchEvent(new Event('arena_visited'));
+  }, []);
+
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
 

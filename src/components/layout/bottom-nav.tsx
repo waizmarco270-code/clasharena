@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { LayoutDashboard, Swords, Trophy, User, X, ChevronUp } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useUnreadArenasCount } from '@/hooks/use-unread-arenas';
 
 export function BottomNav() {
   const pathname = usePathname();
+  const unreadCount = useUnreadArenasCount();
   
   // Collapse state persisted in localStorage
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -131,10 +133,17 @@ export function BottomNav() {
               "flex flex-col items-center justify-center rounded-xl px-2 py-0.5 transition-all duration-300 border border-transparent w-full",
               isActive ? cn("scale-105 bg-white/[0.03]", item.activeBg) : "group-hover:bg-white/[0.02]"
             )}>
-              <Icon className={cn(
-                "h-4 w-4 transition-all duration-300",
-                isActive ? cn(item.activeColor, item.animationClass) : "text-muted-foreground/60 group-hover:text-white/80"
-              )} />
+              <div className="relative">
+                <Icon className={cn(
+                  "h-4 w-4 transition-all duration-300",
+                  isActive ? cn(item.activeColor, item.animationClass) : "text-muted-foreground/60 group-hover:text-white/80"
+                )} />
+                {item.route === '/arena' && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 bg-red-600 border border-black rounded-full flex items-center justify-center text-[7px] font-black text-white animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               
               <span className={cn(
                 "text-[8px] font-black uppercase tracking-wider mt-0.5 transition-colors duration-300",
