@@ -27,3 +27,28 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title, options);
 });
+
+// Navigate on notification tap
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  const redirectUrl = event.notification.data?.url || '/dashboard';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Find an open tab for our application and navigate it
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(redirectUrl);
+          }
+          return client.focus();
+        }
+      }
+      // Or open a new window if none exist
+      if (clients.openWindow) {
+        return clients.openWindow(redirectUrl);
+      }
+    })
+  );
+});

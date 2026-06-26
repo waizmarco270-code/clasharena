@@ -60,6 +60,7 @@ export default function WalletLogsPage() {
             <TableRow className="border-white/5">
               <TableHead className="text-[10px] font-black uppercase">User</TableHead>
               <TableHead className="text-[10px] font-black uppercase">Amount</TableHead>
+              <TableHead className="text-[10px] font-black uppercase">Method</TableHead>
               <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
             </TableRow>
@@ -69,6 +70,7 @@ export default function WalletLogsPage() {
               <TableRow key={req.id} className="border-white/5">
                 <TableCell className="font-bold uppercase text-xs">{req.username}</TableCell>
                 <TableCell className="font-black text-primary">🪙 {req.amount}</TableCell>
+                <TableCell className="text-xs font-semibold text-muted-foreground uppercase">{req.method || 'Manual'}</TableCell>
                 <TableCell><Badge variant={req.status === 'pending' ? 'outline' : 'default'}>{req.status.toUpperCase()}</Badge></TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">

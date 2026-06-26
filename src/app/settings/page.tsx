@@ -14,7 +14,8 @@ import {
   HelpCircle, 
   MessageSquare,
   ChevronRight,
-  Zap
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const menuItems = [
     { label: 'Intelligence FAQ', desc: 'Search common arena protocols', icon: HelpCircle, href: '/settings/faq', color: 'text-blue-500' },
     { label: 'Contact Support', desc: 'Submit a technical support ticket', icon: MessageSquare, href: '/settings/support', color: 'text-green-500' },
+    { label: "What's New", desc: 'View latest features and patches', icon: Sparkles, href: '/settings/whats-new', color: 'text-yellow-500' },
     { label: 'War Protocols', desc: 'Read the official rules', icon: Scale, href: '/rules', color: 'text-primary' },
     { label: 'Fair Play Policy', desc: 'Integrity and Anti-Cheat details', icon: ShieldAlert, href: '/fair-play', color: 'text-orange-500' },
     { label: 'About Arena', desc: 'The vision of Clash Arena', icon: Info, href: '/about', color: 'text-purple-500' },

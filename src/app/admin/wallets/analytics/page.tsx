@@ -157,7 +157,7 @@ export default function WalletAnalyticsPage() {
       const res = await fetch('/api/recharge/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountToPay, userId })
+        body: JSON.stringify({ amount: amountToPay, userId, paymentType: 'website_cost' })
       });
 
       const data = await res.json();

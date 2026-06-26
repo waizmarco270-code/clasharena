@@ -18,7 +18,7 @@ export async function POST(request: Request) {
                           callerData?.isAdmin === true || 
                           callerData?.isSuperAdmin === true;
 
-    const { audience, title, body, userId, data } = await request.json();
+    const { audience, title, body, userId, data, imageUrl, redirectUrl } = await request.json();
 
     if (!audience || !title || !body) {
       return NextResponse.json({ error: "Missing required parameters: audience, title, body" }, { status: 400 });
@@ -31,16 +31,55 @@ export async function POST(request: Request) {
     }
 
     const customPayload = data || {};
+    const finalDataPayload = {
+      ...customPayload,
+      url: redirectUrl || '/dashboard'
+    };
+
+    let successCount = 0;
+    let failureCount = 0;
+    let errorsList: string[] = [];
+    let loggedAudience = audience;
 
     if (audience === 'broadcast') {
-      // Send notification to the global 'broadcast' topic
-      const message = {
-        notification: { title, body },
-        data: customPayload,
-        topic: 'broadcast'
-      };
-      const response = await adminMessaging.send(message);
-      return NextResponse.json({ success: true, messageId: response });
+      // Gather all user tokens
+      const usersSnap = await adminDb.collection('users').get();
+      let allTokens: string[] = [];
+      usersSnap.forEach((docSnap: any) => {
+        const tokens = docSnap.data().fcmTokens;
+        if (Array.isArray(tokens)) {
+          allTokens.push(...tokens);
+        }
+      });
+      allTokens = Array.from(new Set(allTokens)).filter(Boolean);
+
+      if (allTokens.length > 0) {
+        // Send in batches of 500 (standard FCM multicast limit)
+        const batchSize = 500;
+        for (let i = 0; i < allTokens.length; i += batchSize) {
+          const batchTokens = allTokens.slice(i, i + batchSize);
+          const payload: any = {
+            tokens: batchTokens,
+            notification: { title, body },
+            data: finalDataPayload
+          };
+
+          if (imageUrl) {
+            payload.notification.image = imageUrl;
+          }
+
+          const response = await adminMessaging.sendEachForMulticast(payload);
+          successCount += response.successCount;
+          failureCount += response.failureCount;
+
+          response.responses.forEach((res: any) => {
+            if (!res.success && res.error) {
+              errorsList.push(res.error.message || res.error.code);
+            }
+          });
+        }
+      }
+      loggedAudience = "All Warriors (Broadcast)";
 
     } else if (audience === 'admins') {
       // Gather all admin and super-admin tokens
@@ -67,25 +106,29 @@ export async function POST(request: Request) {
         if (Array.isArray(tokens)) adminTokens.push(...tokens);
       }
 
-      // De-duplicate and filter empty strings
       adminTokens = Array.from(new Set(adminTokens)).filter(Boolean);
 
-      if (adminTokens.length === 0) {
-        return NextResponse.json({ success: true, message: "No admin tokens registered." });
+      if (adminTokens.length > 0) {
+        const payload: any = {
+          tokens: adminTokens,
+          notification: { title, body },
+          data: finalDataPayload
+        };
+        if (imageUrl) {
+          payload.notification.image = imageUrl;
+        }
+
+        const response = await adminMessaging.sendEachForMulticast(payload);
+        successCount = response.successCount;
+        failureCount = response.failureCount;
+
+        response.responses.forEach((res: any) => {
+          if (!res.success && res.error) {
+            errorsList.push(res.error.message || res.error.code);
+          }
+        });
       }
-
-      // Send multicast push alert
-      const response = await adminMessaging.sendEachForMulticast({
-        tokens: adminTokens,
-        notification: { title, body },
-        data: customPayload
-      });
-
-      return NextResponse.json({
-        success: true,
-        successCount: response.successCount,
-        failureCount: response.failureCount
-      });
+      loggedAudience = "Admins & Moderators";
 
     } else if (audience === 'user') {
       if (!userId) {
@@ -101,26 +144,68 @@ export async function POST(request: Request) {
       let userTokens: string[] = userDoc.data()?.fcmTokens || [];
       userTokens = (Array.isArray(userTokens) ? userTokens : []).filter(Boolean);
 
-      if (userTokens.length === 0) {
-        return NextResponse.json({ success: true, message: "No registered tokens for this user." });
+      if (userTokens.length > 0) {
+        const payload: any = {
+          tokens: userTokens,
+          notification: { title, body },
+          data: finalDataPayload
+        };
+        if (imageUrl) {
+          payload.notification.image = imageUrl;
+        }
+
+        const response = await adminMessaging.sendEachForMulticast(payload);
+        successCount = response.successCount;
+        failureCount = response.failureCount;
+
+        response.responses.forEach((res: any) => {
+          if (!res.success && res.error) {
+            errorsList.push(res.error.message || res.error.code);
+          }
+        });
       }
-
-      // Send multicast push alert
-      const response = await adminMessaging.sendEachForMulticast({
-        tokens: userTokens,
-        notification: { title, body },
-        data: customPayload
-      });
-
-      return NextResponse.json({
-        success: true,
-        successCount: response.successCount,
-        failureCount: response.failureCount
-      });
+      loggedAudience = `User: ${userDoc.data()?.username || userId}`;
 
     } else {
       return NextResponse.json({ error: "Invalid audience type. Must be 'broadcast', 'admins', or 'user'." }, { status: 400 });
     }
+
+    const uniqueErrors = Array.from(new Set(errorsList));
+
+    // Save notification to history
+    const historyItem = {
+      title,
+      body,
+      imageUrl: imageUrl || '',
+      redirectUrl: redirectUrl || '/dashboard',
+      audience: loggedAudience,
+      successCount,
+      failureCount,
+      errors: uniqueErrors,
+      createdAt: new Date().toISOString()
+    };
+
+    await adminDb.collection('notification-history').add(historyItem);
+
+    // Prune history to keep only last 10
+    const historySnap = await adminDb.collection('notification-history')
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    if (historySnap.size > 10) {
+      const batch = adminDb.batch();
+      for (let i = 10; i < historySnap.docs.length; i++) {
+        batch.delete(historySnap.docs[i].ref);
+      }
+      await batch.commit();
+    }
+
+    return NextResponse.json({
+      success: true,
+      successCount,
+      failureCount,
+      errors: uniqueErrors
+    });
 
   } catch (err: any) {
     console.error("Push notification send error:", err);

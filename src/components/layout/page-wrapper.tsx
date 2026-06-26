@@ -33,26 +33,39 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     if (!userId || !userRef || !clerkUser || profileLoading) return;
 
     const syncIdentity = async () => {
+      // Visibility Guard: Don't run background writes if the tab is hidden
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+
       const now = Date.now();
       const shouldSyncAvatar = clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl;
       const shouldUpdateHeartbeat = now - lastUpdateRef.current > 4 * 60 * 1000;
+      const shouldSyncFcmFlag = profile && profile.fcmTokens && profile.fcmTokens.length > 0 && !profile.hasFcmToken;
 
-      if (!shouldSyncAvatar && !shouldUpdateHeartbeat) return;
+      if (!shouldSyncAvatar && !shouldUpdateHeartbeat && !shouldSyncFcmFlag) return;
 
       const updates: any = {};
       if (shouldSyncAvatar) updates.avatarUrl = clerkUser.imageUrl;
-      if (shouldUpdateHeartbeat) updates.lastActive = new Date().toISOString();
+      if (shouldUpdateHeartbeat) {
+        updates.lastActive = new Date().toISOString();
+      }
+      if (shouldSyncFcmFlag) {
+        updates.hasFcmToken = true;
+      }
 
       try {
         await updateDoc(userRef, updates);
-        lastUpdateRef.current = now;
+        if (shouldUpdateHeartbeat) {
+          lastUpdateRef.current = now;
+        }
       } catch (e) {}
     };
 
     syncIdentity();
     const interval = setInterval(syncIdentity, 4 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [userId, clerkUser?.imageUrl, profileLoading]);
+  }, [userId, clerkUser?.imageUrl, profileLoading, profile]);
 
   useEffect(() => {
     if (!authLoaded) return;

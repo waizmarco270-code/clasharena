@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     const orderId = payment.order_id;
     const userId = payment.notes?.userId;
     const amount = Number(payment.notes?.amount || (payment.amount / 100));
+    const paymentType = payment.notes?.paymentType || 'recharge';
 
     if (!userId || isNaN(amount) || amount <= 0) {
       console.warn("Razorpay Webhook missing notes or valid metadata:", paymentId);
@@ -59,6 +60,34 @@ export async function POST(request: Request) {
     if (requestSnap.exists) {
       console.log(`Razorpay payment ${paymentId} already processed (idempotent block).`);
       return NextResponse.json({ success: true, message: "Transaction already completed previously" });
+    }
+
+    if (paymentType === 'website_cost') {
+      // Process website infrastructure cost payment
+      await adminDb.runTransaction(async (transaction: any) => {
+        const analyticsRef = adminDb.collection('app-settings').doc('wallet-analytics');
+        const analyticsSnap = await transaction.get(analyticsRef);
+        const currentPaid = analyticsSnap.exists ? (analyticsSnap.data()?.paidWebsiteCost || 0) : 0;
+
+        transaction.set(analyticsRef, {
+          paidWebsiteCost: currentPaid + amount
+        }, { merge: true });
+
+        // Record as Website Cost Payment method
+        transaction.set(requestRef, {
+          userId,
+          username: 'System Admin',
+          amount,
+          transactionId: paymentId,
+          orderId: orderId || '',
+          status: 'approved',
+          method: 'Website Cost Payment',
+          createdAt: new Date().toISOString()
+        });
+      });
+
+      console.log(`Successfully recorded website cost payment of ${amount} via Webhook transaction ${paymentId}.`);
+      return NextResponse.json({ success: true, processed: true });
     }
 
     // 4. Atomic balance increment and recharge log creation in transaction

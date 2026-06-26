@@ -19,12 +19,14 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
 export function Header() {
   const { user } = useUser();
   const db = useFirestore();
+  const { toast } = useToast();
 
   const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
   const { data: bgData } = useDoc(backgroundsRef);
@@ -34,6 +36,93 @@ export function Header() {
 
   const announcementsQuery = useMemo(() => query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(10)), [db]);
   const { data: announcements } = useCollection(announcementsQuery);
+
+  const notificationsOn = useMemo(() => {
+    return typeof window !== 'undefined' && 
+           'Notification' in window && 
+           Notification.permission === 'granted' && 
+           profile?.fcmTokens && 
+           profile.fcmTokens.length > 0;
+  }, [profile?.fcmTokens]);
+
+  const handleEnableNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      toast({
+        variant: "destructive",
+        title: "Unsupported",
+        description: "Notifications are not supported in this browser."
+      });
+      return;
+    }
+    
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        toast({
+          title: "Permission Granted 🔔",
+          description: "Activating push notifications for this device..."
+        });
+        await registerNotificationToken();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Permission Denied ❌",
+          description: "Please enable notifications in browser settings."
+        });
+      }
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Activation Error",
+        description: e.message || "Failed to request permission."
+      });
+    }
+  };
+
+  const registerNotificationToken = async () => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
+    if (!vapidKey) {
+      console.warn("VAPID key is missing");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      
+      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { getMessaging, getToken } = await import('firebase/messaging');
+      const { firebaseConfig } = await import('@/firebase/config');
+
+      const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+      const messaging = getMessaging(app);
+
+      const token = await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: registration
+      });
+
+      if (token && user?.id) {
+        await fetch('/api/notifications/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, token })
+        });
+        localStorage.setItem('fcm_token_registered', 'true');
+        toast({
+          title: "Link Confirm ✅",
+          description: "Notifications activated! Your device is linked."
+        });
+      }
+    } catch (err: any) {
+      console.error("FCM Token Registration Error:", err);
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: err.message || "Could not retrieve device token."
+      });
+    }
+  };
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
@@ -85,11 +174,25 @@ export function Header() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="glass border-white/10 w-80 p-0 overflow-hidden" align="end">
-               <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                    <Megaphone className="w-3 h-3" /> Area Announcements
-                  </p>
-               </div>
+                <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                     <Megaphone className="w-3 h-3" /> Area Announcements
+                   </p>
+                   <div className="flex items-center gap-2">
+                     {notificationsOn ? (
+                       <span className="text-[9px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                         <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" /> LINK CONFIRM
+                       </span>
+                     ) : (
+                       <button 
+                         onClick={handleEnableNotifications}
+                         className="text-[9px] font-black uppercase text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-500/20 transition-colors flex items-center gap-1 animate-pulse"
+                       >
+                         OFF (CLICK TO ON)
+                       </button>
+                     )}
+                   </div>
+                </div>
                <ScrollArea className="h-[350px]">
                   {announcements?.length === 0 ? (
                     <div className="p-10 text-center space-y-2 opacity-40">

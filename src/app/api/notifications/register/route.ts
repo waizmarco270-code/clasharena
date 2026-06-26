@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const userRef = adminDb.collection('users').doc(userId);
     await userRef.set({
       fcmTokens: FieldValue.arrayUnion(token),
+      hasFcmToken: true,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 

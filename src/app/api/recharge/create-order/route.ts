@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { amount, userId } = await request.json();
+    const { amount, userId, paymentType } = await request.json();
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -24,7 +24,8 @@ export async function POST(request: Request) {
         receipt: `receipt_ca_${Date.now()}`,
         notes: {
           userId: userId,
-          amount: amount.toString()
+          amount: amount.toString(),
+          paymentType: paymentType || 'recharge'
         }
       })
     });
