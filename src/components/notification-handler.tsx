@@ -44,7 +44,7 @@ export function NotificationHandler() {
 
       // Request FCM Registration Token using public VAPID certificate
       const token = await getToken(messaging, {
-        vapidKey,
+        vapidKey: vapidKey.trim(),
         serviceWorkerRegistration: registration
       });
 

@@ -98,7 +98,7 @@ export function Header() {
       const messaging = getMessaging(app);
 
       const token = await getToken(messaging, {
-        vapidKey,
+        vapidKey: vapidKey.trim(),
         serviceWorkerRegistration: registration
       });
 
