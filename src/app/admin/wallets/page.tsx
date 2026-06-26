@@ -12,8 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
-  Eye
+  Eye,
+  TrendingUp
 } from 'lucide-react';
+import { default as NextLink } from 'next/link';
 
 export default function WalletLogsPage() {
   const db = useFirestore();
@@ -40,6 +42,18 @@ export default function WalletLogsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center bg-black/20 p-6 rounded-3xl border border-white/5">
+        <div>
+          <h2 className="text-sm font-black uppercase tracking-wider text-white">RECHARGE TRANSACTION AUDITS</h2>
+          <p className="text-[10px] text-muted-foreground uppercase font-black">Audit manual deposits and approve coin requests.</p>
+        </div>
+        <NextLink href="/admin/wallets/analytics">
+          <Button className="bg-primary hover:bg-primary/95 text-white font-black text-xs uppercase rounded-xl flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" /> VIEW REVENUE ANALYTICS
+          </Button>
+        </NextLink>
+      </div>
+
       <Card className="glass border-white/5 overflow-hidden">
         <Table>
           <TableHeader className="bg-white/5">

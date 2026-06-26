@@ -35,7 +35,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     const syncIdentity = async () => {
       const now = Date.now();
       const shouldSyncAvatar = clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl;
-      const shouldUpdateHeartbeat = now - lastUpdateRef.current > 15 * 60 * 1000;
+      const shouldUpdateHeartbeat = now - lastUpdateRef.current > 4 * 60 * 1000;
 
       if (!shouldSyncAvatar && !shouldUpdateHeartbeat) return;
 
@@ -50,7 +50,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     };
 
     syncIdentity();
-    const interval = setInterval(syncIdentity, 15 * 60 * 1000);
+    const interval = setInterval(syncIdentity, 4 * 60 * 1000);
     return () => clearInterval(interval);
   }, [userId, clerkUser?.imageUrl, profileLoading]);
 
