@@ -100,6 +100,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Rules for Notification History
+    match /notification-history/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Rules for Releases (What's New)
     match /releases/{id} {
       allow read: if isAuthenticated();

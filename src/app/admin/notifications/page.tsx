@@ -22,7 +22,7 @@ import {
   Users
 } from 'lucide-react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -40,13 +40,43 @@ export default function AdminNotificationsPage() {
   
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
-  // Subscribe to last 10 notification logs
+  // Subscribe to last 30 notification logs
   const historyQuery = useMemo(() => query(
     collection(db, 'notification-history'),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(30)
   ), [db]);
   const { data: history, loading: loadingHistory } = useCollection(historyQuery);
+
+  const handleClearHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear all transmission logs? This cannot be undone.")) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const q = query(collection(db, 'notification-history'));
+      const snap = await getDocs(q);
+      const batch = writeBatch(db);
+      snap.docs.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+      });
+      await batch.commit();
+      toast({
+        title: "Logs Cleared 🧹",
+        description: "Successfully cleared all notification transmission logs."
+      });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Clear Failed",
+        description: err.message || "Failed to clear transmission history."
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -303,11 +333,23 @@ export default function AdminNotificationsPage() {
         {/* History / Diagnostics Card */}
         <Card className="glass border-white/5 bg-black/40 lg:col-span-2 relative overflow-hidden h-fit">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-red-600 via-primary to-transparent" />
-          <CardHeader>
-            <CardTitle className="font-headline text-lg uppercase text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-primary" /> TRANSMISSION ARCHIVE (LAST 10)
-            </CardTitle>
-            <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-wider">Historical dispatch logs & diagnostics</CardDescription>
+          <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="font-headline text-lg uppercase text-white flex items-center gap-2">
+                <History className="w-5 h-5 text-primary" /> TRANSMISSION ARCHIVE (LAST 30)
+              </CardTitle>
+              <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-wider">Historical dispatch logs & diagnostics</CardDescription>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleClearHistory}
+              disabled={clearing || !history || history.length === 0}
+              className="bg-red-600/10 hover:bg-red-600 border border-red-500/20 text-red-500 hover:text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all flex items-center gap-2 h-9 self-end sm:self-auto"
+            >
+              {clearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+              Clear History
+            </Button>
           </CardHeader>
           <CardContent className="p-0 sm:p-6">
             {loadingHistory ? (

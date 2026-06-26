@@ -187,14 +187,14 @@ export async function POST(request: Request) {
 
     await adminDb.collection('notification-history').add(historyItem);
 
-    // Prune history to keep only last 10
+    // Prune history to keep only last 30
     const historySnap = await adminDb.collection('notification-history')
       .orderBy('createdAt', 'desc')
       .get();
     
-    if (historySnap.size > 10) {
+    if (historySnap.size > 30) {
       const batch = adminDb.batch();
-      for (let i = 10; i < historySnap.docs.length; i++) {
+      for (let i = 30; i < historySnap.docs.length; i++) {
         batch.delete(historySnap.docs[i].ref);
       }
       await batch.commit();

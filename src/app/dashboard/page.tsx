@@ -961,6 +961,7 @@ export default function Dashboard() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmSetup, setShowConfirmSetup] = useState(false);
 
   useEffect(() => {
     if (!profileLoading && profile) {
@@ -977,6 +978,19 @@ export default function Dashboard() {
       setSetupOpen(true);
     }
   }, [profile, profileLoading, user]);
+
+  const handlePreSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.username.trim() || !formData.tag.trim() || !formData.townHall) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please enter your Username, Clash Tag, and Town Hall level."
+      });
+      return;
+    }
+    setShowConfirmSetup(true);
+  };
 
   const handleSetupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1001,7 +1015,10 @@ export default function Dashboard() {
       isSuperAdmin: profile?.isSuperAdmin || (user.id === MASTER_SUPER_ADMIN_ID)
     };
     if (userRef) {
-      setDoc(userRef, newProfile, { merge: true }).then(() => { setSetupOpen(false); toast({ title: "Identity Secured!" }); }).finally(() => setIsSubmitting(false));
+      setDoc(userRef, newProfile, { merge: true }).then(() => { 
+        setSetupOpen(false); 
+        toast({ title: "Identity Secured!" }); 
+      }).finally(() => setIsSubmitting(false));
     }
   };
 
@@ -1209,19 +1226,66 @@ export default function Dashboard() {
         <DialogContent className="glass border-border/20 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col outline-none">
           <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
-            <form id="setup-form" onSubmit={handleSetupSubmit} className="space-y-8 pb-8">
+            <form id="setup-form" onSubmit={handlePreSubmit} className="space-y-8 pb-8">
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="h-24 w-24 border-4 border-primary/20 p-1 bg-background glow-primary"><AvatarImage src={user?.imageUrl} className="rounded-full object-cover" /><AvatarFallback className="bg-muted">??</AvatarFallback></Avatar>
               </div>
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-start"><ShieldAlert className="w-6 h-6 text-primary shrink-0 animate-pulse" /><div className="text-[11px]"><p className="font-black text-primary uppercase tracking-widest">SECURITY PROTOCOL</p><p className="text-muted-foreground">Username, Tag, and Town Hall will be locked for 72 hours.</p></div></div>
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="bg-muted/10 h-12 font-bold" /></div>
-                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="bg-muted/10 h-12 font-mono uppercase" /></div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} placeholder="Enter Your Ingame Name" className="bg-muted/10 h-12 font-bold" /></div>
+                <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} placeholder="Enter Clash Tag (e.g. #9Q8YYGG2)" className="bg-muted/10 h-12 font-mono uppercase" /></div>
                 <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label><Select value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}><SelectTrigger className="bg-muted/10 h-12 font-bold"><SelectValue placeholder="Select TH Level" /></SelectTrigger><SelectContent>{[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (<SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>))}</SelectContent></Select></div>
               </div>
             </form>
           </ScrollArea>
           <div className="p-6 border-t border-border/20 bg-background/50"><Button form="setup-form" type="submit" className="w-full bg-primary text-white font-black h-14 rounded-2xl shadow-xl glow-primary" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : <ShieldCheck className="mr-2" />}SECURE IDENTITY</Button></div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Double Confirmation Warning Modal */}
+      <Dialog open={showConfirmSetup} onOpenChange={setShowConfirmSetup}>
+        <DialogContent className="glass border-red-500/20 max-w-md p-8 overflow-hidden bg-zinc-950/95 text-center rounded-[2.5rem] outline-none z-[100]">
+          <div className="absolute -top-24 -left-24 w-48 h-48 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative mx-auto mb-6 w-20 h-20 rounded-full border-2 border-red-500 bg-zinc-900 flex items-center justify-center shadow-[0_0_24px_rgba(239,68,68,0.4)] pointer-events-none">
+            <ShieldAlert className="w-10 h-10 text-red-500 animate-pulse" />
+          </div>
+
+          <h3 className="font-headline text-2xl font-black uppercase italic tracking-tight text-white mb-2 leading-none">
+            CONFIRM <span className="text-red-500">IDENTITY</span>
+          </h3>
+          <p className="text-[10px] font-black tracking-[0.2em] text-red-500 uppercase mb-6">
+            CRITICAL ACCOUNT VERIFICATION
+          </p>
+
+          <div className="bg-red-950/20 border border-red-500/20 rounded-2xl p-5 mb-6 text-left space-y-3">
+            <p className="text-xs text-white font-semibold leading-relaxed">
+              ⚠️ <span className="text-red-500 font-black uppercase">REAL INFORMATION ONLY</span>: Enter your actual Clash of Clans details. Using a fake name or tag (#UID) will result in immediate tournament disqualification and account ban.
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-normal font-medium border-t border-white/5 pt-2">
+              🔒 <span className="text-white font-bold">LOCK PROTOCOL</span>: You will not be able to edit or change your profile details for <span className="text-primary font-bold">3 days</span> after setup completes.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={(e) => {
+                setShowConfirmSetup(false);
+                handleSetupSubmit(e);
+              }}
+              disabled={isSubmitting}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-6 rounded-2xl glow-primary uppercase tracking-widest text-xs"
+            >
+              {isSubmitting ? "SECURING IDENTITY..." : "I UNDERSTAND, CONFIRM"}
+            </Button>
+            <button
+              onClick={() => setShowConfirmSetup(false)}
+              className="text-[11px] font-black uppercase tracking-wider text-muted-foreground hover:text-white transition-colors mt-2"
+            >
+              BACK TO SETUP
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </PageWrapper>
