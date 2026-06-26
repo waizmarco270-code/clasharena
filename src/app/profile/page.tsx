@@ -30,7 +30,8 @@ import {
   Lock,
   Check,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  ExternalLink
 } from 'lucide-react';
 import { useFirestore, useDoc, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -62,7 +63,7 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedProof, setSelectedProof] = useState<string | null>(null);
+  const [selectedProof, setSelectedProof] = useState<any>(null);
 
   const isLocked = profile?.profileLockedUntil ? new Date(profile.profileLockedUntil) > new Date() : false;
 
@@ -276,7 +277,7 @@ export default function ProfilePage() {
                                      {claim.status === 'completed' ? 'DELIVERED' : 'PENDING'}
                                   </Badge>
                                   {claim.proofImageUrl && (
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => setSelectedProof(claim.proofImageUrl)}><Eye className="w-4 h-4" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => setSelectedProof(claim)}><Eye className="w-4 h-4" /></Button>
                                   )}
                                </div>
                             </div>
@@ -298,13 +299,66 @@ export default function ProfilePage() {
       </div>
 
       <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
-        <DialogContent className="glass border-white/10 max-w-2xl">
-          <DialogHeader><DialogTitle className="font-headline text-xl uppercase">Delivery Proof</DialogTitle></DialogHeader>
-          {selectedProof && (
-            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10">
-              <Image src={selectedProof} alt="Proof" fill className="object-contain bg-black" />
-            </div>
-          )}
+        <DialogContent className="glass border-white/10 max-w-4xl p-0 overflow-hidden outline-none rounded-[2.5rem] flex flex-col h-[75vh]">
+          <div className="bg-primary p-6 shrink-0">
+             <DialogTitle className="font-headline text-xl uppercase italic text-white">Victory Evidence: {selectedProof?.tournamentName || 'Victory Proof'}</DialogTitle>
+          </div>
+          <ScrollArea className="flex-1">
+             <div className="p-8 space-y-8">
+                {selectedProof?.rewardType === 'money' ? (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                         <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 1: Admin Payment Done</Label>
+                         <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
+                            {selectedProof.proofImageUrl && <Image src={selectedProof.proofImageUrl} alt="Admin Proof" fill className="object-contain" />}
+                            <a href={selectedProof.proofImageUrl} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 2: Payment Received Confirmation</Label>
+                         <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
+                            {selectedProof.proofImageUrl2 && <Image src={selectedProof.proofImageUrl2} alt="User Proof" fill className="object-contain" />}
+                            <a href={selectedProof.proofImageUrl2} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
+                         </div>
+                      </div>
+                   </div>
+                ) : (
+                   <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot: Delivery Confirmation</Label>
+                      <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black">
+                         {selectedProof && (typeof selectedProof === 'string' ? (
+                           <Image src={selectedProof} alt="Proof" fill className="object-contain" />
+                         ) : (
+                           <Image src={selectedProof.proofImageUrl} alt="Proof" fill className="object-contain" />
+                         ))}
+                      </div>
+                   </div>
+                )}
+
+                {selectedProof && typeof selectedProof === 'object' && (
+                   <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                         <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Status</p>
+                            <p className="text-xs font-black text-green-500 uppercase">{selectedProof.status}</p>
+                         </div>
+                         <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">
+                              {selectedProof.rewardType === 'money' ? 'Reward Prize' : 'Reward Item'}
+                            </p>
+                            <p className="text-xs font-black text-white uppercase">
+                              {selectedProof.rewardType === 'money' ? `₹ ${selectedProof.rewardValue}` : selectedProof.rewardItemName}
+                            </p>
+                         </div>
+                         <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Completed Date</p>
+                            <p className="text-xs font-black text-white uppercase">{selectedProof.completedAt ? new Date(selectedProof.completedAt).toLocaleDateString() : 'Pending'}</p>
+                         </div>
+                      </div>
+                   </div>
+                )}
+             </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 

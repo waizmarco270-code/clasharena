@@ -33,7 +33,9 @@ import {
   Send,
   Link as LinkIcon,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  QrCode,
+  IndianRupee
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, limit, increment, getDoc, updateDoc } from 'firebase/firestore';
@@ -161,6 +163,35 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
   const fileInputRef1 = useRef<HTMLInputElement>(null);
   const fileInputRef2 = useRef<HTMLInputElement>(null);
 
+  // Winner UPI verification states
+  const [winnerUpiQr, setWinnerUpiQr] = useState('');
+  const [winnerUpiId, setWinnerUpiId] = useState('');
+  const [winnerUpiName, setWinnerUpiName] = useState('');
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
+  // Admin payment proof states
+  const [adminPaymentProof, setAdminPaymentProof] = useState('');
+  const [uploadingPaymentProof, setUploadingPaymentProof] = useState(false);
+  const adminProofInputRef = useRef<HTMLInputElement>(null);
+
+  // Winner receive proof states
+  const [winnerReceiveProof, setWinnerReceiveProof] = useState('');
+  const [uploadingReceiveProof, setUploadingReceiveProof] = useState(false);
+  const receiveProofInputRef = useRef<HTMLInputElement>(null);
+
+  // Load user profile to auto-fill UPI QR/ID/Name
+  const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
+  const { data: profile } = useDoc(userRef);
+
+  useEffect(() => {
+    if (profile && claim?.rewardType === 'money') {
+      if (!winnerUpiId) setWinnerUpiId(profile.upiId || '');
+      if (!winnerUpiQr) setWinnerUpiQr(profile.upiQrUrl || '');
+      if (!winnerUpiName) setWinnerUpiName(profile.username || '');
+    }
+  }, [profile, claim]);
+
   useEffect(() => {
     let interval: any;
     if (showClaimPopup && timer > 0) {
@@ -222,8 +253,472 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
     toast({ title: "REWARD VERIFIED & ARCHIVED" });
   };
 
+  // Money Reward Verification Handlers
+  const handleWinnerSubmitUpi = async () => {
+    if (!winnerUpiQr || !winnerUpiId.trim() || !winnerUpiName.trim() || loading) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        upiQrUrl: winnerUpiQr,
+        upiId: winnerUpiId.trim(),
+        upiName: winnerUpiName.trim(),
+        status: 'money_verifying'
+      });
+      toast({ title: "UPI DETAILS SUBMITTED", description: "Verification portal is now in Verification Mode." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "SUBMISSION FAILED", description: "Please try again." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWinnerQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setWinnerUpiQr(data.secure_url);
+        toast({ title: "QR SCREENSHOT READY" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "UPLOAD FAILED" });
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const handleAdminConfirmPayment = async () => {
+    if (!adminPaymentProof || loading) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        proofImageUrl: adminPaymentProof,
+        status: 'money_paid'
+      });
+      try {
+        await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'user',
+            userId: claim.userId,
+            title: 'Payment Dispatched! 💸',
+            body: `Admin has sent your reward for "${claim.tournamentName}". Upload receipt to complete verification!`,
+            data: {
+              type: 'reward_fulfillment',
+              claimId: claim.id
+            }
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send player payment notification:", e);
+      }
+      toast({ title: "PAYMENT MARKED AS SENT" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "SUBMISSION FAILED" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminPaymentProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPaymentProof(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setAdminPaymentProof(data.secure_url);
+        toast({ title: "PAYMENT PROOF READY" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "UPLOAD FAILED" });
+    } finally {
+      setUploadingPaymentProof(false);
+    }
+  };
+
+  const handleWinnerConfirmReceive = async () => {
+    if (!winnerReceiveProof || loading) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        proofImageUrl2: winnerReceiveProof,
+        status: 'money_confirming'
+      });
+      toast({ title: "RECEIVE PROOF DISPATCHED", description: "Awaiting final admin approval." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "SUBMISSION FAILED" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWinnerReceiveProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingReceiveProof(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.secure_url) {
+        setWinnerReceiveProof(data.secure_url);
+        toast({ title: "RECEIPT PROOF READY" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "UPLOAD FAILED" });
+    } finally {
+      setUploadingReceiveProof(false);
+    }
+  };
+
+  const handleAdminFinalConfirmation = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+      const amount = parseInt(claim.rewardValue) || 0;
+      await updateDoc(doc(db, 'users', claim.userId), {
+        earnings: increment(amount)
+      });
+      try {
+        await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'user',
+            userId: claim.userId,
+            title: 'Victory Verified! 🏆',
+            body: `Your reward of ₹ ${claim.rewardValue} for "${claim.tournamentName}" has been verified and processed.`,
+            data: {
+              type: 'reward_fulfillment',
+              claimId: claim.id
+            }
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send final payment confirmation notification:", e);
+      }
+      toast({ title: "REWARD FULLY PROCESSED & VERIFIED" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "CONFIRMATION FAILED" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isWinner = userId === claim.userId;
   const status = claim.status;
+
+  if (claim.rewardType === 'money') {
+    return (
+      <Card className="glass border-orange-500/40 bg-orange-500/5 overflow-hidden animate-in fade-in zoom-in duration-700 relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 animate-pulse" />
+        <CardHeader className="pb-4">
+          <div className="flex justify-between items-start">
+             <div className="flex items-center gap-3">
+                <div className="p-3 bg-orange-500/20 rounded-2xl border border-orange-500/30">
+                   <Trophy className="w-6 h-6 text-orange-500 animate-bounce" />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.3em]">Victory Verification Portal</p>
+                   <CardTitle className="font-headline text-2xl font-black uppercase italic tracking-tighter">Congratulations, <span className="text-white">{claim.username}</span></CardTitle>
+                </div>
+             </div>
+             <Badge className="bg-orange-500 text-black font-black uppercase">{status.replace('_', ' ')}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
+                <p className="text-xs font-bold uppercase truncate">{claim.tournamentName}</p>
+             </div>
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Victory Rank</p>
+                <p className="text-xs font-bold uppercase text-orange-500">1st Position (Champion)</p>
+             </div>
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Reward Prize</p>
+                <p className="text-xs font-bold uppercase text-primary">₹ {claim.rewardValue}</p>
+             </div>
+          </div>
+
+          {isWinner && status === 'pending' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="text-center md:text-left space-y-2">
+                  <p className="text-sm font-bold text-white">Congratulations, You successfully Win the tournament! Follow the process below to get your rewards instantly.</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black">All fields are mandatory. Double-check your details to ensure instant processing.</p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                     <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">UPI Name</Label>
+                        <Input 
+                          value={winnerUpiName} 
+                          onChange={e => setWinnerUpiName(e.target.value)} 
+                          placeholder="e.g. JOHN DOE" 
+                          className="bg-white/5 h-12 font-bold uppercase"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">UPI ID</Label>
+                        <Input 
+                          value={winnerUpiId} 
+                          onChange={e => setWinnerUpiId(e.target.value)} 
+                          placeholder="e.g. john@okaxis" 
+                          className="bg-white/5 h-12 font-mono"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Upload UPI QR Code Screenshot</Label>
+                     <div onClick={() => qrInputRef.current?.click()} className="relative h-32 rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
+                        {winnerUpiQr ? (
+                          <Image src={winnerUpiQr} alt="UPI QR" fill className="object-contain bg-black" />
+                        ) : (
+                          <>
+                             {uploadingQr ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
+                             <p className="text-[9px] font-black uppercase text-muted-foreground">Select QR Screenshot</p>
+                          </>
+                        )}
+                        <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleWinnerQrUpload} />
+                     </div>
+                  </div>
+               </div>
+
+               <Button 
+                 onClick={handleWinnerSubmitUpi} 
+                 disabled={!winnerUpiQr || !winnerUpiId.trim() || !winnerUpiName.trim() || loading} 
+                 className="w-full h-14 bg-orange-600 hover:bg-orange-700 font-black uppercase rounded-2xl shadow-xl glow-primary"
+               >
+                  {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM VERIFICATION & SUBMIT UPI'}
+               </Button>
+            </div>
+          )}
+
+          {isAdmin && status === 'pending' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center space-y-4 animate-pulse">
+               <Clock className="w-10 h-10 mx-auto text-muted-foreground opacity-40" />
+               <div>
+                  <h4 className="font-black text-sm uppercase">AWAITING WINNER VERIFICATION DETAILS...</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black">
+                     Winner ({claim.username}) needs to upload their UPI Name, UPI ID, and UPI QR Code before payment can be processed.
+                  </p>
+               </div>
+            </div>
+          )}
+
+          {isWinner && status === 'money_verifying' && (
+            <div className="bg-white/5 p-6 rounded-3xl text-center space-y-4 border border-white/10">
+               <Loader2 className="w-10 h-10 animate-spin mx-auto text-orange-500" />
+               <div className="space-y-2">
+                  <p className="text-sm font-bold text-white uppercase">Verification Mode Activated</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black leading-relaxed">
+                     Wait 5-10 minutes until verification gets completed.<br />
+                     Our admins are currently checking your details and initiating the instant UPI payout.
+                  </p>
+               </div>
+            </div>
+          )}
+
+          {isAdmin && status === 'money_verifying' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="bg-orange-600/10 p-4 rounded-xl border border-orange-500/20 text-center flex items-center justify-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-orange-500" />
+                  <p className="text-xs font-black uppercase text-orange-500 tracking-wider">Winner verified his fields</p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                     <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase">UPI Name</p>
+                        <p className="text-sm font-bold uppercase text-white">{claim.upiName}</p>
+                     </div>
+                     <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase">UPI ID</p>
+                        <p className="text-sm font-bold font-mono text-primary select-all">{claim.upiId}</p>
+                     </div>
+                     <div className="bg-primary/10 p-4 rounded-2xl border border-primary/20 space-y-1">
+                        <p className="text-[8px] font-black text-primary uppercase">Payment Amount (Pre-filled)</p>
+                        <p className="text-xl font-black font-headline text-white">₹ {claim.rewardValue}</p>
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Scan Winner QR Code to Pay</Label>
+                     <div className="relative aspect-square w-full max-w-[200px] mx-auto rounded-2xl overflow-hidden border-2 border-white/10 bg-black">
+                        {claim.upiQrUrl && (
+                          <a href={claim.upiQrUrl} target="_blank">
+                            <Image src={claim.upiQrUrl} alt="Winner QR" fill className="object-contain" />
+                          </a>
+                        )}
+                     </div>
+                  </div>
+               </div>
+
+               <div className="pt-4 border-t border-white/5 space-y-4">
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Upload Payment Screenshot / Proof</Label>
+                     <div onClick={() => adminProofInputRef.current?.click()} className="relative aspect-video w-full max-w-md mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
+                        {adminPaymentProof ? (
+                          <Image src={adminPaymentProof} alt="Payment Proof" fill className="object-contain bg-black" />
+                        ) : (
+                          <>
+                             {uploadingPaymentProof ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
+                             <p className="text-[9px] font-black uppercase text-muted-foreground">Select Payment Done Screenshot</p>
+                          </>
+                        )}
+                        <input type="file" ref={adminProofInputRef} className="hidden" accept="image/*" onChange={handleAdminPaymentProofUpload} />
+                     </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleAdminConfirmPayment} 
+                    disabled={!adminPaymentProof || loading} 
+                    className="w-full h-14 bg-green-600 hover:bg-green-700 font-black uppercase text-lg rounded-2xl shadow-xl glow-primary"
+                  >
+                     {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM PAYMENT FOR WINNER'}
+                  </Button>
+               </div>
+            </div>
+          )}
+
+          {isWinner && status === 'money_paid' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="bg-green-600/10 p-4 rounded-xl border border-green-500/20 text-center">
+                  <h4 className="font-black text-base uppercase text-green-500">Payment Dispatched by Admin</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black mt-1">Review the payment proof below and upload your screenshot confirming you received the amount.</p>
+               </div>
+
+               <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest block text-center">Admin Payment Proof Screenshot</Label>
+                  <div className="relative aspect-video w-full max-w-md mx-auto rounded-2xl overflow-hidden border border-white/10 bg-black">
+                     {claim.proofImageUrl && (
+                       <a href={claim.proofImageUrl} target="_blank">
+                         <Image src={claim.proofImageUrl} alt="Admin Proof" fill className="object-contain" />
+                       </a>
+                     )}
+                  </div>
+               </div>
+
+               <div className="pt-4 border-t border-white/5 space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest block text-center">Upload Payment Received Proof Screenshot</Label>
+                  <div onClick={() => receiveProofInputRef.current?.click()} className="relative aspect-video w-full max-w-md mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
+                     {winnerReceiveProof ? (
+                       <Image src={winnerReceiveProof} alt="Receive Proof" fill className="object-contain bg-black" />
+                     ) : (
+                       <>
+                          {uploadingReceiveProof ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">Select Your Received Receipt Screenshot</p>
+                       </>
+                     )}
+                     <input type="file" ref={receiveProofInputRef} className="hidden" accept="image/*" onChange={handleWinnerReceiveProofUpload} />
+                  </div>
+
+                  <Button 
+                    onClick={handleWinnerConfirmReceive} 
+                    disabled={!winnerReceiveProof || loading} 
+                    className="w-full h-14 bg-orange-600 hover:bg-orange-700 font-black uppercase rounded-2xl shadow-xl glow-primary animate-shimmer"
+                  >
+                     {loading ? <Loader2 className="animate-spin" /> : 'CONFIRM PAYMENT RECEIVED'}
+                  </Button>
+               </div>
+            </div>
+          )}
+
+          {isAdmin && status === 'money_paid' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center space-y-4">
+               <Loader2 className="w-10 h-10 animate-spin mx-auto text-muted-foreground opacity-40" />
+               <div>
+                  <h4 className="font-black text-sm uppercase">AWAITING WINNER CONFIRMATION...</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black">
+                     Winner has been paid. Waiting for the winner to verify the receipt and upload their payment received proof.
+                  </p>
+               </div>
+            </div>
+          )}
+
+          {isWinner && status === 'money_confirming' && (
+            <div className="bg-white/5 p-6 rounded-3xl text-center space-y-4 border border-white/10">
+               <Loader2 className="w-10 h-10 animate-spin mx-auto text-orange-500" />
+               <div>
+                  <p className="text-sm font-bold text-white uppercase">Awaiting Admin Finalization</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black mt-1 leading-relaxed">
+                     You have confirmed receiving the reward. We are verifying your uploaded proof.<br />
+                     Once admin reviews and clicks final confirmation, the process will complete!
+                  </p>
+               </div>
+            </div>
+          )}
+
+          {isAdmin && status === 'money_confirming' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+               <div className="bg-blue-600/10 p-4 rounded-xl border border-blue-500/20 text-center">
+                  <h4 className="font-black text-base uppercase text-blue-500">Winner Submitted Payment Received Screenshot</h4>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase text-primary tracking-widest block text-center">Admin Dispatched Payment Proof</Label>
+                     <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10 bg-black">
+                        {claim.proofImageUrl && (
+                          <a href={claim.proofImageUrl} target="_blank">
+                            <Image src={claim.proofImageUrl} alt="Admin Proof" fill className="object-contain" />
+                          </a>
+                        )}
+                     </div>
+                  </div>
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase text-primary tracking-widest block text-center">Winner Received Payment Proof</Label>
+                     <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10 bg-black">
+                        {claim.proofImageUrl2 && (
+                          <a href={claim.proofImageUrl2} target="_blank">
+                            <Image src={claim.proofImageUrl2} alt="Winner Proof" fill className="object-contain" />
+                          </a>
+                        )}
+                     </div>
+                  </div>
+               </div>
+
+               <Button 
+                 onClick={handleAdminFinalConfirmation} 
+                 disabled={loading} 
+                 className="w-full h-14 bg-green-600 hover:bg-green-700 font-black uppercase text-lg rounded-2xl shadow-xl glow-primary"
+               >
+                  {loading ? <Loader2 className="animate-spin" /> : 'FINAL CONFIRMATION & ARCHIVE PROCESS'}
+               </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="glass border-yellow-500/40 bg-yellow-500/5 overflow-hidden animate-in fade-in zoom-in duration-700 relative">
@@ -312,17 +807,17 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[1, 2].map(num => (
-                      <div key={num} onClick={() => (num === 1 ? fileInputRef1 : fileInputRef2).current?.click()} className="relative aspect-video rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
-                         {proofs[num === 1 ? 'ss1' : 'ss2'] ? (
-                           <Image src={proofs[num === 1 ? 'ss1' : 'ss2']} alt="Proof" fill className="object-cover" />
-                         ) : (
-                           <>
-                             {uploading === num ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
-                             <p className="text-[9px] font-black uppercase text-muted-foreground">Select SS #{num}</p>
-                           </>
-                         )}
-                         <input type="file" ref={num === 1 ? fileInputRef1 : fileInputRef2} className="hidden" accept="image/*" onChange={e => handleImageUpload(num as any, e)} />
-                      </div>
+                       <div key={num} onClick={() => (num === 1 ? fileInputRef1 : fileInputRef2).current?.click()} className="relative aspect-video rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 cursor-pointer overflow-hidden transition-all">
+                          {proofs[num === 1 ? 'ss1' : 'ss2'] ? (
+                            <Image src={proofs[num === 1 ? 'ss1' : 'ss2']} alt="Proof" fill className="object-cover" />
+                          ) : (
+                            <>
+                              {uploading === num ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="w-8 h-8 text-muted-foreground opacity-40" />}
+                              <p className="text-[9px] font-black uppercase text-muted-foreground">Select SS #{num}</p>
+                            </>
+                          )}
+                          <input type="file" ref={num === 1 ? fileInputRef1 : fileInputRef2} className="hidden" accept="image/*" onChange={e => handleImageUpload(num as any, e)} />
+                       </div>
                     ))}
                  </div>
 
@@ -458,8 +953,8 @@ export default function Dashboard() {
   // Reward Claims Monitoring (Priority 1)
   const claimsQuery = useMemo(() => {
     if (!user) return null;
-    if (isAdmin) return query(collection(db, 'reward-claims'), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing']), limit(5));
-    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing']), limit(1));
+    if (isAdmin) return query(collection(db, 'reward-claims'), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing', 'money_verifying', 'money_paid', 'money_confirming']), limit(5));
+    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing', 'money_verifying', 'money_paid', 'money_confirming']), limit(5));
   }, [db, user, isAdmin]);
   const { data: activeClaims } = useCollection(claimsQuery);
 

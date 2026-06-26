@@ -386,7 +386,11 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         rewardItemName: t.rewardItemName || '',
         rewardImageUrl: t.rewardImageUrl || '',
         status: t.rewardType === 'coin' ? 'completed' : 'pending',
+        upiId: '',
+        upiName: '',
+        upiQrUrl: '',
         proofImageUrl: '',
+        proofImageUrl2: '',
         createdAt: new Date().toISOString()
       };
       

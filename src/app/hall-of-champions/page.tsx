@@ -139,37 +139,41 @@ export default function HallOfChampions() {
             <div className="space-y-6">
               <h2 className="font-headline text-2xl font-bold flex items-center gap-3 uppercase italic tracking-tighter text-green-500"><ShieldCheck className="w-6 h-6" /> Legend's Proof Ledger</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {verifiedClaims?.map((claim: any) => (
-                    <Card key={claim.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-primary/40 transition-all flex flex-col">
-                       <div className="relative h-40">
-                          <Image src={claim.rewardImageUrl || 'https://picsum.photos/seed/gift/400/200'} alt="Reward" fill className="object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                          <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                             <div className="p-2 bg-primary rounded-xl"><Gift className="w-4 h-4 text-white" /></div>
-                             <span className="text-xs font-black uppercase text-white shadow-xl">{claim.rewardItemName}</span>
-                          </div>
-                       </div>
-                       <CardContent className="p-6 space-y-4">
-                          <div className="flex items-center gap-3">
-                             <Avatar className="h-8 w-8 border border-white/10"><AvatarImage src={claim.avatarUrl} /><AvatarFallback className="text-[10px]">{claim.username[0]}</AvatarFallback></Avatar>
-                             <div>
-                                <p className="text-xs font-black uppercase text-white">{claim.username}</p>
-                                <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-widest">Arena Champion</p>
-                             </div>
-                          </div>
-                          <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-1">
-                             <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
-                             <p className="text-[10px] font-bold text-white uppercase truncate">{claim.tournamentName}</p>
-                          </div>
-                          <div className="flex gap-2">
-                             <Button size="sm" onClick={() => setSelectedProof(claim)} className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 h-10 text-[9px] font-black uppercase"><Eye className="w-3 h-3 mr-2" /> VIEW PROOFS</Button>
-                             {claim.itemLink && (
-                               <Button asChild size="sm" variant="outline" className="h-10 w-10 p-0 border-white/10"><a href={claim.itemLink} target="_blank"><LinkIcon className="w-3 h-3" /></a></Button>
-                             )}
-                          </div>
-                       </CardContent>
-                    </Card>
-                 ))}
+                  {verifiedClaims?.map((claim: any) => (
+                     <Card key={claim.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-primary/40 transition-all flex flex-col">
+                        <div className="relative h-40">
+                           <Image src={claim.rewardImageUrl || (claim.rewardType === 'money' ? 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&q=80&w=400' : 'https://picsum.photos/seed/gift/400/200')} alt="Reward" fill className="object-cover opacity-50 group-hover:scale-105 transition-transform duration-700" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                           <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                              <div className="p-2 bg-primary rounded-xl">
+                                {claim.rewardType === 'money' ? <IndianRupee className="w-4 h-4 text-white" /> : <Gift className="w-4 h-4 text-white" />}
+                              </div>
+                              <span className="text-xs font-black uppercase text-white shadow-xl">
+                                {claim.rewardType === 'money' ? `₹ ${claim.rewardValue}` : claim.rewardItemName}
+                              </span>
+                           </div>
+                        </div>
+                        <CardContent className="p-6 space-y-4">
+                           <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8 border border-white/10"><AvatarImage src={claim.avatarUrl} /><AvatarFallback className="text-[10px]">{claim.username ? claim.username[0] : 'W'}</AvatarFallback></Avatar>
+                              <div>
+                                 <p className="text-xs font-black uppercase text-white">{claim.username}</p>
+                                 <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-widest">Arena Champion</p>
+                              </div>
+                           </div>
+                           <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-1">
+                              <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
+                              <p className="text-[10px] font-bold text-white uppercase truncate">{claim.tournamentName}</p>
+                           </div>
+                           <div className="flex gap-2">
+                              <Button size="sm" onClick={() => setSelectedProof(claim)} className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 h-10 text-[9px] font-black uppercase"><Eye className="w-3 h-3 mr-2" /> VIEW PROOFS</Button>
+                              {claim.itemLink && (
+                                <Button asChild size="sm" variant="outline" className="h-10 w-10 p-0 border-white/10"><a href={claim.itemLink} target="_blank"><LinkIcon className="w-3 h-3" /></a></Button>
+                              )}
+                           </div>
+                        </CardContent>
+                     </Card>
+                  ))}
                  {(!verifiedClaims || verifiedClaims.length === 0) && (
                    <div className="col-span-full py-20 text-center glass border-dashed border-white/10 rounded-[2rem] opacity-30">
                       <PackageCheck className="w-12 h-12 mx-auto mb-4" />
@@ -223,14 +227,18 @@ export default function HallOfChampions() {
              <div className="p-8 space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 1: Claim Screen</Label>
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">
+                        {selectedProof?.rewardType === 'money' ? 'Screenshot 1: Admin Payment Proof' : 'Screenshot 1: Claim Screen'}
+                      </Label>
                       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
                          {selectedProof?.proofImageUrl && <Image src={selectedProof.proofImageUrl} alt="Proof 1" fill className="object-contain" />}
                          <a href={selectedProof?.proofImageUrl} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Screenshot 2: Base Confirmation</Label>
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest">
+                        {selectedProof?.rewardType === 'money' ? 'Screenshot 2: Winner Receipt Proof' : 'Screenshot 2: Base Confirmation'}
+                      </Label>
                       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden border-2 border-white/5 bg-black shadow-2xl">
                          {selectedProof?.proofImageUrl2 && <Image src={selectedProof.proofImageUrl2} alt="Proof 2" fill className="object-contain" />}
                          <a href={selectedProof?.proofImageUrl2} target="_blank" className="absolute top-4 right-4 bg-black/60 p-2 rounded-xl border border-white/20"><ExternalLink className="w-4 h-4 text-white" /></a>
@@ -245,15 +253,19 @@ export default function HallOfChampions() {
                          <p className="text-sm font-black text-yellow-500 uppercase">{selectedProof?.username}</p>
                       </div>
                       <div>
-                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Reward Item</p>
-                         <p className="text-sm font-black text-white uppercase">{selectedProof?.rewardItemName}</p>
+                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">
+                           {selectedProof?.rewardType === 'money' ? 'Reward Prize' : 'Reward Item'}
+                         </p>
+                         <p className="text-sm font-black text-white uppercase">
+                           {selectedProof?.rewardType === 'money' ? `₹ ${selectedProof?.rewardValue}` : selectedProof?.rewardItemName}
+                         </p>
                       </div>
                       <div>
                          <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Victory Date</p>
                          <p className="text-sm font-black text-white uppercase">{selectedProof && new Date(selectedProof.completedAt).toLocaleDateString()}</p>
                       </div>
                    </div>
-                   {selectedProof?.itemLink && (
+                   {selectedProof?.rewardType !== 'money' && selectedProof?.itemLink && (
                      <div className="pt-6 border-t border-white/5">
                         <p className="text-[9px] font-black uppercase text-muted-foreground mb-2">Original Giveaway Link (Audit Reference)</p>
                         <div className="bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-[10px] text-primary truncate">
