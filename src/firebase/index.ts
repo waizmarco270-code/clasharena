@@ -1,7 +1,7 @@
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, Firestore, FirestoreSettings } from 'firebase/firestore';
+import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
@@ -10,9 +10,11 @@ let firestore: Firestore;
 let auth: Auth;
 
 /**
- * Initializes Firebase with specific settings for Cloud Workstations.
- * We use experimentalForceLongPolling and useFetchStreams: false to prevent 
- * connection hangs in this environment.
+ * OPTIMIZATION: Removed experimentalForceLongPolling
+ * 
+ * That setting was a Cloud Workstations dev workaround. Production on Vercel
+ * uses the default WebChannel transport which is significantly faster and
+ * more efficient than long polling.
  */
 export function initializeFirebase() {
   if (getApps().length > 0) {
@@ -21,15 +23,11 @@ export function initializeFirebase() {
     app = initializeApp(firebaseConfig);
   }
 
-  // Ensure Firestore is only initialized once with the correct settings
+  // Ensure Firestore is only initialized once
   if (!firestore) {
-    const settings: FirestoreSettings = {
-      experimentalForceLongPolling: true,
-    };
     try {
-      firestore = initializeFirestore(app, settings);
+      firestore = getFirestore(app);
     } catch (e) {
-      // If already initialized, get the existing instance
       firestore = getFirestore(app);
     }
   }
@@ -48,3 +46,4 @@ export * from './firestore/use-collection';
 export * from './firestore/use-doc';
 export { errorEmitter } from './error-emitter';
 export { FirestorePermissionError } from './errors';
+export { GlobalDataProvider, useProfile, useBackgrounds, useMaintenance, useAnnouncements, useReleases, useAdminStatus } from './global-data-provider';

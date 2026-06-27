@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { NotificationHandler } from "@/components/notification-handler";
 import { Analytics } from '@vercel/analytics/react';
 import { PwaInstaller } from '@/components/pwa-installer';
+import { ErrorBoundary } from '@/components/error-boundary';
 import fs from 'fs';
 import path from 'path';
 import { adminDb } from '@/lib/firebase-admin';
@@ -95,7 +96,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <FirebaseClientProvider>
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
               <Toaster />
               <NotificationHandler />
               <PwaInstaller />

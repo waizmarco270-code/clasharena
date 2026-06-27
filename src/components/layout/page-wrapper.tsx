@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useDoc, useFirestore } from '@/firebase';
+import { useFirestore, useProfile } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Header } from './header';
 import { BottomNav } from './bottom-nav';
@@ -20,8 +20,9 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // OPTIMIZATION: Use centralized profile from GlobalDataProvider
+  const { profile, profileLoading } = useProfile();
   const userRef = useMemo(() => userId ? doc(db, 'users', userId) : null, [db, userId]);
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   // Expanded public routes list
   const isPublicRoute = useMemo(() => {

@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { FirebaseProvider } from './provider';
+import { GlobalDataProvider } from './global-data-provider';
 import { initializeFirebase } from './index';
 
 export function FirebaseClientProvider({
@@ -13,7 +14,10 @@ export function FirebaseClientProvider({
 
   return (
     <FirebaseProvider firebaseApp={firebaseApp} firestore={firestore} auth={auth}>
-      {children}
+      <GlobalDataProvider>
+        {children}
+      </GlobalDataProvider>
     </FirebaseProvider>
   );
 }
+

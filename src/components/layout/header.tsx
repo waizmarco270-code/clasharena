@@ -7,8 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Shield, Wallet, CheckCircle2, Bell, X, Megaphone, Calendar } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, query, collection, orderBy, limit } from 'firebase/firestore';
+import { useFirestore, useProfile, useBackgrounds, useAnnouncements, useAdminStatus } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { UserButton, useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Image from 'next/image';
@@ -28,14 +28,13 @@ export function Header() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
+  // OPTIMIZATION: Use centralized providers (eliminates 3 independent listeners)
+  const { backgrounds: bgData } = useBackgrounds();
+  const { profile } = useProfile();
+  const { announcements } = useAnnouncements();
+  const { isAdmin, isSuperAdmin } = useAdminStatus();
 
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile } = useDoc(userRef);
-
-  const announcementsQuery = useMemo(() => query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(10)), [db]);
-  const { data: announcements } = useCollection(announcementsQuery);
 
   const notificationsOn = useMemo(() => {
     return typeof window !== 'undefined' && 

@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+/**
+ * OPTIMIZATION: Stabilized document hook
+ * 
+ * Uses the DocumentReference path string for the useEffect dependency
+ * instead of the raw object reference. Prevents re-subscription thrashing.
+ */
+
+import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -15,15 +22,22 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Stable key: use the document path string instead of object reference
+  const refKey = useMemo(() => docRef?.path ?? '__null__', [docRef]);
+  const docRefRef = useRef(docRef);
+  docRefRef.current = docRef;
+
   useEffect(() => {
-    if (!docRef) {
+    const currentRef = docRefRef.current;
+    if (!currentRef) {
+      setData(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     const unsubscribe = onSnapshot(
-      docRef,
+      currentRef,
       (snapshot: DocumentSnapshot<T>) => {
         setData(snapshot.exists() ? snapshot.data()! : null);
         setLoading(false);
@@ -33,7 +47,7 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
         // Only report as permission error if it actually is one
         if (serverError?.code === 'permission-denied') {
           const permissionError = new FirestorePermissionError({
-            path: docRef.path,
+            path: currentRef.path,
             operation: 'get',
           });
           errorEmitter.emit('permission-error', permissionError);
@@ -48,7 +62,9 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
     );
 
     return () => unsubscribe();
-  }, [docRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refKey]);
 
   return { data, loading, error };
 }
+
