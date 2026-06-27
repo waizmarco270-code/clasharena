@@ -1,7 +1,7 @@
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
@@ -26,7 +26,9 @@ export function initializeFirebase() {
   // Ensure Firestore is only initialized once
   if (!firestore) {
     try {
-      firestore = getFirestore(app);
+      firestore = initializeFirestore(app, {
+        localCache: persistentLocalCache()
+      });
     } catch (e) {
       firestore = getFirestore(app);
     }

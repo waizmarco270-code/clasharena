@@ -20,7 +20,7 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { default as NextLink } from 'next/link';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,14 +37,17 @@ export default function WalletHistoryPage() {
   const [methodFilter, setMethodFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // all, today, week, month
 
+  const [limitCount, setLimitCount] = useState(10);
+
   // Firestore Query - INDEX-LESS query (removed orderBy)
   const historyQuery = useMemo(() => {
     if (!isLoaded || !userId) return null;
     return query(
       collection(db, 'recharge-requests'),
-      where('userId', '==', userId)
+      where('userId', '==', userId),
+      limit(limitCount)
     );
-  }, [db, userId, isLoaded]);
+  }, [db, userId, isLoaded, limitCount]);
 
   const { data: logs, loading: logsLoading } = useCollection(historyQuery);
   const loading = !isLoaded || logsLoading;
@@ -351,6 +354,18 @@ export default function WalletHistoryPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {processedLogs && processedLogs.length >= limitCount && (
+              <div className="flex justify-center mt-6 mb-2">
+                <Button 
+                  variant="outline" 
+                  className="glass border-white/10 hover:bg-white/5 text-white font-bold"
+                  onClick={() => setLimitCount(prev => prev + 10)}
+                >
+                  Load More Transactions
+                </Button>
               </div>
             )}
           </CardContent>

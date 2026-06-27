@@ -56,16 +56,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const usersCol = collection(db, 'users');
         const rechargesCol = collection(db, 'recharge-requests');
 
-        const threshold = new Date(Date.now() - (5 * 60 * 1000 + 30 * 1000)).toISOString();
-        const onlineQuery = query(usersCol, where('lastActive', '>=', threshold));
-        
         // Count relay enabled
         const relayQuery = query(usersCol, where('hasFcmToken', '==', true));
 
-        const [usersSnap, relaySnap, onlineSnap, rechargesSnap] = await Promise.all([
+        const [usersSnap, relaySnap, rechargesSnap] = await Promise.all([
           getCountFromServer(usersCol),
           getCountFromServer(relayQuery),
-          getCountFromServer(onlineQuery),
           getCountFromServer(rechargesCol)
         ]);
 
@@ -73,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setStats({
             totalUsers: usersSnap.data().count,
             relayEnabled: relaySnap.data().count,
-            onlineUsers: onlineSnap.data().count,
+            onlineUsers: 0, // Feature disabled for MVP efficiency
             totalPayments: rechargesSnap.data().count
           });
         }

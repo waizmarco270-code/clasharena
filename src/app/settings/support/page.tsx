@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from "@clerk/nextjs";
 import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, doc, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +53,8 @@ export default function SupportPage() {
     if (!user) return null;
     return query(
       collection(db, 'support-tickets'),
-      where('userId', '==', user.id)
+      where('userId', '==', user.id),
+      limit(10)
     );
   }, [db, user?.id]);
 

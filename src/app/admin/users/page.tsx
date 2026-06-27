@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useDoc } from '@/firebase';
-import { collection, query, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, increment, limit } from 'firebase/firestore';
 import Image from 'next/image';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { useToast } from '@/hooks/use-toast';
@@ -57,13 +57,13 @@ export default function UserManagementPage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || myProfile?.isSuperAdmin;
 
+  const [limitCount, setLimitCount] = useState(20);
   // Retrieve all users
-  const allUsersQuery = useMemo(() => query(collection(db, 'users')), [db]);
+  const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(limitCount)), [db, limitCount]);
   const { data: allUsers, loading } = useCollection(allUsersQuery);
 
   const [userSearch, setUserSearch] = useState('');
   const [selectedTH, setSelectedTH] = useState<string>('all');
-  const [selectedOnline, setSelectedOnline] = useState<string>('all');
   const [selectedRelay, setSelectedRelay] = useState<string>('all');
   const [selectedWinsRange, setSelectedWinsRange] = useState<string>('all');
 
@@ -98,13 +98,6 @@ export default function UserManagementPage() {
         if (u.townHall !== thVal) return false;
       }
 
-      // 3. Online Status filter
-      if (selectedOnline !== 'all') {
-        const isOnline = u.lastActive && new Date(u.lastActive).getTime() >= onlineThreshold;
-        if (selectedOnline === 'online' && !isOnline) return false;
-        if (selectedOnline === 'offline' && isOnline) return false;
-      }
-
       // 4. Relay (hasFcmToken) filter
       if (selectedRelay !== 'all') {
         const hasRelay = !!u.hasFcmToken;
@@ -123,7 +116,7 @@ export default function UserManagementPage() {
 
       return true;
     });
-  }, [allUsers, userSearch, selectedTH, selectedOnline, selectedRelay, selectedWinsRange]);
+  }, [allUsers, userSearch, selectedTH, selectedRelay, selectedWinsRange]);
 
   const handleInitiateAction = (userId: string, username: string, targetAdminState: boolean) => {
     setConfirmAction({ userId, username, isAdmin: targetAdminState });
@@ -241,21 +234,6 @@ export default function UserManagementPage() {
                 </Select>
               </div>
 
-              {/* Online Filter */}
-              <div className="space-y-1">
-                <label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
-                <Select value={selectedOnline} onValueChange={setSelectedOnline}>
-                  <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold text-xs rounded-xl text-white">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-950 border-white/10 text-white">
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="online">Online Only</SelectItem>
-                    <SelectItem value="offline">Offline Only</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Relay status Filter */}
               <div className="space-y-1">
                 <label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Relay alerts</label>
@@ -307,8 +285,6 @@ export default function UserManagementPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredUsers.map((u) => {
-              // Online threshold: 5.5 minutes
-              const isOnline = u.lastActive && new Date(u.lastActive).getTime() >= (Date.now() - 5.5 * 60 * 1000);
               return (
                 <div 
                   key={u.id} 
@@ -326,14 +302,7 @@ export default function UserManagementPage() {
                           {u.username?.substring(0, 2) || 'CL'}
                         </div>
                       )}
-                      {/* Online Status Dot */}
-                      <span 
-                        className={cn(
-                          "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-black",
-                          isOnline ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-zinc-500"
-                        )} 
-                        title={isOnline ? "Active" : "Offline"}
-                      />
+
                     </div>
 
                     <div className="min-w-0 space-y-1">
@@ -411,6 +380,18 @@ export default function UserManagementPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {allUsers && allUsers.length >= limitCount && (
+          <div className="flex justify-center mt-6 mb-4">
+            <Button 
+              variant="outline" 
+              className="glass border-white/10 hover:bg-white/5 text-white font-bold"
+              onClick={() => setLimitCount(prev => prev + 20)}
+            >
+              Load More Users
+            </Button>
           </div>
         )}
 

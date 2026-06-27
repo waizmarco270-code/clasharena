@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,7 +21,8 @@ export default function WalletLogsPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc')), [db]);
+  const [limitCount, setLimitCount] = useState(20);
+  const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc'), limit(limitCount)), [db, limitCount]);
   const { data: rechargeRequests } = useCollection(rechargeQuery);
 
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
@@ -31,9 +32,11 @@ export default function WalletLogsPage() {
     if (processingId) return;
     setProcessingId(req.id);
     try {
+      const batch = writeBatch(db);
       const targetUserRef = doc(db, 'users', req.userId);
-      await updateDoc(targetUserRef, { balance: increment(req.amount) });
-      await updateDoc(doc(db, 'recharge-requests', req.id), { status: 'approved' });
+      batch.update(targetUserRef, { balance: increment(req.amount) });
+      batch.update(doc(db, 'recharge-requests', req.id), { status: 'approved' });
+      await batch.commit();
       toast({ title: "FUNDS CREDITED" });
     } finally {
       setProcessingId(null);
@@ -85,6 +88,18 @@ export default function WalletLogsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {rechargeRequests && rechargeRequests.length >= limitCount && (
+        <div className="flex justify-center mt-6">
+          <Button 
+            variant="outline" 
+            className="glass border-white/10 hover:bg-white/5 text-white font-bold"
+            onClick={() => setLimitCount(prev => prev + 20)}
+          >
+            Load More Transactions
+          </Button>
+        </div>
+      )}
 
       <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
         <DialogContent className="glass border-white/10 max-w-2xl">

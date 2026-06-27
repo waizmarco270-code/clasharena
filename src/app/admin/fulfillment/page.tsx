@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, where, limit } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, where, limit, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -23,8 +23,9 @@ export default function FulfillmentPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
+  const [limitCount, setLimitCount] = useState(20);
   // Simplified query for index-less operation
-  const claimsQueryRaw = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(50)), [db]);
+  const claimsQueryRaw = useMemo(() => query(collection(db, 'reward-claims'), orderBy('createdAt', 'desc'), limit(limitCount)), [db, limitCount]);
   const { data: allClaims } = useCollection(claimsQueryRaw);
   const pendingClaims = useMemo(() => allClaims?.filter(c => c.status === 'pending'), [allClaims]);
 
@@ -53,8 +54,9 @@ export default function FulfillmentPage() {
     if (!activeClaim || !fulfillmentProof || processingId) return;
     setProcessingId(activeClaim.id);
     try {
+      const batch = writeBatch(db);
       const claimRef = doc(db, 'reward-claims', activeClaim.id);
-      await updateDoc(claimRef, {
+      batch.update(claimRef, {
         status: 'completed',
         proofImageUrl: fulfillmentProof,
         completedAt: new Date().toISOString()
@@ -62,10 +64,12 @@ export default function FulfillmentPage() {
 
       if (activeClaim.rewardType === 'money') {
         const amount = parseInt(activeClaim.rewardValue) || 0;
-        await updateDoc(doc(db, 'users', activeClaim.userId), {
+        batch.update(doc(db, 'users', activeClaim.userId), {
           earnings: increment(amount)
         });
       }
+
+      await batch.commit();
 
       // Trigger user push alert
       try {
@@ -134,6 +138,18 @@ export default function FulfillmentPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {allClaims && allClaims.length >= limitCount && (
+        <div className="flex justify-center mt-6">
+          <Button 
+            variant="outline" 
+            className="glass border-white/10 hover:bg-white/5 text-white font-bold"
+            onClick={() => setLimitCount(prev => prev + 20)}
+          >
+            Load More Claims
+          </Button>
+        </div>
+      )}
 
       <Dialog open={!!activeClaim} onOpenChange={() => setActiveClaim(null)}>
         <DialogContent className="glass border-white/10 max-w-xl">
