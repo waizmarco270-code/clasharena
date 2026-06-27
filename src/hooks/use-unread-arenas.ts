@@ -4,48 +4,51 @@ import { collection, query, where } from 'firebase/firestore';
 
 export function useUnreadArenasCount() {
   const db = useFirestore();
+  const [lastVisit, setLastVisit] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Query tournaments that are open or upcoming (non-completed)
-  const activeTournamentsQuery = useMemo(() => query(
-    collection(db, 'tournaments'),
-    where('status', 'in', ['upcoming', 'open'])
-  ), [db]);
+  // Initialize lastVisit on client-side mount
+  useEffect(() => {
+    let val = localStorage.getItem('last_arena_visit_time');
+    if (!val) {
+      val = new Date().toISOString();
+      localStorage.setItem('last_arena_visit_time', val);
+    }
+    setLastVisit(val);
+  }, []);
 
-  const { data: tournaments } = useCollection(activeTournamentsQuery);
+  // Query tournaments that are created after lastVisit
+  const unreadTournamentsQuery = useMemo(() => {
+    if (!lastVisit) return null;
+    return query(
+      collection(db, 'tournaments'),
+      where('createdAt', '>', lastVisit)
+    );
+  }, [db, lastVisit]);
+
+  const { data: tournaments } = useCollection(unreadTournamentsQuery);
 
   useEffect(() => {
     if (!tournaments) return;
+    setUnreadCount(tournaments.length);
+  }, [tournaments]);
 
-    const updateCount = () => {
-      const lastVisitStr = localStorage.getItem('last_arena_visit_time');
-      if (!lastVisitStr) {
-        // If the user has never visited, set it to the current time so they start clean
-        localStorage.setItem('last_arena_visit_time', new Date().toISOString());
-        setUnreadCount(0);
-        return;
+  useEffect(() => {
+    const handleUpdate = () => {
+      const val = localStorage.getItem('last_arena_visit_time');
+      if (val) {
+        setLastVisit(val);
       }
-
-      const lastVisitTime = new Date(lastVisitStr).getTime();
-      const newArenas = tournaments.filter(t => {
-        const createdTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
-        return createdTime > lastVisitTime;
-      });
-
-      setUnreadCount(newArenas.length);
     };
 
-    updateCount();
-
-    // Listen to storage events (multi-tab sync) and local custom events
-    window.addEventListener('storage', updateCount);
-    window.addEventListener('arena_visited', updateCount);
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('arena_visited', handleUpdate);
 
     return () => {
-      window.removeEventListener('storage', updateCount);
-      window.removeEventListener('arena_visited', updateCount);
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('arena_visited', handleUpdate);
     };
-  }, [tournaments]);
+  }, []);
 
   return unreadCount;
 }

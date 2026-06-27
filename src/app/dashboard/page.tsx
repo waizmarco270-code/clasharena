@@ -933,7 +933,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
+  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
@@ -946,7 +946,7 @@ export default function Dashboard() {
   const { data: allPolls, loading: pollsLoading } = useCollection(pollsQuery);
   const activePoll = useMemo(() => allPolls?.find(p => p.isActive), [allPolls]);
 
-  const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc'), limit(15)), [db]);
+  const tournamentQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc'), limit(5)), [db]);
   const { data: allT, loading: tournamentLoading } = useCollection(tournamentQuery);
   const latestTournaments = useMemo(() => {
     if (!allT) return [];
@@ -974,6 +974,11 @@ export default function Dashboard() {
   const [showConfirmSetup, setShowConfirmSetup] = useState(false);
 
   useEffect(() => {
+    if (profileError) {
+      setSetupOpen(false);
+      return;
+    }
+
     if (!profileLoading && profile) {
       const isComplete = profile.username && profile.tag && profile.townHall;
       setSetupOpen(!isComplete);
@@ -987,7 +992,7 @@ export default function Dashboard() {
     } else if (!profileLoading && !profile && user) {
       setSetupOpen(true);
     }
-  }, [profile, profileLoading, user]);
+  }, [profile, profileLoading, profileError, user]);
 
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();

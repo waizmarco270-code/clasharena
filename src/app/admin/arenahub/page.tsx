@@ -135,27 +135,25 @@ export default function ArenaHubPage() {
     if (editTId) {
       const updateBody = `Arena "${tournamentData.name}" has been updated.${regTimeline ? ` Registration: ${regTimeline}.` : ''} Check the new battlefield details!`;
       updateDoc(doc(db, 'tournaments', editTId), tournamentData)
-        .then(async () => {
-          try {
-            await fetch('/api/notifications/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                audience: 'broadcast',
-                title: 'Tournament Updated! ⚔️',
-                body: updateBody,
-                imageUrl: tournamentData.imageUrl || undefined,
-                redirectUrl: `/arena/tournament/${editTId}`,
-                data: {
-                  type: 'update_tournament',
-                  name: tournamentData.name,
-                  id: editTId
-                }
-              })
-            });
-          } catch (e) {
+        .then(() => {
+          fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audience: 'broadcast',
+              title: 'Tournament Updated! ⚔️',
+              body: updateBody,
+              imageUrl: tournamentData.imageUrl || undefined,
+              redirectUrl: `/arena/tournament/${editTId}`,
+              data: {
+                type: 'update_tournament',
+                name: tournamentData.name,
+                id: editTId
+              }
+            })
+          }).catch((e) => {
             console.error("Failed to send tournament update push alert:", e);
-          }
+          });
           toast({ title: "ARENA UPDATED" });
           setTOpen(false);
           resetTForm();
@@ -170,27 +168,25 @@ export default function ArenaHubPage() {
         status: 'upcoming', 
         createdAt: new Date().toISOString() 
       })
-        .then(async () => {
-          try {
-            await fetch('/api/notifications/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                audience: 'broadcast',
-                title: 'New Tournament Active! ⚔️',
-                body: deployBody,
-                imageUrl: tournamentData.imageUrl || undefined,
-                redirectUrl: `/arena/tournament/${tRef.id}`,
-                data: {
-                  type: 'new_tournament',
-                  name: tournamentData.name,
-                  id: tRef.id
-                }
-              })
-            });
-          } catch (e) {
+        .then(() => {
+          fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audience: 'broadcast',
+              title: 'New Tournament Active! ⚔️',
+              body: deployBody,
+              imageUrl: tournamentData.imageUrl || undefined,
+              redirectUrl: `/arena/tournament/${tRef.id}`,
+              data: {
+                type: 'new_tournament',
+                name: tournamentData.name,
+                id: tRef.id
+              }
+            })
+          }).catch((e) => {
             console.error("Failed to send tournament push alert:", e);
-          }
+          });
           toast({ title: "ARENA DEPLOYED" });
           setTOpen(false);
           resetTForm();

@@ -11,6 +11,8 @@ import { AppSidebar } from './app-sidebar';
 import { useAuth, useUser } from "@clerk/nextjs";
 import { MaintenanceGuard } from '@/components/maintenance-guard';
 
+let globalLastPresenceUpdateTime = 0;
+
 export function PageWrapper({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: authLoaded } = useAuth();
   const { user: clerkUser } = useUser();
@@ -27,8 +29,6 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
     return publics.includes(pathname);
   }, [pathname]);
 
-  const lastUpdateRef = useRef<number>(0);
-
   useEffect(() => {
     if (!userId || !userRef || !clerkUser || profileLoading) return;
 
@@ -40,7 +40,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
 
       const now = Date.now();
       const shouldSyncAvatar = clerkUser.imageUrl && profile && profile.avatarUrl !== clerkUser.imageUrl;
-      const shouldUpdateHeartbeat = now - lastUpdateRef.current > 4 * 60 * 1000;
+      const shouldUpdateHeartbeat = now - globalLastPresenceUpdateTime > 4 * 60 * 1000;
       const shouldSyncFcmFlag = profile && profile.fcmTokens && profile.fcmTokens.length > 0 && !profile.hasFcmToken;
 
       if (!shouldSyncAvatar && !shouldUpdateHeartbeat && !shouldSyncFcmFlag) return;
@@ -57,7 +57,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
       try {
         await updateDoc(userRef, updates);
         if (shouldUpdateHeartbeat) {
-          lastUpdateRef.current = now;
+          globalLastPresenceUpdateTime = now;
         }
       } catch (e) {}
     };

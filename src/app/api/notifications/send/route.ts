@@ -11,6 +11,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!adminMessaging) {
+      return NextResponse.json({ error: "Push notifications service is offline (adminMessaging not initialized)" }, { status: 503 });
+    }
+
     // Check if the caller is an admin
     const callerDoc = await adminDb.collection('users').doc(callerId).get();
     const callerData = callerDoc.data();
@@ -42,8 +46,8 @@ export async function POST(request: Request) {
     let loggedAudience = audience;
 
     if (audience === 'broadcast') {
-      // Gather all user tokens
-      const usersSnap = await adminDb.collection('users').get();
+      // Gather user tokens only from users who have FCM tokens configured
+      const usersSnap = await adminDb.collection('users').where('hasFcmToken', '==', true).get();
       let allTokens: string[] = [];
       usersSnap.forEach((docSnap: any) => {
         const tokens = docSnap.data().fcmTokens;
