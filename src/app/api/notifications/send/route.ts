@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminMessaging } from '@/lib/firebase-admin';
 import { auth } from '@clerk/nextjs/server';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
       successCount,
       failureCount,
       errors: uniqueErrors,
-      createdAt: new Date().toISOString()
+      createdAt: FieldValue.serverTimestamp()
     };
 
     await adminDb.collection('notification-history').add(historyItem);

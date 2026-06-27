@@ -16,6 +16,7 @@ import {
   onSnapshot,
   QuerySnapshot,
   DocumentData,
+  Timestamp
 } from 'firebase/firestore';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
@@ -34,6 +35,30 @@ function getQueryKey(q: Query | null): string {
   } catch {
     return String(q);
   }
+}
+
+/** Recursively convert Firestore Timestamp objects into ISO strings for UI compatibility */
+export function convertTimestamps(data: any): any {
+  if (!data) return data;
+  if (data instanceof Timestamp) return data.toDate().toISOString();
+  // Also check ducks typing just in case
+  if (typeof data === 'object' && typeof data.toDate === 'function') {
+    return data.toDate().toISOString();
+  }
+  
+  if (typeof data === 'object') {
+    if (Array.isArray(data)) {
+      return data.map(convertTimestamps);
+    }
+    const result: any = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        result[key] = convertTimestamps(data[key]);
+      }
+    }
+    return result;
+  }
+  return data;
 }
 
 export function useCollection<T = DocumentData>(query: Query<T> | null) {
@@ -59,10 +84,13 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
     const unsubscribe = onSnapshot(
       currentQuery,
       (snapshot: QuerySnapshot<T>) => {
-        const docs = snapshot.docs.map((doc) => ({
-          ...doc.data(),
-          id: doc.id,
-        }));
+        const docs = snapshot.docs.map((doc) => {
+          const docData = convertTimestamps(doc.data());
+          return {
+            ...docData,
+            id: doc.id,
+          };
+        });
         setData(docs);
         setLoading(false);
         setError(null);

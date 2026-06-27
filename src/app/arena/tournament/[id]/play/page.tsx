@@ -40,7 +40,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment, limit } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, increment, limit, serverTimestamp } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { default as NextLink } from 'next/link';
@@ -161,7 +161,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         clan1Link: editClan1Link,
         clan2Tag: editClan2Tag,
         clan2Link: editClan2Link,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
       toast({ title: "PROTOCOL UPDATED", description: "Clan configurations secured." });
     } catch (e) {
@@ -201,7 +201,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       imageUrl: logImageUrl,
       caption: logCaption,
       uploadedBy: profile?.username || user?.firstName || 'Admin',
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     });
     setLogImageUrl('');
     setLogCaption('');
@@ -309,7 +309,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       const winnerId = finalMatch.winnerId;
       const winnerName = winnerId === finalMatch.player1Id ? finalMatch.player1Name : finalMatch.player2Name;
       
-      await updateDoc(tRef, { status: 'completed', winnerId, winnerName, completedAt: new Date().toISOString() });
+      await updateDoc(tRef, { status: 'completed', winnerId, winnerName, completedAt: serverTimestamp() });
       
       await Promise.all(registrations.map(reg => 
         updateDoc(doc(db, 'users', reg.userId), { tournamentsPlayed: increment(1) })
@@ -333,7 +333,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         upiQrUrl: '',
         proofImageUrl: '',
         proofImageUrl2: '',
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       };
       
       if (t.rewardType === 'coin') {
@@ -342,7 +342,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           balance: increment(amount),
           earnings: increment(amount)
         });
-        claimData.completedAt = new Date().toISOString();
+        claimData.completedAt = serverTimestamp();
       }
 
       await setDoc(claimRef, claimData);
@@ -365,7 +365,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       await updateDoc(tRef, {
         status: 'cancelled',
         cancelReason: cancelReason.trim(),
-        cancelledAt: new Date().toISOString()
+        cancelledAt: serverTimestamp()
       });
 
       if (t.entryFee > 0 && registrations && registrations.length > 0) {
@@ -381,7 +381,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             transactionId: `cancel_refund_${id}_${reg.userId}`,
             status: 'approved',
             method: 'Refund',
-            createdAt: new Date().toISOString()
+            createdAt: serverTimestamp()
           });
         });
         await Promise.all(refundPromises);
@@ -415,7 +415,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           transactionId: `kick_refund_${id}_${userId}`,
           status: 'approved',
           method: 'Refund',
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
         });
       }
 

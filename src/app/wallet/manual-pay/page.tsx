@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useFirestore, useDoc, errorEmitter, FirestorePermissionError, useProfile } from '@/firebase';
 import { useUser } from '@clerk/nextjs';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import Image from 'next/image';
@@ -92,7 +92,7 @@ function ManualPayContent() {
       transactionId: txId,
       screenshotUrl: screenshotUrl,
       status: 'pending',
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     };
 
     setDoc(requestRef, requestData)

@@ -96,19 +96,21 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
 
     setRegistering(true);
     try {
-      await updateDoc(userRef!, { balance: increment(-t.entryFee) });
-      await updateDoc(tRef, { currentPlayers: increment(1) });
-      const regData = {
-        tournamentId: id,
-        userId: user.id,
-        username: profile.username || user.firstName || 'Warrior',
-        tag: profile.tag,
-        registeredAt: new Date().toISOString()
-      };
-      await setDoc(registrationRef!, regData);
-      toast({ title: "BATTLE JOINED" });
+      const res = await fetch('/api/tournament/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: id })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      
+      if (data.message === 'Already registered') {
+        toast({ title: "ALREADY IN ARENA", description: "You are already registered." });
+      } else {
+        toast({ title: "BATTLE JOINED", description: "Registration successful!" });
+      }
     } catch (e: any) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tRef.path, operation: 'write' }));
+      toast({ variant: "destructive", title: "REGISTRATION ERROR", description: e.message });
     } finally {
       setRegistering(false);
     }

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     await userRef.set({
       fcmTokens: FieldValue.arrayUnion(token),
       hasFcmToken: true,
-      updatedAt: new Date().toISOString()
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
     // 2. Subscribe token to the 'broadcast' topic for global alerts

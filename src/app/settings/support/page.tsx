@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from "@clerk/nextjs";
 import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, query, where, orderBy, doc, limit } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, doc, limit, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -123,7 +123,7 @@ export default function SupportPage() {
       status: 'pending',
       adminReply: '',
       repliedAt: null,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     };
 
     try {

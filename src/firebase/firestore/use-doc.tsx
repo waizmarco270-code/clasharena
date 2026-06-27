@@ -14,6 +14,7 @@ import {
   DocumentSnapshot,
   DocumentData,
 } from 'firebase/firestore';
+import { convertTimestamps } from './use-collection';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
@@ -39,7 +40,11 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
     const unsubscribe = onSnapshot(
       currentRef,
       (snapshot: DocumentSnapshot<T>) => {
-        setData(snapshot.exists() ? snapshot.data()! : null);
+        if (snapshot.exists()) {
+          setData(convertTimestamps(snapshot.data()));
+        } else {
+          setData(null);
+        }
         setLoading(false);
         setError(null);
       },

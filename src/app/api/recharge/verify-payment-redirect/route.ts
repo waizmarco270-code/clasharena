@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         orderId: orderId || '',
         status: 'approved',
         method: 'Automatic',
-        createdAt: new Date().toISOString()
+        createdAt: FieldValue.serverTimestamp()
       });
     });
 
