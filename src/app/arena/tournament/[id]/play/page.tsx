@@ -47,6 +47,7 @@ import { default as NextLink } from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
@@ -244,12 +245,8 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     if (!file || !isAdmin) return;
     setUploadingLog(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) { setLogImageUrl(data.secure_url); toast({ title: "LOG PHOTO READY" }); }
+      const result = await uploadToCloudinary(file, { folder: 'battle-logs' });
+      if (result.url) { setLogImageUrl(result.url); toast({ title: "LOG PHOTO READY" }); }
     } finally { setUploadingLog(false); }
   };
 

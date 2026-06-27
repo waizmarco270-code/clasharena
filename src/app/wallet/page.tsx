@@ -22,7 +22,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { useDoc, useFirestore } from '@/firebase';
+import { useProfile, useBackgrounds, useFirestore } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
 import { doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -32,7 +32,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import confetti from 'canvas-confetti';
 
 const playCoinSound = () => {
   try {
@@ -70,12 +69,8 @@ function WalletPageContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  const userRef = useMemo(() => (authLoaded && user) ? doc(db, 'users', user.id) : null, [db, user?.id, authLoaded]);
-  const { data: profile } = useDoc(userRef);
-
-  // Background Image from App Settings
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
+  const { profile } = useProfile();
+  const { backgrounds: bgData } = useBackgrounds();
   const walletBg = bgData?.wallet;
 
   const [amount, setAmount] = useState<number>(50);
@@ -97,11 +92,13 @@ function WalletPageContent() {
       const creditedAmount = paymentAmount ? Number(paymentAmount) : amount;
       
       // Trigger victory satisfaction effects
-      confetti({
-        particleCount: 150,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#FF4500', '#DC143C', '#FFA500', '#FFFFFF']
+      import('canvas-confetti').then((confetti) => {
+        confetti.default({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#FF4500', '#DC143C', '#FFA500', '#FFFFFF']
+        });
       });
       playCoinSound();
 

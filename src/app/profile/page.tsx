@@ -33,8 +33,8 @@ import {
   ChevronLeft,
   ExternalLink
 } from 'lucide-react';
-import { useFirestore, useDoc, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion } from 'firebase/firestore';
+import { useFirestore, useCollection, useProfile } from '@/firebase';
+import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion, limit } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -43,6 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { RANKS, getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
 import { cn } from '@/lib/utils';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -51,7 +52,7 @@ export default function ProfilePage() {
   const db = useFirestore();
   const { toast } = useToast();
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile } = useDoc(userRef);
+  const { profile } = useProfile();
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
@@ -74,7 +75,7 @@ export default function ProfilePage() {
   // Winnings Query - Simplified for index-less operation
   const winningsQuery = useMemo(() => {
     if (!user) return null;
-    return query(collection(db, 'reward-claims'), where('userId', '==', user.id));
+    return query(collection(db, 'reward-claims'), where('userId', '==', user.id), limit(20));
   }, [db, user?.id]);
   const { data: rawWinnings } = useCollection(winningsQuery);
 
@@ -118,13 +119,14 @@ export default function ProfilePage() {
     if (!file) return;
     setUploading(true);
     try {
-      const formDataCld = new FormData();
-      formDataCld.append('file', file);
-      formDataCld.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formDataCld });
-      const data = await res.json();
-      if (data.secure_url) { setFormData(prev => ({ ...prev, upiQrUrl: data.secure_url })); toast({ title: "QR Updated!" }); }
-    } catch (err) { toast({ variant: "destructive", title: "Upload Failed" }); } finally { setUploading(false); }
+      const result = await uploadToCloudinary(file, { folder: 'qr' });
+      setFormData(prev => ({ ...prev, upiQrUrl: result.url })); 
+      toast({ title: "QR Updated!" });
+    } catch (err) { 
+      toast({ variant: "destructive", title: "Upload Failed" }); 
+    } finally { 
+      setUploading(false); 
+    }
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {

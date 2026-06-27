@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useRef } from 'react';
@@ -18,6 +17,7 @@ import {
   Camera
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 
 export default function FulfillmentPage() {
   const db = useFirestore();
@@ -39,13 +39,9 @@ export default function FulfillmentPage() {
     if (!file) return;
     setUploadingFulfillment(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setFulfillmentProof(data.secure_url);
+      const result = await uploadToCloudinary(file, { folder: 'proofs' });
+      if (result.url) {
+        setFulfillmentProof(result.url);
         toast({ title: "PROOF PHOTO READY" });
       }
     } finally {

@@ -26,8 +26,8 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { useRouter } from 'next/navigation';
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Card } from '@/components/ui/card';
-import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, collection, query, limit, orderBy } from 'firebase/firestore';
+import { useBackgrounds, useFirestore, useCollection } from '@/firebase';
+import { collection, query, limit, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -75,8 +75,7 @@ export default function Home() {
   const router = useRouter();
   const db = useFirestore();
 
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
+  const { backgrounds: bgData } = useBackgrounds();
 
   const topChampionsQuery = useMemo(() => query(collection(db, 'users'), orderBy('wins', 'desc'), limit(3)), [db]);
   const { data: champions } = useCollection(topChampionsQuery);

@@ -3,6 +3,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { 
   Loader2,
   ImagePlus,
@@ -53,13 +56,9 @@ export default function BackgroundsPage() {
     if (!file) return;
     setSavingBgs(section);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        const updatedBgs = { ...bgs, [section]: data.secure_url };
+      const result = await uploadToCloudinary(file, { folder: 'backgrounds' });
+      if (result.url) {
+        const updatedBgs = { ...bgs, [section]: result.url };
         await setDoc(backgroundsRef, {
           ...updatedBgs,
           updatedAt: new Date().toISOString()

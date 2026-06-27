@@ -20,10 +20,11 @@ import {
   AlertTriangle,
   ShieldAlert as ShieldIcon
 } from 'lucide-react';
-import { useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useDoc, errorEmitter, FirestorePermissionError, useProfile } from '@/firebase';
 import { useUser } from '@clerk/nextjs';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -34,8 +35,7 @@ function ManualPayContent() {
   const db = useFirestore();
   const { toast } = useToast();
   
-  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile } = useDoc(userRef);
+  const { profile } = useProfile();
 
   // Fetch Admin Payment Settings
   const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
@@ -64,16 +64,9 @@ function ManualPayContent() {
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) throw new Error("Cloudinary configuration missing");
-      
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
-      const data = await response.json();
-      if (data.secure_url) {
-        setScreenshotUrl(data.secure_url);
+      const result = await uploadToCloudinary(file, { folder: 'receipts' });
+      if (result.url) {
+        setScreenshotUrl(result.url);
         toast({ title: "SCREENSHOT VERIFIED", description: "Proof uploaded successfully." });
       }
     } catch (err: any) {

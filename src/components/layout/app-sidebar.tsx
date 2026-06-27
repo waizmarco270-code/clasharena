@@ -34,8 +34,7 @@ import {
   LifeBuoy,
   BookOpen
 } from 'lucide-react';
-import { useDoc, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useBackgrounds, useProfile, useAdminStatus } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
 import Image from 'next/image';
 import { AppLogoImage } from '@/components/ui/app-logo-image';
@@ -45,17 +44,10 @@ const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
-  const db = useFirestore();
   const unreadCount = useUnreadArenasCount();
-
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
-
-  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile } = useDoc(userRef);
-
-  const isAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isAdmin || profile?.isSuperAdmin;
+  const { backgrounds: bgData } = useBackgrounds();
+  const { profile } = useProfile();
+  const { isAdmin } = useAdminStatus();
 
   const logoUrl = bgData?.logo;
 

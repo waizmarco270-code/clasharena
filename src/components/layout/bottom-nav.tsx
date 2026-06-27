@@ -28,17 +28,24 @@ export function BottomNav() {
   }, []);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      
-      // If user scrolls down by more than 10px, hide bottom bar. Otherwise, show it.
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        setVisible(false);
-      } else {
-        setVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-    };
+      let ticking = false;
+      const handleScroll = () => {
+        if (!ticking) {
+          window.requestAnimationFrame(() => {
+            const currentScrollY = window.scrollY;
+            
+            // If user scrolls down by more than 50px, hide bottom bar. Otherwise, show it.
+            if (currentScrollY > lastScrollY && currentScrollY > 50) {
+              setVisible(false);
+            } else {
+              setVisible(true);
+            }
+            setLastScrollY(currentScrollY);
+            ticking = false;
+          });
+          ticking = true;
+        }
+      };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);

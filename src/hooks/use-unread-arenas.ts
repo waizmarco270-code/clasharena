@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 
 export function useUnreadArenasCount() {
   const db = useFirestore();
@@ -17,21 +17,25 @@ export function useUnreadArenasCount() {
     setLastVisit(val);
   }, []);
 
-  // Query tournaments that are created after lastVisit
-  const unreadTournamentsQuery = useMemo(() => {
-    if (!lastVisit) return null;
-    return query(
-      collection(db, 'tournaments'),
-      where('createdAt', '>', lastVisit)
-    );
-  }, [db, lastVisit]);
-
-  const { data: tournaments } = useCollection(unreadTournamentsQuery);
-
+  // Fetch count once when lastVisit changes or is set
   useEffect(() => {
-    if (!tournaments) return;
-    setUnreadCount(tournaments.length);
-  }, [tournaments]);
+    if (!lastVisit) return;
+    
+    const fetchUnreadCount = async () => {
+      try {
+        const q = query(
+          collection(db, 'tournaments'),
+          where('createdAt', '>', lastVisit)
+        );
+        const snapshot = await getCountFromServer(q);
+        setUnreadCount(snapshot.data().count);
+      } catch (err) {
+        console.warn('Failed to fetch unread arenas count:', err);
+      }
+    };
+    
+    fetchUnreadCount();
+  }, [db, lastVisit]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -52,3 +56,4 @@ export function useUnreadArenasCount() {
 
   return unreadCount;
 }
+

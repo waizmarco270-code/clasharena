@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { 
   Bell, 
   Send, 
@@ -84,22 +85,12 @@ export default function AdminNotificationsPage() {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await res.json();
-      if (data.secure_url) {
-        setImageUrl(data.secure_url);
+      const result = await uploadToCloudinary(file, { folder: 'notifications' });
+      if (result.url) {
+        setImageUrl(result.url);
         toast({ title: "Image Uploaded 🖼️", description: "Successfully attached notification banner." });
       } else {
-        throw new Error(data.error?.message || "Upload failed");
+        throw new Error("Upload failed");
       }
     } catch (err: any) {
       toast({

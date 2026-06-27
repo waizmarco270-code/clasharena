@@ -191,16 +191,16 @@ export async function POST(request: Request) {
 
     await adminDb.collection('notification-history').add(historyItem);
 
-    // Prune history to keep only last 30
-    const historySnap = await adminDb.collection('notification-history')
+    // Prune history to keep only last 30 (OPTIMIZED)
+    const excessSnap = await adminDb.collection('notification-history')
       .orderBy('createdAt', 'desc')
+      .offset(30)
+      .limit(10)
       .get();
     
-    if (historySnap.size > 30) {
+    if (!excessSnap.empty) {
       const batch = adminDb.batch();
-      for (let i = 30; i < historySnap.docs.length; i++) {
-        batch.delete(historySnap.docs[i].ref);
-      }
+      excessSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
       await batch.commit();
     }
 

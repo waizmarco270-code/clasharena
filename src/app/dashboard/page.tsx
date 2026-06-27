@@ -37,11 +37,12 @@ import {
   QrCode,
   IndianRupee
 } from 'lucide-react';
-import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, limit, increment, getDoc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useProfile, useBackgrounds, useDoc } from '@/firebase';
+import { doc, setDoc, query, collection, where, orderBy, limit, increment, updateDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -203,12 +204,18 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
   const handleAdminDeployLink = async () => {
     if (!itemLink.trim() || loading) return;
     setLoading(true);
-    await updateDoc(doc(db, 'reward-claims', claim.id), {
-      itemLink: itemLink.trim(),
-      status: 'approved'
-    });
-    setLoading(false);
-    toast({ title: "ITEM LINK DEPLOYED" });
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        itemLink: itemLink.trim(),
+        status: 'approved'
+      });
+      toast({ title: "ITEM LINK DEPLOYED" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "DEPLOYMENT FAILED" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = async (num: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,15 +223,12 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
     if (!file) return;
     setUploading(num);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setProofs(prev => ({ ...prev, [num === 1 ? 'ss1' : 'ss2']: data.secure_url }));
-        toast({ title: `SCREENSHOT ${num} READY` });
-      }
+      const result = await uploadToCloudinary(file, { folder: 'proofs' });
+      setProofs(prev => ({ ...prev, [num === 1 ? 'ss1' : 'ss2']: result.url }));
+      toast({ title: `SCREENSHOT ${num} READY` });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "UPLOAD FAILED" });
     } finally {
       setUploading(null);
     }
@@ -233,13 +237,19 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
   const handleWinnerConfirmSubmission = async () => {
     if (!proofs.ss1 || !proofs.ss2 || loading) return;
     setLoading(true);
-    await updateDoc(doc(db, 'reward-claims', claim.id), {
-      proofImageUrl: proofs.ss1,
-      proofImageUrl2: proofs.ss2,
-      status: 'reviewing'
-    });
-    setLoading(false);
-    toast({ title: "INTEL DISPATCHED", description: "Admin will verify your proofs now." });
+    try {
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        proofImageUrl: proofs.ss1,
+        proofImageUrl2: proofs.ss2,
+        status: 'reviewing'
+      });
+      toast({ title: "INTEL DISPATCHED", description: "Admin will verify your proofs now." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "SUBMISSION FAILED" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAdminFinalApproval = async () => {
@@ -278,15 +288,9 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
     if (!file) return;
     setUploadingQr(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setWinnerUpiQr(data.secure_url);
-        toast({ title: "QR SCREENSHOT READY" });
-      }
+      const result = await uploadToCloudinary(file, { folder: 'qr' });
+      setWinnerUpiQr(result.url);
+      toast({ title: "QR SCREENSHOT READY" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "UPLOAD FAILED" });
@@ -335,15 +339,9 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
     if (!file) return;
     setUploadingPaymentProof(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setAdminPaymentProof(data.secure_url);
-        toast({ title: "PAYMENT PROOF READY" });
-      }
+      const result = await uploadToCloudinary(file, { folder: 'payments' });
+      setAdminPaymentProof(result.url);
+      toast({ title: "PAYMENT PROOF READY" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "UPLOAD FAILED" });
@@ -374,15 +372,9 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
     if (!file) return;
     setUploadingReceiveProof(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setWinnerReceiveProof(data.secure_url);
-        toast({ title: "RECEIPT PROOF READY" });
-      }
+      const result = await uploadToCloudinary(file, { folder: 'receipts' });
+      setWinnerReceiveProof(result.url);
+      toast({ title: "RECEIPT PROOF READY" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "UPLOAD FAILED" });
@@ -933,13 +925,12 @@ export default function Dashboard() {
   const { toast } = useToast();
   
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
-  const { data: profile, loading: profileLoading, error: profileError } = useDoc(userRef);
+  const { profile, profileLoading, profileError } = useProfile();
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
 
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
+  const { backgrounds: bgData } = useBackgrounds();
   const dashboardBg = bgData?.dashboard;
 
   const pollsQuery = useMemo(() => query(collection(db, 'polls'), orderBy('createdAt', 'desc'), limit(5)), [db]);

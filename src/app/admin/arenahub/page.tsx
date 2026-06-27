@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 
 export default function ArenaHubPage() {
   const db = useFirestore();
@@ -69,13 +70,9 @@ export default function ArenaHubPage() {
     if (!file) return;
     setUploadingThumbnail(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setTForm(prev => ({ ...prev, imageUrl: data.secure_url }));
+      const result = await uploadToCloudinary(file, { folder: 'tournaments' });
+      if (result.url) {
+        setTForm(prev => ({ ...prev, imageUrl: result.url }));
         toast({ title: "BANNER READY" });
       }
     } finally {
@@ -88,13 +85,9 @@ export default function ArenaHubPage() {
     if (!file) return;
     setUploadingReward(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setTForm(prev => ({ ...prev, rewardImageUrl: data.secure_url }));
+      const result = await uploadToCloudinary(file, { folder: 'rewards' });
+      if (result.url) {
+        setTForm(prev => ({ ...prev, rewardImageUrl: result.url }));
         toast({ title: "REWARD PHOTO READY" });
       }
     } finally {

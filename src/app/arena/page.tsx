@@ -27,8 +27,8 @@ import {
   Users,
   ShieldCheck
 } from 'lucide-react';
-import { useCollection, useFirestore, useDoc } from '@/firebase';
-import { collection, query, orderBy, where, doc } from 'firebase/firestore';
+import { useCollection, useFirestore, useBackgrounds } from '@/firebase';
+import { collection, query, orderBy, where, doc, limit } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format, isBefore, isAfter } from 'date-fns';
@@ -44,7 +44,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function TournamentCard({ t }: { t: any }) {
+function TournamentCard({ t, now }: { t: any, now: Date }) {
   const [countdown, setCountdown] = useState<string>('');
   const [statusText, setStatusText] = useState<string>('');
   const [statusColor, setStatusColor] = useState<string>('text-black');
@@ -57,41 +57,38 @@ function TournamentCard({ t }: { t: any }) {
       setStatusColor('text-black');
       return;
     }
-    const timer = setInterval(() => {
-      const now = new Date();
-      const regStart = new Date(t.registrationStartTime);
-      const regEnd = new Date(t.registrationEndTime);
-      const battleStart = new Date(t.startTime);
+    
+    const regStart = new Date(t.registrationStartTime);
+    const regEnd = new Date(t.registrationEndTime);
+    const battleStart = new Date(t.startTime);
 
-      if (isBefore(now, regStart)) {
-        const diff = regStart.getTime() - now.getTime();
-        setCountdown(formatDiff(diff));
-        setStatusText('REGISTRATION OPENS IN');
-        setStatusColor('text-black');
-      } else if (isAfter(now, regStart) && isBefore(now, regEnd)) {
-        if (t.currentPlayers >= t.maxPlayers) {
-          setCountdown('SOLD OUT');
-          setStatusText('ARENA FULL');
-          setStatusColor('text-red-600');
-        } else {
-          const diff = regEnd.getTime() - now.getTime();
-          setCountdown(formatDiff(diff));
-          setStatusText('REGISTRATION ENDS IN');
-          setStatusColor('text-black');
-        }
-      } else if (isAfter(now, regStart) && isBefore(now, battleStart)) {
-        const diff = battleStart.getTime() - now.getTime();
-        setCountdown(formatDiff(diff));
-        setStatusText('BATTLE STARTS IN');
-        setStatusColor('text-black');
-      } else {
-        setCountdown('BATTLE LIVE');
-        setStatusText('ARENA ACTIVE');
+    if (isBefore(now, regStart)) {
+      const diff = regStart.getTime() - now.getTime();
+      setCountdown(formatDiff(diff));
+      setStatusText('REGISTRATION OPENS IN');
+      setStatusColor('text-black');
+    } else if (isAfter(now, regStart) && isBefore(now, regEnd)) {
+      if (t.currentPlayers >= t.maxPlayers) {
+        setCountdown('SOLD OUT');
+        setStatusText('ARENA FULL');
         setStatusColor('text-red-600');
+      } else {
+        const diff = regEnd.getTime() - now.getTime();
+        setCountdown(formatDiff(diff));
+        setStatusText('REGISTRATION ENDS IN');
+        setStatusColor('text-black');
       }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [t]);
+    } else if (isAfter(now, regStart) && isBefore(now, battleStart)) {
+      const diff = battleStart.getTime() - now.getTime();
+      setCountdown(formatDiff(diff));
+      setStatusText('BATTLE STARTS IN');
+      setStatusColor('text-black');
+    } else {
+      setCountdown('BATTLE LIVE');
+      setStatusText('ARENA ACTIVE');
+      setStatusColor('text-red-600');
+    }
+  }, [t, now]);
 
   const formatDiff = (ms: number) => {
     const h = Math.floor(ms / 3600000);
@@ -267,17 +264,25 @@ export default function ArenaPage() {
   const [activeSub, setActiveSub] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [thFilter, setThFilter] = useState<number | null>(null);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     localStorage.setItem('last_arena_visit_time', new Date().toISOString());
     window.dispatchEvent(new Event('arena_visited'));
+    
+    // Single shared interval for all tournament cards
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const backgroundsRef = useMemo(() => doc(db, 'app-settings', 'backgrounds'), [db]);
-  const { data: bgData } = useDoc(backgroundsRef);
+  const { backgrounds: bgData } = useBackgrounds();
 
   const tournamentQuery = useMemo(() => {
-    return query(collection(db, 'tournaments'), orderBy('startTime', 'desc'));
+    return query(
+      collection(db, 'tournaments'), 
+      orderBy('startTime', 'desc'),
+      limit(20) // OPTIMIZATION: Unbounded query fixed
+    );
   }, [db]);
 
   const { data: allTournaments, loading } = useCollection(tournamentQuery);
@@ -412,7 +417,7 @@ export default function ArenaPage() {
                         <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Adjust filters or check back for new battlegrounds</p>
                      </div>
                    </div>
-                 ) : filteredTournaments.map((t: any) => (<TournamentCard key={t.id} t={t} />))}
+                 ) : filteredTournaments.map((t: any) => (<TournamentCard key={t.id} t={t} now={now} />))}
               </div>
             </>
           )}

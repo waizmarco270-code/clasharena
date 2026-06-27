@@ -9,8 +9,10 @@ import {
   QrCode, 
   Loader2
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -54,13 +56,9 @@ export default function GatewayPage() {
     if (!file) return;
     setUploadingQr(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.secure_url) {
-        setQrUrl(data.secure_url);
+      const result = await uploadToCloudinary(file, { folder: 'qr' });
+      if (result.url) {
+        setQrUrl(result.url);
         toast({ title: "MASTER QR UPLOADED" });
       }
     } finally {

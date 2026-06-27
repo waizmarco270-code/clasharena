@@ -33,13 +33,11 @@ export function NotificationHandler() {
       
       console.log('Messaging service worker registration active.');
 
-      // Dynamically import Firebase scripts to avoid Next.js compile/SSR errors
-      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { initializeFirebase } = await import('@/firebase');
       const { getMessaging, getToken } = await import('firebase/messaging');
-      const { firebaseConfig } = await import('@/firebase/config');
 
-      // Initialize client-side app instance
-      const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+      // Reuse the centralized client-side app instance
+      const { firebaseApp: app } = initializeFirebase();
       const messaging = getMessaging(app);
 
       // Request FCM Registration Token using public VAPID certificate

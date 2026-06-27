@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { 
   MessageSquare, 
   Send, 
@@ -80,16 +81,9 @@ export default function SupportPage() {
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (data.secure_url) {
-        setScreenshotUrl(data.secure_url);
+      const result = await uploadToCloudinary(file, { folder: 'support' });
+      if (result.url) {
+        setScreenshotUrl(result.url);
         toast({ title: "SCREENSHOT READY" });
       }
     } catch (err) {

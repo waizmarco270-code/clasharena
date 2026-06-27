@@ -2,8 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useDoc, useCollection, useFirestore } from '@/firebase';
-import { doc, collection, query, orderBy } from 'firebase/firestore';
+import { useProfile, useMaintenance, useReleases, useAdminStatus } from '@/firebase';
 import { useUser } from '@clerk/nextjs';
 import { Loader2, Wrench, ShieldAlert, Sparkles, Check, ChevronRight, MessageSquareCode } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -45,24 +44,11 @@ interface TimeRemaining {
 }
 
 export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
-  const db = useFirestore();
   const pathname = usePathname();
-  const { user, isLoaded: authLoaded } = useUser();
-
-  // 1. Fetch user role to bypass shield for admins
-  const userRef = useMemo(() => (authLoaded && user?.id) ? doc(db, 'users', user.id) : null, [db, user?.id, authLoaded]);
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
-
-  const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
-  const isAdmin = profile?.isAdmin || isSuperAdmin;
-
-  // 2. Fetch Maintenance config from app-settings
-  const maintenanceRef = useMemo(() => doc(db, 'app-settings', 'maintenance'), [db]);
-  const { data: maintenance, loading: maintenanceLoading } = useDoc(maintenanceRef);
-
-  // 3. Fetch Releases for Whats New modal
-  const releasesQuery = useMemo(() => query(collection(db, 'releases'), orderBy('createdAt', 'desc')), [db]);
-  const { data: releases } = useCollection(releasesQuery);
+  const { profile, profileLoading } = useProfile();
+  const { isAdmin } = useAdminStatus();
+  const { maintenance, maintenanceLoading } = useMaintenance();
+  const { releases } = useReleases();
 
   // States
   const [timeLeft, setTimeLeft] = useState<TimeRemaining>({ hours: '00', minutes: '00', seconds: '00', total: 0 });
@@ -152,7 +138,7 @@ export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
   }, [maintenance, maintenanceLoading, profileLoading, isAdmin, isLandingPage]);
 
   // Loading indicator for verification stage
-  if (maintenanceLoading || (authLoaded && user?.id && profileLoading)) {
+  if (maintenanceLoading || profileLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-black">
         <Loader2 className="animate-spin text-primary w-12 h-12" />

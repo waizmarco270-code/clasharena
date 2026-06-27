@@ -89,11 +89,10 @@ export function Header() {
     try {
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
       
-      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { initializeFirebase } = await import('@/firebase');
       const { getMessaging, getToken } = await import('firebase/messaging');
-      const { firebaseConfig } = await import('@/firebase/config');
 
-      const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+      const { firebaseApp: app } = initializeFirebase();
       const messaging = getMessaging(app);
 
       const token = await getToken(messaging, {
@@ -123,8 +122,7 @@ export function Header() {
     }
   };
 
-  const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
-  const isAdmin = profile?.isAdmin || isSuperAdmin;
+
 
   const logoUrl = bgData?.logo;
 
