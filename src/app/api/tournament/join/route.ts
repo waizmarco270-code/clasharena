@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const tRef = adminDb.collection('tournaments').doc(tournamentId);
     const userRef = adminDb.collection('users').doc(userId);
     const registrationRef = tRef.collection('registrations').doc(userId);
-    const historyRef = adminDb.collection('wallet-history').doc();
+    const historyRef = adminDb.collection('recharge-requests').doc();
 
     const result = await adminDb.runTransaction(async (transaction) => {
       const [tSnap, userSnap, regSnap] = await transaction.getAll(tRef, userRef, registrationRef);
