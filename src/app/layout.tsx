@@ -75,7 +75,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const IS_UNDER_MAINTENANCE = true;
+const IS_UNDER_MAINTENANCE = false;
 
 export default function RootLayout({
   children,
