@@ -115,27 +115,7 @@ export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
   }, [maintenance?.isActive, maintenance?.endAt]);
 
   // Determine if block screen should display
-  const shouldBlock = useMemo(() => {
-    // Wait for authentication and settings profile data
-    if (maintenanceLoading || profileLoading) return false;
-    
-    // Landing page is public and never blocked
-    if (isLandingPage) return false;
-
-    // Administrators bypass maintenance lock
-    if (isAdmin) return false;
-
-    // Maintenance is disabled globally
-    if (!maintenance?.isActive) return false;
-
-    // If an end date/time exists, and the current time is past that date, bypass
-    if (maintenance.endAt) {
-      const difference = +new Date(maintenance.endAt) - +new Date();
-      if (difference <= 0) return false;
-    }
-
-    return true;
-  }, [maintenance, maintenanceLoading, profileLoading, isAdmin, isLandingPage]);
+  const shouldBlock = false; // Forced false as per user request to disable maintenance mode
 
   // Loading indicator for verification stage
   if (maintenanceLoading || profileLoading) {

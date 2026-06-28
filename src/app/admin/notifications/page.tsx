@@ -43,41 +43,7 @@ export default function AdminNotificationsPage() {
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // Subscribe to last 30 notification logs
-  const historyQuery = useMemo(() => query(
-    collection(db, 'notification-history'),
-    orderBy('createdAt', 'desc'),
-    limit(30)
-  ), [db]);
-  const { data: history, loading: loadingHistory } = useCollection(historyQuery);
-
-  const handleClearHistory = async () => {
-    if (!window.confirm("Are you sure you want to clear all transmission logs? This cannot be undone.")) {
-      return;
-    }
-    setClearing(true);
-    try {
-      const q = query(collection(db, 'notification-history'));
-      const snap = await getDocs(q);
-      const batch = writeBatch(db);
-      snap.docs.forEach(docSnap => {
-        batch.delete(docSnap.ref);
-      });
-      await batch.commit();
-      toast({
-        title: "Logs Cleared 🧹",
-        description: "Successfully cleared all notification transmission logs."
-      });
-    } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Clear Failed",
-        description: err.message || "Failed to clear transmission history."
-      });
-    } finally {
-      setClearing(false);
-    }
-  };
+  // History is permanently disabled for performance
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -324,108 +290,13 @@ export default function AdminNotificationsPage() {
         {/* History / Diagnostics Card */}
         <Card className="glass border-white/5 bg-black/40 lg:col-span-2 relative overflow-hidden h-fit">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-red-600 via-primary to-transparent" />
-          <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="space-y-1.5">
-              <CardTitle className="font-headline text-lg uppercase text-white flex items-center gap-2">
-                <History className="w-5 h-5 text-primary" /> TRANSMISSION ARCHIVE (LAST 30)
-              </CardTitle>
-              <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-wider">Historical dispatch logs & diagnostics</CardDescription>
-            </div>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleClearHistory}
-              disabled={clearing || !history || history.length === 0}
-              className="bg-red-600/10 hover:bg-red-600 border border-red-500/20 text-red-500 hover:text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all flex items-center gap-2 h-9 self-end sm:self-auto"
-            >
-              {clearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-              Clear History
-            </Button>
+          <CardHeader className="flex flex-col justify-center items-center h-64 opacity-50">
+            <Bell className="w-12 h-12 text-muted-foreground mb-4" />
+            <CardTitle className="font-headline text-xl uppercase text-muted-foreground">HISTORY DISABLED</CardTitle>
+            <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 text-center max-w-sm mt-2">
+              Notification archiving has been permanently disabled to optimize database write operations and preserve quota.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="p-0 sm:p-6">
-            {loadingHistory ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Retrieving history logs...</p>
-              </div>
-            ) : !history || history.length === 0 ? (
-              <div className="py-20 text-center space-y-4 opacity-40">
-                <Bell className="w-12 h-12 mx-auto text-muted-foreground animate-pulse" />
-                <p className="text-[10px] font-black uppercase tracking-widest">No Transmissions Dispatched Yet.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/5 hover:bg-transparent bg-white/5">
-                      <TableHead className="text-[9px] font-black uppercase">Notification</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase">Audience</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase text-center">Delivery Analytics</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase text-right">Details & Errors</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history.map((log: any) => (
-                      <TableRow key={log.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                        <TableCell className="max-w-[200px] space-y-1">
-                          <p className="font-bold text-xs uppercase text-white line-clamp-1">{log.title}</p>
-                          <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">{log.body}</p>
-                          {log.imageUrl && (
-                            <span className="inline-flex items-center gap-1 text-[8px] font-black text-amber-500 uppercase bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded mt-1">
-                              Banner Attached
-                            </span>
-                          )}
-                          {log.redirectUrl && log.redirectUrl !== '/dashboard' && (
-                            <p className="text-[8px] text-muted-foreground flex items-center gap-1 font-semibold">
-                              <Link2 className="w-2.5 h-2.5" /> {log.redirectUrl}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[8px] uppercase border-white/15 text-white font-bold whitespace-nowrap">
-                            {log.audience}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-center justify-center gap-1.5">
-                            <div className="flex items-center gap-3">
-                              <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3 text-emerald-400" /> {log.successCount}
-                              </span>
-                              <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <XCircle className="w-3 h-3 text-red-400" /> {log.failureCount}
-                              </span>
-                            </div>
-                            <span className="text-[8px] text-muted-foreground uppercase font-black">
-                              {log.createdAt ? format(new Date(log.createdAt), 'MMM dd, HH:mm') : ''}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right max-w-[200px]">
-                          {log.errors && log.errors.length > 0 ? (
-                            <div className="space-y-1 text-left inline-block">
-                              <span className="text-[8px] font-black text-red-400 flex items-center gap-1 uppercase bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full w-fit ml-auto">
-                                <AlertTriangle className="w-3 h-3" /> Diagnostic Errors
-                              </span>
-                              <div className="max-h-[80px] overflow-y-auto mt-1 space-y-0.5 text-right no-scrollbar">
-                                {log.errors.map((err: string, idx: number) => (
-                                  <p key={idx} className="text-[8px] font-semibold text-muted-foreground leading-tight">{err}</p>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-[9px] font-black text-emerald-400 uppercase bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                              Fully Delivered
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
         </Card>
       </div>
     </div>

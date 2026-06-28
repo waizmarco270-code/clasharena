@@ -177,33 +177,7 @@ export async function POST(request: Request) {
 
     const uniqueErrors = Array.from(new Set(errorsList));
 
-    // Save notification to history
-    const historyItem = {
-      title,
-      body,
-      imageUrl: imageUrl || '',
-      redirectUrl: redirectUrl || '/dashboard',
-      audience: loggedAudience,
-      successCount,
-      failureCount,
-      errors: uniqueErrors,
-      createdAt: FieldValue.serverTimestamp()
-    };
-
-    await adminDb.collection('notification-history').add(historyItem);
-
-    // Prune history to keep only last 30 (OPTIMIZED)
-    const excessSnap = await adminDb.collection('notification-history')
-      .orderBy('createdAt', 'desc')
-      .offset(30)
-      .limit(10)
-      .get();
-    
-    if (!excessSnap.empty) {
-      const batch = adminDb.batch();
-      excessSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
-      await batch.commit();
-    }
+    // History saving has been disabled per user request to optimize write operations
 
     return NextResponse.json({
       success: true,
