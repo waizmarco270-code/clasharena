@@ -62,6 +62,7 @@ export async function POST(req: Request) {
         
         transaction.set(historyRef, {
           userId,
+          username: profile.username || 'Warrior',
           amount: -t.entryFee,
           type: 'TOURNAMENT_ENTRY',
           description: `Entry fee for Arena: ${t.name}`,
