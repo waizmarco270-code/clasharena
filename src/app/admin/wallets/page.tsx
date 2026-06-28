@@ -71,15 +71,25 @@ export default function WalletLogsPage() {
           <TableBody>
             {rechargeRequests?.map((req: any) => (
               <TableRow key={req.id} className="border-white/5">
-                <TableCell className="font-bold uppercase text-xs">{req.username}</TableCell>
+                <TableCell className="font-bold uppercase text-xs">{req.username || req.userId || 'Unknown'}</TableCell>
                 <TableCell className="font-black text-primary">🪙 {req.amount}</TableCell>
-                <TableCell className="text-xs font-semibold text-muted-foreground uppercase">{req.method || 'Manual'}</TableCell>
-                <TableCell><Badge variant={req.status === 'pending' ? 'outline' : 'default'}>{req.status.toUpperCase()}</Badge></TableCell>
+                <TableCell className="text-xs font-semibold text-muted-foreground uppercase">{req.type === 'TOURNAMENT_ENTRY' ? 'Arena Entry' : (req.method || 'Manual')}</TableCell>
+                <TableCell>
+                  <Badge variant={req.status === 'pending' ? 'outline' : 'default'}>
+                    {(req.status || (req.type === 'TOURNAMENT_ENTRY' ? 'Deducted' : 'Unknown')).toUpperCase()}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="icon" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}><Eye className="w-3 h-3" /></Button>
+                    {req.screenshotUrl && (
+                      <Button size="icon" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}>
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                    )}
                     {req.status === 'pending' && (
-                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>APPROVE</Button>
+                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>
+                        APPROVE
+                      </Button>
                     )}
                   </div>
                 </TableCell>
