@@ -116,6 +116,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   // Chat States
   const [activeTab, setActiveTab] = useState("fixtures");
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
@@ -618,15 +619,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
               {hasFullAccess ? (
                 <>
                   <TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger>
-                  <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px] relative">
-                    <MessageSquare className="w-4 h-4 mr-2" /> Chat Arena
-                    {unreadChatCount > 0 && activeTab !== 'chat' && (
-                      <span className="absolute top-2 right-2 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                      </span>
-                    )}
-                  </TabsTrigger>
                   <TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger>
                   <TabsTrigger value="rules" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldAlert className="w-4 h-4 mr-2" /> Rules</TabsTrigger>
                 </>
@@ -707,13 +699,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
           {(!isFullscreen && hasFullAccess) && (
             <>
-              <TabsContent value="chat" className="mt-0 outline-none">
-                <TournamentChat 
-                  tournamentId={id} 
-                  isActive={activeTab === 'chat'} 
-                  onUnreadCountChange={setUnreadChatCount} 
-                />
-              </TabsContent>
+
 
               <TabsContent value="members" className="mt-4 outline-none">
                 <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
@@ -1052,6 +1038,64 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           </div>
         </DialogContent>
       </Dialog>
+      {/* Floating Action Button for Chat */}
+      {(!isFullscreen && hasFullAccess) && (
+        <Button
+          onClick={() => setIsChatOpen(true)}
+          className={cn(
+            "fixed right-0 top-1/2 -translate-y-1/2 z-40 rounded-l-2xl rounded-r-none h-20 w-12 bg-primary hover:bg-primary/90 shadow-2xl flex flex-col items-center justify-center gap-1 transition-transform duration-300 border-l border-t border-b border-primary/40",
+            isChatOpen ? "translate-x-full" : "translate-x-0"
+          )}
+        >
+          <div className="relative">
+            <MessageSquare className="w-5 h-5 text-white" />
+            {unreadChatCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+            )}
+          </div>
+          <ChevronLeft className="w-4 h-4 text-white/50" />
+        </Button>
+      )}
+
+      {/* Chat Side Panel */}
+      {(!isFullscreen && hasFullAccess) && (
+        <>
+          {/* Backdrop for mobile */}
+          {isChatOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm lg:hidden transition-opacity" 
+              onClick={() => setIsChatOpen(false)}
+            />
+          )}
+          
+          <div className={cn(
+            "fixed right-0 top-0 h-screen w-full sm:w-[400px] lg:w-[450px] z-50 transform transition-transform duration-500 ease-in-out shadow-2xl flex flex-col",
+            isChatOpen ? "translate-x-0" : "translate-x-full"
+          )}>
+            <Card className="glass border-l border-white/10 rounded-none h-full bg-[#0a0a0a]/95 flex flex-col overflow-hidden">
+              <div className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-black/60 shrink-0">
+                <h3 className="font-headline text-lg font-black uppercase italic flex items-center gap-3">
+                  <MessageSquare className="w-5 h-5 text-primary" /> ARENA CHAT
+                </h3>
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full hover:bg-white/10" onClick={() => setIsChatOpen(false)}>
+                  <X className="w-4 h-4 text-muted-foreground hover:text-white transition-colors" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-hidden relative">
+                <TournamentChat 
+                  tournamentId={id} 
+                  isActive={isChatOpen} 
+                  onUnreadCountChange={setUnreadChatCount} 
+                />
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+
     </PageWrapper>
   );
 }

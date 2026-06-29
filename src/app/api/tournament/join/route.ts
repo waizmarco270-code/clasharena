@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { auth } from '@clerk/nextjs/server';
+import { StreamChat } from 'stream-chat';
 
 export async function POST(req: Request) {
   try {
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     const historyRef = adminDb.collection('recharge-requests').doc();
 
     const result = await adminDb.runTransaction(async (transaction) => {
+      // ... transaction code remains unchanged ...
       const [tSnap, userSnap, regSnap] = await transaction.getAll(tRef, userRef, registrationRef);
 
       if (!tSnap.exists) throw new Error('Tournament not found');
@@ -84,6 +86,25 @@ export async function POST(req: Request) {
 
       return { success: true, message: 'Successfully registered' };
     });
+
+    if (result.success) {
+      // Background sync to Stream Chat to enable mentions for everyone
+      const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;
+      const apiSecret = process.env.STREAM_SECRET_KEY || process.env.STREAM_SECRET;
+      
+      if (apiKey && apiSecret) {
+        try {
+          const serverClient = StreamChat.getInstance(apiKey, apiSecret);
+          const safeChannelId = `tournament_${tournamentId.toLowerCase()}`;
+          const channel = serverClient.channel('gaming', safeChannelId);
+          await channel.create();
+          await channel.addMembers([userId]);
+        } catch (streamErr) {
+          console.error("Stream sync error:", streamErr);
+          // Do not fail the transaction just because chat failed
+        }
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error: any) {
