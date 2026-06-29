@@ -55,6 +55,9 @@ import confetti from 'canvas-confetti';
 import Image from 'next/image';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import dynamic from 'next/dynamic';
+
+const TournamentChat = dynamic(() => import('@/components/chat/TournamentChat'), { ssr: false });
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -109,6 +112,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   // Manual Fixture States
   const [manualSetupOpen, setManualSetupOpen] = useState(false);
   const [manualSlots, setManualSlots] = useState<{ id: string, name: string }[]>([]);
+
+  // Chat States
+  const [activeTab, setActiveTab] = useState("fixtures");
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
@@ -603,7 +610,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             </div>
           </div>
         )}
-        <Tabs defaultValue="fixtures" className={cn("w-full", isFullscreen ? "h-full" : "")}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("w-full", isFullscreen ? "h-full" : "")}>
           {!isFullscreen && (
             <TabsList className="bg-muted/30 border border-white/5 w-full justify-start overflow-x-auto no-scrollbar h-14 p-1">
               <TabsTrigger value="fixtures" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Swords className="w-4 h-4 mr-2" /> Bracket</TabsTrigger>
@@ -611,7 +618,15 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
               {hasFullAccess ? (
                 <>
                   <TabsTrigger value="members" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><Users className="w-4 h-4 mr-2" /> Warriors</TabsTrigger>
-                  <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><MessageSquare className="w-4 h-4 mr-2" /> Chat Arena</TabsTrigger>
+                  <TabsTrigger value="chat" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px] relative">
+                    <MessageSquare className="w-4 h-4 mr-2" /> Chat Arena
+                    {unreadChatCount > 0 && activeTab !== 'chat' && (
+                      <span className="absolute top-2 right-2 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </span>
+                    )}
+                  </TabsTrigger>
                   <TabsTrigger value="protocol" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldCheck className="w-4 h-4 mr-2" /> Protocol</TabsTrigger>
                   <TabsTrigger value="rules" className="data-[state=active]:bg-primary h-full px-6 rounded-lg font-black uppercase text-[10px]"><ShieldAlert className="w-4 h-4 mr-2" /> Rules</TabsTrigger>
                 </>
@@ -692,6 +707,14 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
           {(!isFullscreen && hasFullAccess) && (
             <>
+              <TabsContent value="chat" className="mt-0 outline-none">
+                <TournamentChat 
+                  tournamentId={id} 
+                  isActive={activeTab === 'chat'} 
+                  onUnreadCountChange={setUnreadChatCount} 
+                />
+              </TabsContent>
+
               <TabsContent value="members" className="mt-4 outline-none">
                 <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
