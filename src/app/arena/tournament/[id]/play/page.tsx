@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Swords, 
   Users, 
@@ -104,6 +105,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [logCaption, setLogCaption] = useState('');
   const [uploadingLog, setUploadingLog] = useState(false);
   const logInputRef = useRef<HTMLInputElement>(null);
+
+  // Manual Fixture States
+  const [manualSetupOpen, setManualSetupOpen] = useState(false);
+  const [manualSlots, setManualSlots] = useState<{ id: string, name: string }[]>([]);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
@@ -274,6 +279,73 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
       await Promise.all(updatePromises);
 
       toast({ title: "BRACKET & CLANS DEPLOYED" });
+    } catch (e) { toast({ variant: "destructive", title: "GENERATION FAILED" }); } finally { setGenerating(false); }
+  };
+
+  const deployManualFixture = async () => {
+    if (!isAdmin || !registrations || generating) return;
+    setGenerating(true);
+    try {
+      const existingMatches = await getDocs(collection(db, 'tournaments', id, 'matches'));
+      await Promise.all(existingMatches.docs.map(m => deleteDoc(m.ref)));
+      
+      const maxSlots = t?.maxPlayers || 8;
+      const rounds = Math.ceil(Math.log2(maxSlots));
+      const totalInitialSlots = Math.pow(2, rounds);
+      
+      let initialPlayers = [...manualSlots];
+      while (initialPlayers.length < totalInitialSlots) initialPlayers.push({ id: 'bye', name: 'BYE' });
+      
+      for (let r = 1; r <= rounds; r++) {
+        const matchesInRound = Math.pow(2, rounds - r);
+        for (let m = 0; m < matchesInRound; m++) {
+          const matchId = `r${r}-m${m}`;
+          const matchData: any = {
+            round: r,
+            matchIndex: m,
+            player1Id: r === 1 ? initialPlayers[m * 2].id : '',
+            player1Name: r === 1 ? initialPlayers[m * 2].name : '',
+            player2Id: r === 1 ? initialPlayers[m * 2 + 1].id : '',
+            player2Name: r === 1 ? initialPlayers[m * 2 + 1].name : '',
+            winnerId: '',
+            nextMatchId: r < rounds ? `r${r + 1}-m${Math.floor(m / 2)}` : ''
+          };
+          if (r === 1) {
+            if (matchData.player1Id === 'bye' && matchData.player2Id !== 'bye') matchData.winnerId = matchData.player2Id;
+            else if (matchData.player2Id === 'bye' && matchData.player1Id !== 'bye') matchData.winnerId = matchData.player1Id;
+          }
+          await setDoc(doc(db, 'tournaments', id, 'matches', matchId), matchData);
+          if (r === 1 && matchData.winnerId && matchData.winnerId !== 'bye') {
+            const winnerName = matchData.winnerId === matchData.player1Id ? matchData.player1Name : matchData.player2Name;
+            const nextMatchRef = doc(db, 'tournaments', id, 'matches', `r2-m${Math.floor(m / 2)}`);
+            const isP1 = m % 2 === 0;
+            await setDoc(nextMatchRef, { [isP1 ? 'player1Id' : 'player2Id']: matchData.winnerId, [isP1 ? 'player1Name' : 'player2Name']: winnerName }, { merge: true });
+          }
+        }
+      }
+
+      const totalPlayers = registrations.length;
+      const updatePromises = registrations.map(async (p: any) => {
+        let assignedClan = 'Clan 1';
+        const codeNum = Math.floor(1000 + Math.random() * 9000);
+        const joinCode = `ARENA-${codeNum}`;
+
+        if (totalPlayers >= 8) {
+          const playerIdx = initialPlayers.findIndex(ip => ip.id === p.userId);
+          if (playerIdx !== -1) {
+            assignedClan = (playerIdx % 2 === 0) ? 'Clan 1' : 'Clan 2';
+          }
+        } else {
+          assignedClan = 'Clan 1';
+        }
+
+        const regDocRef = doc(db, 'tournaments', id, 'registrations', p.userId);
+        return updateDoc(regDocRef, { assignedClan, joinCode });
+      });
+      await Promise.all(updatePromises);
+
+      toast({ title: "MANUAL BRACKET & CLANS DEPLOYED" });
+      setManualSetupOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "GENERATION FAILED" }); } finally { setGenerating(false); }
   };
 
@@ -505,9 +577,16 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                    <DropdownDemo onSelect={setDemoSize} current={demoSize} />
                    {t?.status !== 'completed' && (
                      <>
-                       <Button variant="outline" size="sm" onClick={generateFixtures} disabled={generating} className="bg-primary/10 border-primary/20 text-primary font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">
-                         {generating ? <Loader2 className="animate-spin" /> : <Swords className="w-4 h-4 mr-2" />} GENERATE FIXTURES
-                       </Button>
+                        <Button variant="outline" size="sm" onClick={() => {
+                          const initial = Array.from({ length: t?.maxPlayers || 8 }).map(() => ({ id: 'bye', name: 'BYE' }));
+                          setManualSlots(initial);
+                          setManualSetupOpen(true);
+                        }} disabled={generating} className="bg-primary/20 border-primary/50 text-primary font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0 hover:bg-primary/30 hover:text-primary transition-colors">
+                          <Pin className="w-4 h-4 mr-2" /> MANUAL FIXTURES
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={generateFixtures} disabled={generating} className="bg-primary/10 border-primary/20 text-primary font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0 hover:bg-primary/20 transition-colors">
+                          {generating ? <Loader2 className="animate-spin" /> : <Swords className="w-4 h-4 mr-2" />} AUTO GENERATE
+                        </Button>
                        <Button variant="destructive" size="sm" onClick={() => setEndDialogOpen(true)} disabled={ending} className="font-black uppercase text-[10px] h-11 px-6 shadow-xl glow-primary shrink-0">
                          {ending ? <Loader2 className="animate-spin" /> : <Trophy className="w-4 h-4 mr-2" />} END ARENA
                        </Button>
@@ -825,6 +904,76 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           )}
         </Tabs>
       </div>
+
+      {/* Manual Fixture Setup */}
+      <Dialog open={manualSetupOpen} onOpenChange={setManualSetupOpen}>
+        <DialogContent className="glass border-primary/20 bg-black/90 max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline font-black uppercase text-xl text-primary">MANUAL FIXTURE SETUP</DialogTitle>
+            <DialogDescription className="text-xs uppercase font-bold tracking-widest text-muted-foreground">
+              Assign warriors to specific bracket slots. Empty slots become BYEs automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 my-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {manualSlots.map((slot, index) => {
+              return (
+                <div key={index} className="flex flex-col gap-2 p-3 bg-white/5 border border-white/5 rounded-xl">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                    Slot {index + 1} • {index % 2 === 0 ? 'Clan 1' : 'Clan 2'}
+                  </Label>
+                  <Select 
+                    value={slot.id === 'bye' ? 'bye' : slot.id} 
+                    onValueChange={(val) => {
+                      const newSlots = [...manualSlots];
+                      if (val === 'bye') {
+                        newSlots[index] = { id: 'bye', name: 'BYE' };
+                      } else {
+                        const r = registrations?.find((reg: any) => reg.userId === val);
+                        if (r) newSlots[index] = { id: r.userId, name: r.username };
+                      }
+                      setManualSlots(newSlots);
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-black/40 border-white/10 text-xs font-bold uppercase">
+                      <SelectValue placeholder="Select Warrior" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 border-white/10">
+                      <SelectItem value="bye" className="text-muted-foreground font-black uppercase text-xs">BYE (Empty)</SelectItem>
+                      {registrations?.map((r: any) => {
+                        const isSelectedElsewhere = manualSlots.some((s, i) => i !== index && s.id === r.userId);
+                        return (
+                          <SelectItem key={r.userId} value={r.userId} disabled={isSelectedElsewhere} className="font-bold uppercase text-xs">
+                            {r.username}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const initial = Array.from({ length: t?.maxPlayers || 8 }).map(() => ({ id: 'bye', name: 'BYE' }));
+                setManualSlots(initial);
+              }}
+              className="flex-1 border-white/10 text-white font-black uppercase text-[10px] h-12 hover:bg-white/5"
+            >
+              CLEAR ALL
+            </Button>
+            <Button 
+              onClick={deployManualFixture} 
+              disabled={generating}
+              className="flex-1 bg-primary hover:bg-primary/90 text-black font-black uppercase text-[10px] h-12 glow-primary"
+            >
+              {generating ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null} DEPLOY MANUAL BRACKET
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* End Tournament Confirmation */}
       <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
