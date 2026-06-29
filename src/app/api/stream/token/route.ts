@@ -18,10 +18,10 @@ export async function POST(req: Request) {
     }
 
     const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;
-    const apiSecret = process.env.STREAM_SECRET;
+    const apiSecret = process.env.STREAM_SECRET_KEY || process.env.STREAM_SECRET;
 
     if (!apiKey || !apiSecret) {
-      console.error("Stream API keys are missing.");
+      console.error("Stream API keys are missing. Ensure NEXT_PUBLIC_STREAM_KEY and STREAM_SECRET_KEY are set.");
       return new NextResponse("Server Error", { status: 500 });
     }
 

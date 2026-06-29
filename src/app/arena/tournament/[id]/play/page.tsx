@@ -766,13 +766,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                 </Card>
               </TabsContent>
               
-              <TabsContent value="chat" className="mt-4 outline-none">
-                <Card className="glass border-white/5 flex flex-col h-[75vh] rounded-[2rem] overflow-hidden bg-black/40 items-center justify-center space-y-4">
-                   <MessageSquare className="w-12 h-12 text-muted-foreground opacity-50" />
-                   <h3 className="font-headline text-2xl font-black uppercase italic text-white/50">Chat Coming Soon</h3>
-                   <p className="text-xs font-bold uppercase text-muted-foreground tracking-widest text-center max-w-sm">The Arena Chat feature is currently undergoing maintenance and upgrades.</p>
-                </Card>
-              </TabsContent>
+
               
               <TabsContent value="protocol" className="mt-4 outline-none">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
