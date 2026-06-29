@@ -7,12 +7,12 @@ import {
   Channel,
   ChannelHeader,
   MessageList,
-  MessageInput,
+  MessageComposer,
   Thread,
   Window,
   LoadingIndicator,
 } from 'stream-chat-react';
-import 'stream-chat-react/dist/css/v2/index.css';
+import 'stream-chat-react/dist/css/index.css';
 import { useUser } from '@clerk/nextjs';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -134,7 +134,7 @@ export default function TournamentChat({
           <Window>
             <ChannelHeader title="Tournament Chat" />
             <MessageList />
-            <MessageInput focus />
+            <MessageComposer />
           </Window>
           <Thread />
         </Channel>

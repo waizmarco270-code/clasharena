@@ -1,8 +1,7 @@
 import { StreamChat } from 'stream-chat';
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
-import { customInitApp } from '@/lib/firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -26,18 +25,20 @@ export async function POST(req: Request) {
       return new NextResponse("Server Error", { status: 500 });
     }
 
-    customInitApp();
-    const db = getFirestore();
+    if (!adminDb) {
+      console.error("Firebase admin is not initialized.");
+      return new NextResponse("Server Error", { status: 500 });
+    }
 
     // Check user role
-    const userDoc = await db.collection('users').doc(userId).get();
+    const userDoc = await adminDb.collection('users').doc(userId).get();
     const isSuperAdmin = userDoc.exists && userDoc.data()?.isSuperAdmin === true;
     const isStandardAdmin = userDoc.exists && userDoc.data()?.isAdmin === true;
     const isAdmin = isSuperAdmin || isStandardAdmin;
 
     // Check membership
     if (!isAdmin) {
-      const regDoc = await db.collection(`tournaments/${tournamentId}/registrations`).doc(userId).get();
+      const regDoc = await adminDb.collection(`tournaments/${tournamentId}/registrations`).doc(userId).get();
       if (!regDoc.exists) {
         return new NextResponse("Forbidden - Not registered in this tournament", { status: 403 });
       }
