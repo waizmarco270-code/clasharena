@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     if (!apiKey || !apiSecret) {
       console.error("Stream API keys are missing. Ensure NEXT_PUBLIC_STREAM_KEY and STREAM_SECRET_KEY are set.");
-      return new NextResponse("Server Error", { status: 500 });
+      return new NextResponse(`Server Error: API Keys Missing (Key: ${!!apiKey}, Secret: ${!!apiSecret})`, { status: 500 });
     }
 
     if (!adminDb) {
@@ -56,10 +56,14 @@ export async function POST(req: Request) {
     });
 
     // Create or retrieve the channel, and add the user as a member
-    const channel = serverClient.channel('gaming', `tournament_${tournamentId}`, {
+    const safeChannelId = `tournament_${tournamentId.toLowerCase()}`;
+    const channel = serverClient.channel('gaming', safeChannelId, {
       name: `Tournament Chat`,
       created_by_id: userId // Fallback for initialization
     });
+    
+    // Ensure channel exists on Stream before adding members
+    await channel.create();
     
     // Explicitly add user to channel so they can access it on the client
     await channel.addMembers([userId]);
@@ -68,8 +72,8 @@ export async function POST(req: Request) {
     const token = serverClient.createToken(userId);
 
     return NextResponse.json({ token });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[STREAM_TOKEN_ERROR]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return new NextResponse(`Internal Server Error: ${error?.message || 'Unknown error'}`, { status: 500 });
   }
 }

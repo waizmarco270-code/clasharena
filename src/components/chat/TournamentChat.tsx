@@ -69,7 +69,8 @@ export default function TournamentChat({
           token
         );
 
-        const chatChannel = client.channel('gaming', `tournament_${tournamentId}`);
+        const safeChannelId = `tournament_${tournamentId.toLowerCase()}`;
+        const chatChannel = client.channel('gaming', safeChannelId);
         await chatChannel.watch();
         
         setChannel(chatChannel);
