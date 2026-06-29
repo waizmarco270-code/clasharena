@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useFirestore } from '@/firebase';
-import { collection, query, where, limit, getDocs, getDoc, doc } from 'firebase/firestore';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection, query, where, limit, getDocs, getDoc, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Gift, X, Loader2, Coins, Skull } from 'lucide-react';
+import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function AdminGiftsPage() {
   const db = useFirestore();
@@ -29,6 +31,10 @@ export default function AdminGiftsPage() {
   const [globalAmount, setGlobalAmount] = useState<string>('');
   const [globalMessage, setGlobalMessage] = useState<string>('');
   const [isProcessingGlobal, setIsProcessingGlobal] = useState(false);
+
+  // Global Gifts Analytics
+  const globalGiftsQuery = useMemo(() => query(collection(db, 'global-gifts'), orderBy('createdAt', 'desc'), limit(5)), [db]);
+  const { data: globalGifts, loading: globalGiftsLoading } = useCollection(globalGiftsQuery);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,6 +346,65 @@ export default function AdminGiftsPage() {
         </div>
 
       </div>
+
+      {/* ANALYTICS SECTION */}
+      <div className="space-y-6">
+        <Card className="glass border-white/5 relative overflow-hidden group">
+          <CardHeader className="border-b border-white/5 bg-black/40">
+            <CardTitle className="text-sm font-black uppercase flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Global Gift Analytics</CardTitle>
+            <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Monitor mass distributions</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-white/5">
+                <TableRow className="border-white/5">
+                  <TableHead className="text-[10px] font-black uppercase py-4 pl-6">Amount</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase py-4">Status</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase py-4">Total Claims</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase py-4">Created / Expiry</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {globalGiftsLoading ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /></TableCell></TableRow>
+                ) : !globalGifts || globalGifts.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-xs font-bold text-muted-foreground uppercase tracking-widest">No global gifts deployed yet</TableCell></TableRow>
+                ) : (
+                  globalGifts.map(gift => {
+                    const isExpired = gift.expiresAt && new Date(gift.expiresAt).getTime() < Date.now();
+                    return (
+                      <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                        <TableCell className="pl-6">
+                          <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
+                          <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px]" title={gift.message}>{gift.message}</p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={isExpired ? 'border-destructive/30 text-destructive' : 'border-primary/30 text-primary'}>
+                            {isExpired ? 'EXPIRED' : 'ACTIVE'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-xs bg-white/5 px-2 py-1 rounded-md">{gift.totalClaims || 0}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Claimed</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[10px] font-medium text-white/80">{new Date(gift.createdAt?.toDate ? gift.createdAt.toDate() : gift.createdAt).toLocaleDateString()}</p>
+                          {gift.expiresAt && (
+                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5"><Timer className="w-3 h-3" /> Exp: {new Date(gift.expiresAt).toLocaleDateString()}</p>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   );
 }

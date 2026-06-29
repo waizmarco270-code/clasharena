@@ -1012,7 +1012,7 @@ export default function Dashboard() {
     if (!profile) return [];
     const individual = profile.pendingGifts || [];
     const claimedGlobals = profile.claimedGlobalGifts || [];
-    const globals = globalGifts.filter(g => !claimedGlobals.includes(g.id));
+    const globals = globalGifts.filter(g => !claimedGlobals.includes(g.id) && (!g.expiresAt || new Date(g.expiresAt).getTime() > Date.now()));
     return [...individual.map((g: any) => ({ ...g, type: 'individual' })), ...globals.map(g => ({ ...g, type: 'global' }))];
   }, [profile, globalGifts]);
 

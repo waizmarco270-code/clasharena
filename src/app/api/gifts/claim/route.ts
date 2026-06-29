@@ -31,6 +31,14 @@ export async function POST(request: Request) {
 
         const giftData = giftSnap.data()!;
 
+        if (giftData.expiresAt && new Date(giftData.expiresAt).getTime() < Date.now()) {
+          throw new Error('This gift has expired');
+        }
+
+        transaction.update(giftRef, {
+          totalClaims: FieldValue.increment(1)
+        });
+
         transaction.update(userRef, {
           balance: FieldValue.increment(giftData.amount),
           claimedGlobalGifts: FieldValue.arrayUnion(giftId)
