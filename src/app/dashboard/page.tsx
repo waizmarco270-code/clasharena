@@ -38,7 +38,7 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { useFirestore, useCollection, useProfile, useBackgrounds, useDoc } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, limit, increment, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, orderBy, limit, increment, updateDoc, getDocs } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
 import { default as NextLink } from 'next/link';
 import Image from 'next/image';
@@ -906,6 +906,42 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
   );
 }
 
+function GiftClaimCard({ gift, onClaim }: { gift: any, onClaim: (giftId: string, type: string) => void }) {
+  const [claiming, setClaiming] = useState(false);
+
+  const handleClaim = async () => {
+    setClaiming(true);
+    await onClaim(gift.id, gift.type);
+    setClaiming(false);
+  };
+
+  return (
+    <Card className="glass border-primary/20 bg-primary/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent pointer-events-none" />
+      <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative z-10">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-primary/20 rounded-full animate-bounce">
+            <Gift className="w-8 h-8 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-headline font-black uppercase text-xl text-white tracking-wider">A Gift For You!</h3>
+            <p className="text-sm font-medium text-muted-foreground">{gift.message || 'You have received a gift from Clash Arena.'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right hidden md:block">
+            <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Amount</p>
+            <p className="font-black text-2xl text-primary leading-none">🪙 {gift.amount}</p>
+          </div>
+          <Button onClick={handleClaim} disabled={claiming} className="bg-primary text-black font-black uppercase tracking-widest px-8 h-12 hover:bg-primary/90 glow-primary">
+            {claiming ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Claim Gift'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatSkeleton() {
   return (
     <Card className="glass border-white/5 bg-white/5 p-6 space-y-4">
@@ -958,6 +994,46 @@ export default function Dashboard() {
     return query(collection(db, 'reward-claims'), where('userId', '==', user.id), where('status', 'in', ['pending', 'approved', 'verifying', 'reviewing', 'money_verifying', 'money_paid', 'money_confirming']), limit(5));
   }, [db, user, isAdmin]);
   const { data: activeClaims } = useCollection(claimsQuery);
+
+  // Gift System Logic
+  const [globalGifts, setGlobalGifts] = useState<any[]>([]);
+  useEffect(() => {
+    const fetchGlobalGifts = async () => {
+      try {
+        const q = query(collection(db, 'global-gifts'), orderBy('createdAt', 'desc'), limit(10));
+        const snaps = await getDocs(q);
+        setGlobalGifts(snaps.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch(e) {}
+    };
+    fetchGlobalGifts();
+  }, [db]);
+
+  const activeGifts = useMemo(() => {
+    if (!profile) return [];
+    const individual = profile.pendingGifts || [];
+    const claimedGlobals = profile.claimedGlobalGifts || [];
+    const globals = globalGifts.filter(g => !claimedGlobals.includes(g.id));
+    return [...individual.map((g: any) => ({ ...g, type: 'individual' })), ...globals.map(g => ({ ...g, type: 'global' }))];
+  }, [profile, globalGifts]);
+
+  const handleClaimGift = async (giftId: string, type: string) => {
+    try {
+      const res = await fetch('/api/gifts/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ giftId, type })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: 'Gift Claimed!', description: data.message });
+      // Remove from UI immediately to avoid flicker before Firestore syncs
+      if (type === 'global') {
+        setGlobalGifts(prev => prev.filter(g => g.id !== giftId));
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Claim Failed', description: err.message });
+    }
+  };
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
@@ -1067,6 +1143,15 @@ export default function Dashboard() {
             <div className="space-y-4">
                {activeClaims.map((claim: any) => (
                  <RewardVerificationCard key={claim.id} claim={claim} isAdmin={isAdmin} userId={user.id} />
+               ))}
+            </div>
+          )}
+
+          {/* Active Gifts */}
+          {activeGifts.length > 0 && (
+            <div className="space-y-4">
+               {activeGifts.map((gift) => (
+                 <GiftClaimCard key={gift.id} gift={gift} onClaim={handleClaimGift} />
                ))}
             </div>
           )}
