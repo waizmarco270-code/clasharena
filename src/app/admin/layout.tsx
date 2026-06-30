@@ -110,7 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'notifications', label: 'Notifications', icon: Bell, href: '/admin/notifications' },
     { id: 'controls', label: 'Controls', icon: Terminal, href: '/admin/controls' },
     { id: 'users', label: 'User Management', icon: UserCog, href: '/admin/users', superOnly: true },
-    { id: 'gateway', label: 'Gateway', icon: Settings, href: '/admin/gateway' },
+    { id: 'gateway', label: 'Gateway', icon: Settings, href: '/admin/gateway', superOnly: true },
     { id: 'backgrounds', label: 'Backgrounds', icon: Monitor, href: '/admin/backgrounds' },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/admin/maintenance' },
   ];

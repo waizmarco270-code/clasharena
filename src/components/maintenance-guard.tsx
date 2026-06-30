@@ -115,7 +115,17 @@ export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
   }, [maintenance?.isActive, maintenance?.endAt]);
 
   // Determine if block screen should display
-  const shouldBlock = false; // Forced false as per user request to disable maintenance mode
+  let isMaintenanceActiveNow = false;
+  if (maintenance?.isActive) {
+     if (!maintenance.endAt) {
+        isMaintenanceActiveNow = true;
+     } else {
+        const difference = +new Date(maintenance.endAt) - +new Date();
+        if (difference > 0) isMaintenanceActiveNow = true;
+     }
+  }
+
+  const shouldBlock = isMaintenanceActiveNow && !isAdmin && !isMaintenanceOver && !isLandingPage;
 
   // Loading indicator for verification stage
   if (maintenanceLoading || profileLoading) {
