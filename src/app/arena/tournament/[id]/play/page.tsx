@@ -118,6 +118,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [sendingAlert, setSendingAlert] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<{ label: string, time: string, isLive: boolean }>({ label: 'LOADING', time: '--:--', isLive: false });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
@@ -139,6 +143,73 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     if (demoSize) setDemoMatches(generateDemoMatches(demoSize));
     else setDemoMatches([]);
   }, [demoSize]);
+
+  useEffect(() => {
+    if (!t?.startTime || t.status === 'completed' || t.status === 'cancelled') return;
+    
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const start = new Date(t.startTime).getTime();
+      const fifteenMins = 15 * 60 * 1000;
+      
+      if (now < start) {
+        const diff = start - now;
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        const timeStr = d > 0 ? `${d}d ${h}h` : `${h}h ${m}m ${s}s`;
+        setTimeLeft({ label: 'STARTS IN', time: timeStr, isLive: false });
+      } else if (now >= start && now < start + fifteenMins) {
+        const diff = (start + fifteenMins) - now;
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        setTimeLeft({ label: 'JOIN WINDOW CLOSES IN', time: `${m}m ${s}s`, isLive: true });
+      } else {
+        setTimeLeft({ label: 'STATUS', time: 'BATTLE LIVE', isLive: true });
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [t?.startTime, t?.status]);
+
+  const handleSendAlert = async (type: 'filling' | 'full' | 'started') => {
+    setSendingAlert(true);
+    let title = '';
+    let body = '';
+    
+    if (type === 'filling') {
+      title = 'Seats Filling Fast ⚔️';
+      body = `${t?.currentPlayers || 0}/${t?.maxPlayers || 8} Slots Filled. Join before registration closes for ${t?.name}!`;
+    } else if (type === 'full') {
+      title = 'Tournament Full! ⚔️';
+      const timeStr = t?.startTime ? new Date(t.startTime).toLocaleString('en-US', {hour: '2-digit', minute:'2-digit'}) : 'soon';
+      body = `Tournament is Full. Battle starts at ${timeStr}. Be Ready!`;
+    } else if (type === 'started') {
+      title = 'Tournament Started! ⚔️';
+      body = `Tournament has started. Join Clan immediately. 15-minute Join Window remaining. Do not get disqualified.`;
+    }
+    
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: 'tournament_players',
+          title,
+          body,
+          redirectUrl: `/arena/tournament/${id}`,
+          data: { tournamentId: id }
+        })
+      });
+      toast({ title: "ALERT DEPLOYED" });
+      setAlertOpen(false);
+    } catch(e) {
+      toast({ variant: 'destructive', title: "ALERT FAILED" });
+    } finally {
+      setSendingAlert(false);
+    }
+  };
 
   const matches = useMemo(() => {
     if (demoSize) return demoMatches;
@@ -598,6 +669,9 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                        <Button variant="destructive" size="sm" onClick={() => setEndDialogOpen(true)} disabled={ending} className="font-black uppercase text-[10px] h-11 px-6 shadow-xl glow-primary shrink-0">
                          {ending ? <Loader2 className="animate-spin" /> : <Trophy className="w-4 h-4 mr-2" />} END ARENA
                        </Button>
+                       <Button variant="outline" size="sm" onClick={() => setAlertOpen(true)} className="bg-blue-950/20 border border-blue-500/20 text-blue-500 hover:bg-blue-900/30 font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">
+                         <Send className="w-4 h-4 mr-2" /> SEND ALERT
+                       </Button>
                        <Button variant="ghost" size="sm" onClick={() => setCancelDialogOpen(true)} disabled={cancelling} className="bg-red-950/20 border border-red-500/20 text-red-500 hover:bg-red-900/30 font-black uppercase text-[10px] h-11 px-6 shadow-xl shrink-0">
                          <X className="w-4 h-4 mr-2" /> CANCEL ARENA
                        </Button>
@@ -611,6 +685,39 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             </div>
           </div>
         )}
+
+        {/* START TIME & WARNING CARD */}
+        {t?.startTime && t.status !== 'completed' && t.status !== 'cancelled' && (
+          <div className="flex flex-col md:flex-row gap-4 mb-2 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Card className={cn("glass border flex-1 p-4 rounded-2xl flex items-center justify-between", timeLeft.isLive ? "border-red-500/40 bg-red-900/10" : "border-primary/20 bg-primary/5")}>
+              <div>
+                <p className={cn("text-[10px] font-black uppercase tracking-widest mb-1", timeLeft.isLive ? "text-red-500" : "text-primary")}>
+                  {timeLeft.isLive ? 'TOURNAMENT STARTED' : 'TOURNAMENT START TIME'}
+                </p>
+                <p className="font-headline text-lg italic uppercase text-white">
+                  {new Date(t.startTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">{timeLeft.label}</p>
+                <p className={cn("font-headline text-2xl font-black italic", timeLeft.isLive ? "text-red-500 animate-pulse" : "text-primary")}>
+                  {timeLeft.time}
+                </p>
+              </div>
+            </Card>
+            
+            <Card className="glass border-yellow-500/20 bg-yellow-500/5 flex-1 p-4 rounded-2xl flex items-start gap-3">
+              <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0 mt-1" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-1">DISQUALIFICATION WARNING</p>
+                <p className="text-[11px] font-medium text-white/80 leading-relaxed">
+                  Players who do not join the Clan within <span className="font-black text-white">15 minutes</span> after the Tournament starts will automatically be disqualified. Entry Coins will be refunded.
+                </p>
+              </div>
+            </Card>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("w-full", isFullscreen ? "h-full" : "")}>
           {!isFullscreen && (
             <TabsList className="bg-muted/30 border border-white/5 w-full justify-start overflow-x-auto no-scrollbar h-14 p-1">
@@ -1000,6 +1107,39 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             </Button>
             <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 font-black uppercase" onClick={endTournament} disabled={ending}>
               {ending ? <Loader2 className="animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} CONFIRM END
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={alertOpen} onOpenChange={setAlertOpen}>
+        <DialogContent className="glass border-blue-500/20 max-w-md p-6 rounded-3xl bg-black/90">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase text-center flex items-center justify-center gap-2 text-blue-500">
+              <Send className="w-6 h-6" /> PUSH ALERTS
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs uppercase font-bold text-muted-foreground tracking-wider">
+              Notify all registered warriors
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Button variant="outline" onClick={() => handleSendAlert('filling')} disabled={sendingAlert} className="w-full justify-start h-16 bg-white/5 border-white/10 hover:bg-white/10">
+              <div className="text-left whitespace-normal">
+                <p className="text-xs font-black uppercase text-white mb-1">1. Seats Filling Fast</p>
+                <p className="text-[9px] text-muted-foreground uppercase leading-tight">{t?.currentPlayers || 0}/{t?.maxPlayers || 8} Slots Filled. Join before registration closes.</p>
+              </div>
+            </Button>
+            <Button variant="outline" onClick={() => handleSendAlert('full')} disabled={sendingAlert} className="w-full justify-start h-16 bg-white/5 border-white/10 hover:bg-white/10">
+              <div className="text-left whitespace-normal">
+                <p className="text-xs font-black uppercase text-white mb-1">2. Tournament Full</p>
+                <p className="text-[9px] text-muted-foreground uppercase leading-tight">Battle starts at {t?.startTime ? new Date(t.startTime).toLocaleTimeString() : 'soon'}. Be Ready!</p>
+              </div>
+            </Button>
+            <Button variant="outline" onClick={() => handleSendAlert('started')} disabled={sendingAlert} className="w-full justify-start h-20 bg-white/5 border-white/10 hover:bg-white/10">
+              <div className="text-left whitespace-normal">
+                <p className="text-xs font-black uppercase text-white mb-1">3. Tournament Started</p>
+                <p className="text-[9px] text-muted-foreground uppercase leading-tight">Join Clan immediately. 15-min Join Window remaining. Do not get disqualified.</p>
+              </div>
             </Button>
           </div>
         </DialogContent>

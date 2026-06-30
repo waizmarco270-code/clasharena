@@ -4,6 +4,8 @@ import { useMemo, useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { TournamentStatusBadge } from '@/components/TournamentStatusBadge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
   Plus, 
   Trash2, 
@@ -35,12 +37,20 @@ export default function ArenaHubPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const tournamentsQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc')), [db]);
+  const [limitCount, setLimitCount] = useState(5);
+  const [activeTab, setActiveTab] = useState('latest');
+  
+  // Use limit() to keep reads optimized
+  const tournamentsQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc'), limit(limitCount)), [db, limitCount]);
   const { data: tournaments } = useCollection(tournamentsQuery);
 
   const [tOpen, setTOpen] = useState(false);
   const [tLoading, setTLoading] = useState(false);
   const [editTId, setEditTId] = useState<string | null>(null);
+  const [deleteTId, setDeleteTId] = useState<string | null>(null);
+  
+  const latestTournaments = useMemo(() => tournaments?.filter((t: any) => t.status !== 'completed') || [], [tournaments]);
+  const pastTournaments = useMemo(() => tournaments?.filter((t: any) => t.status === 'completed') || [], [tournaments]);
   const [newRule, setNewRule] = useState('');
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [uploadingReward, setUploadingReward] = useState(false);
@@ -196,26 +206,93 @@ export default function ArenaHubPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tournaments?.map((t: any) => (
-          <Card key={t.id} className="glass border-white/5 overflow-hidden group">
-            <div className="relative h-32">
-              <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50" />
-              <div className="absolute top-2 right-2 flex gap-1">
-                <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60" onClick={() => { setEditTId(t.id); setTForm({ ...t }); setTOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
-                <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => deleteDoc(doc(db, 'tournaments', t.id))}><Trash2 className="w-4 h-4" /></Button>
-              </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-black/40 border border-white/5 h-12 w-full justify-start rounded-xl p-1 mb-6">
+          <TabsTrigger value="latest" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">LATEST ARENA</TabsTrigger>
+          <TabsTrigger value="past" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">PAST ARENA</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="latest">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {latestTournaments.map((t: any) => (
+              <Card key={t.id} className="glass border-white/5 overflow-hidden group">
+                <div className="relative h-32">
+                  <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50" />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60" onClick={() => { setEditTId(t.id); setTForm({ ...t }); setTOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
+                    <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setDeleteTId(t.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+                <CardContent className="p-4">
+                  <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
+                  <div className="flex justify-between items-center mt-2">
+                     <TournamentStatusBadge t={t} />
+                     <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {latestTournaments.length === 0 && (
+             <div className="text-center p-12 text-white/50 font-black uppercase tracking-widest text-[10px]">No Active Arenas</div>
+          )}
+          <div className="flex justify-center mt-8">
+            <Button variant="outline" onClick={() => setLimitCount(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="past">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pastTournaments.map((t: any) => (
+              <Card key={t.id} className="glass border-white/5 overflow-hidden group opacity-70">
+                <div className="relative h-32 grayscale">
+                  <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-30" />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setDeleteTId(t.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+                <CardContent className="p-4">
+                  <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
+                  <div className="flex justify-between items-center mt-2">
+                     <TournamentStatusBadge t={t} />
+                     <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {pastTournaments.length === 0 && (
+             <div className="text-center p-12 text-white/50 font-black uppercase tracking-widest text-[10px]">No Past Arenas</div>
+          )}
+          <div className="flex justify-center mt-8">
+            <Button variant="outline" onClick={() => setLimitCount(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={!!deleteTId} onOpenChange={(open) => !open && setDeleteTId(null)}>
+        <DialogContent className="glass border-red-500/20 max-w-sm p-6 rounded-3xl bg-black/90">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+              <Trash2 className="w-6 h-6 text-red-500" />
             </div>
-            <CardContent className="p-4">
-              <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
-              <div className="flex justify-between items-center mt-2">
-                 <Badge variant="outline" className="text-[9px] font-black">{t.type.toUpperCase()}</Badge>
-                 <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            <div>
+              <h3 className="font-headline text-xl font-black uppercase italic text-red-500">Delete Tournament?</h3>
+              <p className="text-xs font-bold text-muted-foreground uppercase mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <Button variant="outline" className="flex-1 rounded-xl h-10 font-bold" onClick={() => setDeleteTId(null)}>CANCEL</Button>
+              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl h-10 font-black uppercase" onClick={() => {
+                if (deleteTId) {
+                  deleteDoc(doc(db, 'tournaments', deleteTId));
+                  toast({ title: "ARENA DELETED" });
+                  setDeleteTId(null);
+                }
+              }}>DELETE</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={tOpen} onOpenChange={setTOpen}>
         <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] !flex !flex-col p-0 overflow-hidden outline-none">

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     const serverClient = StreamChat.getInstance(apiKey, apiSecret);
-    const role = isSuperAdmin ? 'admin' : (isStandardAdmin ? 'channel_moderator' : 'user');
+    const role = isSuperAdmin ? 'admin' : (isStandardAdmin ? 'admin' : 'user');
 
     // Upsert User securely
     await serverClient.upsertUser({

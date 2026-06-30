@@ -84,7 +84,13 @@ export async function POST(req: Request) {
         registeredAt: serverTime
       });
 
-      return { success: true, message: 'Successfully registered' };
+      return { 
+        success: true, 
+        message: 'Successfully registered',
+        isFull: t.currentPlayers + 1 >= t.maxPlayers,
+        tournamentName: t.name,
+        startTime: t.startTime
+      };
     });
 
     if (result.success) {
@@ -102,6 +108,41 @@ export async function POST(req: Request) {
         } catch (streamErr) {
           console.error("Stream sync error:", streamErr);
           // Do not fail the transaction just because chat failed
+        }
+      }
+
+      // If tournament just got full, automate push notifications!
+      if (result.isFull) {
+        try {
+          const apiUrl = new URL('/api/notifications/send', req.url).toString();
+          const cookieHeader = req.headers.get('cookie') || '';
+          
+          // 1. Notify Admins
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'cookie': cookieHeader },
+            body: JSON.stringify({
+              audience: 'admins',
+              title: 'Tournament Full ⚔️',
+              body: `Arena "${result.tournamentName}" has reached maximum capacity!`,
+              redirectUrl: `/arena/tournament/${tournamentId}`
+            })
+          }).catch(console.error);
+
+          // 2. Notify Registered Players
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'cookie': cookieHeader },
+            body: JSON.stringify({
+              audience: 'tournament_players',
+              title: 'Tournament Full! Get Ready! ⚔️',
+              body: `Arena "${result.tournamentName}" is fully booked. Battle starts at ${new Date(result.startTime).toLocaleString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}. Prepare for battle!`,
+              redirectUrl: `/arena/tournament/${tournamentId}`,
+              data: { tournamentId }
+            })
+          }).catch(console.error);
+        } catch (pushErr) {
+          console.error("Failed to automate push notifications:", pushErr);
         }
       }
     }

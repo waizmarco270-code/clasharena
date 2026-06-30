@@ -43,59 +43,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TournamentStatusBadge } from '@/components/TournamentStatusBadge';
 
 function TournamentCard({ t, now }: { t: any, now: Date }) {
-  const [countdown, setCountdown] = useState<string>('');
-  const [statusText, setStatusText] = useState<string>('');
-  const [statusColor, setStatusColor] = useState<string>('text-black');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
-  useEffect(() => {
-    if (t.status === 'completed') {
-      setCountdown('COMPLETED');
-      setStatusText('ARENA FINALIZED');
-      setStatusColor('text-black');
-      return;
-    }
-    
-    const regStart = new Date(t.registrationStartTime);
-    const regEnd = new Date(t.registrationEndTime);
-    const battleStart = new Date(t.startTime);
-
-    if (isBefore(now, regStart)) {
-      const diff = regStart.getTime() - now.getTime();
-      setCountdown(formatDiff(diff));
-      setStatusText('REGISTRATION OPENS IN');
-      setStatusColor('text-black');
-    } else if (isAfter(now, regStart) && isBefore(now, regEnd)) {
-      if (t.currentPlayers >= t.maxPlayers) {
-        setCountdown('SOLD OUT');
-        setStatusText('ARENA FULL');
-        setStatusColor('text-red-600');
-      } else {
-        const diff = regEnd.getTime() - now.getTime();
-        setCountdown(formatDiff(diff));
-        setStatusText('REGISTRATION ENDS IN');
-        setStatusColor('text-black');
-      }
-    } else if (isAfter(now, regStart) && isBefore(now, battleStart)) {
-      const diff = battleStart.getTime() - now.getTime();
-      setCountdown(formatDiff(diff));
-      setStatusText('BATTLE STARTS IN');
-      setStatusColor('text-black');
-    } else {
-      setCountdown('BATTLE LIVE');
-      setStatusText('ARENA ACTIVE');
-      setStatusColor('text-red-600');
-    }
-  }, [t, now]);
-
-  const formatDiff = (ms: number) => {
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    const s = Math.floor((ms % 60000) / 1000);
-    return `${h}h ${m}m ${s}s`;
-  };
 
   const getRegistrationStatus = () => {
     if (t.status === 'completed') return 'COMPLETED';
@@ -182,12 +133,7 @@ function TournamentCard({ t, now }: { t: any, now: Date }) {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 bg-primary/95 backdrop-blur-xl py-2.5 flex items-center justify-center gap-4 shadow-xl z-20 border-t border-white/10">
-           <div className="flex items-center gap-2">
-              <Timer className="w-4 h-4 text-black" />
-              <span className="text-[10px] font-black text-black uppercase tracking-tighter leading-none">{statusText}</span>
-           </div>
-           <div className="h-4 w-[1px] bg-black/20" />
-           <span className={`text-sm font-black ${statusColor} font-mono leading-none tracking-tight`}>{countdown}</span>
+           <TournamentStatusBadge t={t} className="bg-transparent border-black/20 text-black text-[10px]" />
         </div>
       </div>
 

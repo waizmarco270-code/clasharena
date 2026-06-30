@@ -171,8 +171,55 @@ export async function POST(request: Request) {
       }
       loggedAudience = `User: ${userDoc.data()?.username || userId}`;
 
+    } else if (audience === 'tournament_players') {
+      const tournamentId = data?.tournamentId;
+      if (!tournamentId) {
+        return NextResponse.json({ error: "data.tournamentId is required for tournament_players audience" }, { status: 400 });
+      }
+
+      const regsSnap = await adminDb.collection(`tournaments/${tournamentId}/registrations`).get();
+      const userIds = regsSnap.docs.map(doc => doc.id);
+
+      if (userIds.length > 0) {
+        let playerTokens: string[] = [];
+        
+        for (let i = 0; i < userIds.length; i += 30) {
+          const batchIds = userIds.slice(i, i + 30);
+          const usersSnap = await adminDb.collection('users').where(FieldValue.documentId(), 'in', batchIds).get();
+          
+          usersSnap.forEach((docSnap: any) => {
+            const tokens = docSnap.data().fcmTokens;
+            if (Array.isArray(tokens)) playerTokens.push(...tokens);
+          });
+        }
+        
+        playerTokens = Array.from(new Set(playerTokens)).filter(Boolean);
+
+        if (playerTokens.length > 0) {
+          const payload: any = {
+            tokens: playerTokens,
+            notification: { title, body },
+            data: finalDataPayload
+          };
+          if (imageUrl) {
+            payload.notification.image = imageUrl;
+          }
+
+          const response = await adminMessaging.sendEachForMulticast(payload);
+          successCount = response.successCount;
+          failureCount = response.failureCount;
+
+          response.responses.forEach((res: any) => {
+            if (!res.success && res.error) {
+              errorsList.push(res.error.message || res.error.code);
+            }
+          });
+        }
+      }
+      loggedAudience = `Tournament Players: ${tournamentId}`;
+
     } else {
-      return NextResponse.json({ error: "Invalid audience type. Must be 'broadcast', 'admins', or 'user'." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid audience type. Must be 'broadcast', 'admins', 'user', or 'tournament_players'." }, { status: 400 });
     }
 
     const uniqueErrors = Array.from(new Set(errorsList));
