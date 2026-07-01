@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, limit, getDocs, getDoc, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer } from 'lucide-react';
+import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export default function AdminGiftsPage() {
   const db = useFirestore();
@@ -18,9 +19,24 @@ export default function AdminGiftsPage() {
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+
+  // Active Player Cache
+  const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(100)), [db]);
+  const { data: allUsers } = useCollection(allUsersQuery);
+
+  const top5Matches = useMemo(() => {
+    if (!searchTerm || searchTerm.length < 1 || !allUsers) return [];
+    const searchLower = searchTerm.toLowerCase();
+    return allUsers.filter((u: any) => 
+      u.username?.toLowerCase().includes(searchLower) ||
+      u.tag?.toLowerCase().includes(searchLower) ||
+      u.id?.toLowerCase().includes(searchLower)
+    ).slice(0, 5);
+  }, [allUsers, searchTerm]);
 
   // Form State
   const [amount, setAmount] = useState<string>('');
@@ -35,6 +51,12 @@ export default function AdminGiftsPage() {
   // Global Gifts Analytics
   const globalGiftsQuery = useMemo(() => query(collection(db, 'global-gifts'), orderBy('createdAt', 'desc'), limit(5)), [db]);
   const { data: globalGifts, loading: globalGiftsLoading } = useCollection(globalGiftsQuery);
+
+  // Individual Gifts Analytics
+  const [indLimit, setIndLimit] = useState(5);
+  const indGiftsQuery = useMemo(() => query(collection(db, 'gift-logs'), orderBy('sentAt', 'desc'), limit(indLimit)), [db, indLimit]);
+  const { data: indGifts, loading: indGiftsLoading } = useCollection(indGiftsQuery);
+  const [analyticsTab, setAnalyticsTab] = useState('individual');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,13 +196,18 @@ export default function AdminGiftsPage() {
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               
-              <form onSubmit={handleSearch} className="relative w-full flex items-center">
-                <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
+              <form onSubmit={handleSearch} className="relative w-full flex items-center z-50 group">
+                <Search className="absolute left-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
-                  placeholder="CA-1234, user_..., or Username"
+                  placeholder="Smart search (Name, Tag, ID) or Receipt..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                   className="w-full pl-10 pr-10 py-3 bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50 transition-colors"
                 />
                 {searchTerm && (
@@ -189,6 +216,29 @@ export default function AdminGiftsPage() {
                   </button>
                 )}
                 <Button type="submit" disabled={isSearching} className="hidden">Search</Button>
+
+                {/* Search Dropdown */}
+                {showSearchDropdown && searchTerm && top5Matches.length > 0 && (
+                  <div className="absolute top-full left-0 w-full mt-2 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                    {top5Matches.map(match => (
+                      <div 
+                        key={match.id}
+                        onClick={() => {
+                          setSearchTerm(match.username);
+                          setSelectedUser(match);
+                          setShowSearchDropdown(false);
+                        }}
+                        className="flex items-center gap-3 p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0"
+                      >
+                        <Avatar className="w-8 h-8 border border-white/10"><AvatarImage src={match.avatarUrl} /><AvatarFallback>{match.username?.charAt(0) || 'U'}</AvatarFallback></Avatar>
+                        <div>
+                          <p className="text-sm font-bold text-white uppercase">{match.username || 'Warrior'}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{match.id}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </form>
 
               {isSearching && (
@@ -349,60 +399,135 @@ export default function AdminGiftsPage() {
 
       {/* ANALYTICS SECTION */}
       <div className="space-y-6">
-        <Card className="glass border-white/5 relative overflow-hidden group">
-          <CardHeader className="border-b border-white/5 bg-black/40">
-            <CardTitle className="text-sm font-black uppercase flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Global Gift Analytics</CardTitle>
-            <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Monitor mass distributions</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-white/5">
-                  <TableHead className="text-[10px] font-black uppercase py-4 pl-6">Amount</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase py-4">Status</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase py-4">Total Claims</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase py-4">Created / Expiry</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {globalGiftsLoading ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /></TableCell></TableRow>
-                ) : !globalGifts || globalGifts.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-xs font-bold text-muted-foreground uppercase tracking-widest">No global gifts deployed yet</TableCell></TableRow>
-                ) : (
-                  globalGifts.map(gift => {
-                    const isExpired = gift.expiresAt && new Date(gift.expiresAt).getTime() < Date.now();
-                    return (
-                      <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                        <TableCell className="pl-6">
-                          <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
-                          <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px]" title={gift.message}>{gift.message}</p>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={isExpired ? 'border-destructive/30 text-destructive' : 'border-primary/30 text-primary'}>
-                            {isExpired ? 'EXPIRED' : 'ACTIVE'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black text-xs bg-white/5 px-2 py-1 rounded-md">{gift.totalClaims || 0}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Claimed</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-[10px] font-medium text-white/80">{new Date(gift.createdAt?.toDate ? gift.createdAt.toDate() : gift.createdAt).toLocaleDateString()}</p>
-                          {gift.expiresAt && (
-                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5"><Timer className="w-3 h-3" /> Exp: {new Date(gift.expiresAt).toLocaleDateString()}</p>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+        <Tabs value={analyticsTab} onValueChange={setAnalyticsTab}>
+          <TabsList className="bg-black/40 border border-white/5 h-14 w-full md:w-auto inline-flex justify-start rounded-xl p-1 mb-6">
+            <TabsTrigger value="individual" className="data-[state=active]:bg-primary rounded-lg px-8 h-full font-black uppercase tracking-wider text-xs flex items-center gap-2"><User className="w-4 h-4" /> Individual Analytics</TabsTrigger>
+            <TabsTrigger value="global" className="data-[state=active]:bg-primary rounded-lg px-8 h-full font-black uppercase tracking-wider text-xs flex items-center gap-2"><Activity className="w-4 h-4" /> Global Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="individual">
+            <Card className="glass border-white/5 relative overflow-hidden group">
+              <CardHeader className="border-b border-white/5 bg-black/40">
+                <CardTitle className="text-sm font-black uppercase flex items-center gap-2">Targeted Gift Distribution Log</CardTitle>
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Monitor individual sent gifts</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5">
+                      <TableHead className="text-[10px] font-black uppercase py-4 pl-6">Player Info</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Gift Sent</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Status</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Sent At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {indGiftsLoading ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /></TableCell></TableRow>
+                    ) : !indGifts || indGifts.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-xs font-bold text-muted-foreground uppercase tracking-widest">No individual gifts sent yet</TableCell></TableRow>
+                    ) : (
+                      indGifts.map(gift => (
+                        <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                          <TableCell className="pl-6">
+                            <p className="font-black text-white text-sm uppercase">{gift.targetUsername}</p>
+                            <p className="text-[9px] text-muted-foreground font-mono">{gift.targetUserId}</p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
+                            <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[150px]" title={gift.message}>{gift.message}</p>
+                          </TableCell>
+                          <TableCell>
+                            {gift.status === 'claimed' ? (
+                              <div>
+                                <Badge variant="outline" className="border-green-500/30 text-green-500 mb-1 flex w-fit items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> CLAIMED
+                                </Badge>
+                                {gift.claimedAt && <p className="text-[8px] text-muted-foreground uppercase tracking-widest">{new Date(gift.claimedAt?.toDate ? gift.claimedAt.toDate() : gift.claimedAt).toLocaleDateString()}</p>}
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="border-orange-500/30 text-orange-500">
+                                PENDING
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-[10px] font-medium text-white/80">{new Date(gift.sentAt?.toDate ? gift.sentAt.toDate() : gift.sentAt).toLocaleDateString()}</p>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                
+                {indGifts && indGifts.length > 0 && (
+                  <div className="p-6 flex justify-center border-t border-white/5 bg-black/20">
+                    <Button variant="outline" onClick={() => setIndLimit(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">
+                      LOAD MORE
+                    </Button>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="global">
+            <Card className="glass border-white/5 relative overflow-hidden group">
+              <CardHeader className="border-b border-white/5 bg-black/40">
+                <CardTitle className="text-sm font-black uppercase flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Global Gift Analytics</CardTitle>
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Monitor mass distributions</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5">
+                      <TableHead className="text-[10px] font-black uppercase py-4 pl-6">Amount</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Status</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Total Claims</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4">Created / Expiry</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {globalGiftsLoading ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /></TableCell></TableRow>
+                    ) : !globalGifts || globalGifts.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-xs font-bold text-muted-foreground uppercase tracking-widest">No global gifts deployed yet</TableCell></TableRow>
+                    ) : (
+                      globalGifts.map(gift => {
+                        const isExpired = gift.expiresAt && new Date(gift.expiresAt).getTime() < Date.now();
+                        return (
+                          <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                            <TableCell className="pl-6">
+                              <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
+                              <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px]" title={gift.message}>{gift.message}</p>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={isExpired ? 'border-destructive/30 text-destructive' : 'border-primary/30 text-primary'}>
+                                {isExpired ? 'EXPIRED' : 'ACTIVE'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-black text-xs bg-white/5 px-2 py-1 rounded-md">{gift.totalClaims || 0}</span>
+                                <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Claimed</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-[10px] font-medium text-white/80">{new Date(gift.createdAt?.toDate ? gift.createdAt.toDate() : gift.createdAt).toLocaleDateString()}</p>
+                              {gift.expiresAt && (
+                                <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5"><Timer className="w-3 h-3" /> Exp: {new Date(gift.expiresAt).toLocaleDateString()}</p>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
     </div>

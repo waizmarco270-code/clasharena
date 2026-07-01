@@ -85,13 +85,25 @@ export async function POST(request: Request) {
         const userSnap = await targetUserRef.get();
         if (!userSnap.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
+        const userData = userSnap.data();
+
         await targetUserRef.update({
           pendingGifts: FieldValue.arrayUnion(giftData)
         });
 
+        // Add to gift-logs for Individual Analytics
+        await adminDb.collection('gift-logs').doc(giftId).set({
+          giftId,
+          targetUserId,
+          targetUsername: userData?.username || 'Warrior',
+          amount,
+          message: giftData.message,
+          status: 'pending',
+          sentAt: serverTime,
+        });
+
         // Send individual push notification
         try {
-          const userData = userSnap.data();
           const fcmTokens = userData?.fcmTokens || [];
           if (fcmTokens.length > 0 && adminMessaging) {
             await adminMessaging.sendMulticast({

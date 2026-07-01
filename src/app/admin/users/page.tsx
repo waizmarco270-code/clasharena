@@ -57,15 +57,17 @@ export default function UserManagementPage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || myProfile?.isSuperAdmin;
 
-  const [limitCount, setLimitCount] = useState(20);
-  // Retrieve all users
+  const [limitCount, setLimitCount] = useState(100);
+  // Retrieve all users (Active Player Cache)
   const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(limitCount)), [db, limitCount]);
   const { data: allUsers, loading } = useCollection(allUsersQuery);
 
   const [userSearch, setUserSearch] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [selectedTH, setSelectedTH] = useState<string>('all');
   const [selectedRelay, setSelectedRelay] = useState<string>('all');
   const [selectedWinsRange, setSelectedWinsRange] = useState<string>('all');
+  const [selectedCoinRange, setSelectedCoinRange] = useState<string>('all');
 
   // Confirmation Alert Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -114,9 +116,28 @@ export default function UserManagementPage() {
         if (selectedWinsRange === '11+' && wins < 11) return false;
       }
 
+      // 6. Coin Balance Filter
+      if (selectedCoinRange !== 'all') {
+        const balance = u.balance || 0;
+        if (selectedCoinRange === '0-100' && (balance < 0 || balance > 100)) return false;
+        if (selectedCoinRange === '100-500' && (balance < 100 || balance > 500)) return false;
+        if (selectedCoinRange === '500-1000' && (balance < 500 || balance > 1000)) return false;
+        if (selectedCoinRange === '1000+' && balance < 1000) return false;
+      }
+
       return true;
     });
-  }, [allUsers, userSearch, selectedTH, selectedRelay, selectedWinsRange]);
+  }, [allUsers, userSearch, selectedTH, selectedRelay, selectedWinsRange, selectedCoinRange]);
+
+  const top5Matches = useMemo(() => {
+    if (!userSearch || userSearch.length < 1 || !allUsers) return [];
+    const searchLower = userSearch.toLowerCase();
+    return allUsers.filter(u => 
+      u.username?.toLowerCase().includes(searchLower) ||
+      u.tag?.toLowerCase().includes(searchLower) ||
+      u.id?.toLowerCase().includes(searchLower)
+    ).slice(0, 5);
+  }, [allUsers, userSearch]);
 
   const handleInitiateAction = (userId: string, username: string, targetAdminState: boolean) => {
     setConfirmAction({ userId, username, isAdmin: targetAdminState });
@@ -206,16 +227,45 @@ export default function UserManagementPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {/* Search input */}
-              <div className="relative group md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              {/* Search input with Dropdown */}
+              <div className="relative group md:col-span-2 z-50">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input 
                   value={userSearch} 
-                  onChange={e => setUserSearch(e.target.value)} 
-                  placeholder="Search username, tag, or ID..." 
+                  onChange={e => {
+                    setUserSearch(e.target.value);
+                    setShowSearchDropdown(true);
+                  }} 
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
+                  placeholder="Smart search (Name, Tag, ID)..." 
                   className="pl-10 h-12 bg-white/5 border-white/10 text-white rounded-xl placeholder:text-zinc-500 font-medium" 
                 />
+                
+                {/* Search Dropdown */}
+                {showSearchDropdown && userSearch && top5Matches.length > 0 && (
+                  <div className="absolute top-full left-0 w-full mt-2 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                    {top5Matches.map(match => (
+                      <div 
+                        key={match.id}
+                        onClick={() => {
+                          setUserSearch(match.username);
+                          setShowSearchDropdown(false);
+                        }}
+                        className="flex items-center gap-3 p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <Users className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white uppercase">{match.username || 'Warrior'}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{match.id}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Town Hall Filter */}
@@ -225,7 +275,7 @@ export default function UserManagementPage() {
                   <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold text-xs rounded-xl text-white">
                     <SelectValue placeholder="All Town Halls" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-950 border-white/10 text-white">
+                  <SelectContent className="bg-zinc-950 border-white/10 text-white z-50">
                     <SelectItem value="all">All Town Halls</SelectItem>
                     {[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (
                       <SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>
@@ -241,10 +291,27 @@ export default function UserManagementPage() {
                   <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold text-xs rounded-xl text-white">
                     <SelectValue placeholder="All Devices" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-950 border-white/10 text-white">
+                  <SelectContent className="bg-zinc-950 border-white/10 text-white z-50">
                     <SelectItem value="all">All Devices</SelectItem>
                     <SelectItem value="on">Relay ON</SelectItem>
                     <SelectItem value="off">Relay OFF</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Coin Balance Filter */}
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Coin Balance</label>
+                <Select value={selectedCoinRange} onValueChange={setSelectedCoinRange}>
+                  <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold text-xs rounded-xl text-white">
+                    <SelectValue placeholder="All Balances" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-950 border-white/10 text-white z-50">
+                    <SelectItem value="all">All Balances</SelectItem>
+                    <SelectItem value="0-100">0 - 100 Coins</SelectItem>
+                    <SelectItem value="100-500">100 - 500 Coins</SelectItem>
+                    <SelectItem value="500-1000">500 - 1000 Coins</SelectItem>
+                    <SelectItem value="1000+">1000+ Coins</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

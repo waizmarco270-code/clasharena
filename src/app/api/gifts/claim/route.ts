@@ -44,17 +44,7 @@ export async function POST(request: Request) {
           claimedGlobalGifts: FieldValue.arrayUnion(giftId)
         });
 
-        // Log transaction
-        const historyRef = adminDb.collection('recharge-requests').doc();
-        transaction.set(historyRef, {
-          userId,
-          username: userData.username || 'Warrior',
-          amount: giftData.amount,
-          type: 'GIFT_CLAIM',
-          description: `Claimed global gift: ${giftData.message || 'Reward'}`,
-          status: 'approved',
-          createdAt: FieldValue.serverTimestamp()
-        });
+        // (No recharge-requests logging for global gifts anymore to keep Wallet Logs clean)
 
         return { amount: giftData.amount };
       } else if (type === 'individual') {
@@ -68,16 +58,11 @@ export async function POST(request: Request) {
           pendingGifts: FieldValue.arrayRemove(gift) // Requires exact object match
         });
 
-        // Log transaction
-        const historyRef = adminDb.collection('recharge-requests').doc();
-        transaction.set(historyRef, {
-          userId,
-          username: userData.username || 'Warrior',
-          amount: gift.amount,
-          type: 'GIFT_CLAIM',
-          description: `Claimed individual gift: ${gift.message || 'Reward'}`,
-          status: 'approved',
-          createdAt: FieldValue.serverTimestamp()
+        // Log transaction (gift-logs analytics update instead of wallet recharge-requests)
+        const giftLogRef = adminDb.collection('gift-logs').doc(giftId);
+        transaction.update(giftLogRef, {
+          status: 'claimed',
+          claimedAt: FieldValue.serverTimestamp()
         });
 
         return { amount: gift.amount };

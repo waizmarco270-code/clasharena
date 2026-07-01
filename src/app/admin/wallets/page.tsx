@@ -11,20 +11,33 @@ import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatc
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Eye, TrendingUp, Search, X, Loader2 } from 'lucide-react';
+import { Eye, TrendingUp, Search, X, Loader2, Calendar } from 'lucide-react';
 import { default as NextLink } from 'next/link';
+import { PlayerTHBadge } from '@/components/PlayerTHBadge';
 
 export default function WalletLogsPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const [limitCount, setLimitCount] = useState(30);
-  const rechargeQuery = useMemo(() => query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc'), limit(limitCount)), [db, limitCount]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  
+  const rechargeQuery = useMemo(() => {
+    let q = query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc'));
+    if (selectedDate) {
+      const start = new Date(selectedDate);
+      start.setHours(0,0,0,0);
+      const end = new Date(selectedDate);
+      end.setHours(23,59,59,999);
+      q = query(collection(db, 'recharge-requests'), where('createdAt', '>=', start), where('createdAt', '<=', end), orderBy('createdAt', 'desc'));
+    }
+    return query(q, limit(limitCount));
+  }, [db, limitCount, selectedDate]);
+  
   const { data: rechargeRequests } = useCollection(rechargeQuery);
 
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('recharges');
+  const [activeTab, setActiveTab] = useState('all');
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,12 +99,14 @@ export default function WalletLogsPage() {
   };
 
   // Filter logs for tabs (Fully read-optimized on the client)
-  const activeRecords = searchResults || rechargeRequests || [];
-  const recharges = useMemo(() => activeRecords.filter((r: any) => r.amount > 0 && r.method?.toLowerCase() !== 'refund' && (!r.rejectionReason?.toLowerCase().includes('refund'))), [activeRecords]);
-  const deductions = useMemo(() => activeRecords.filter((r: any) => r.amount < 0 || r.type === 'TOURNAMENT_ENTRY'), [activeRecords]);
-  const refunds = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'refund' || r.rejectionReason?.toLowerCase().includes('refund')), [activeRecords]);
+  // Exclude GIFT_CLAIM completely from Wallet Logs
+  const activeRecords = (searchResults || rechargeRequests || []).filter((r: any) => r.type !== 'GIFT_CLAIM');
+  
+  const allTransactions = useMemo(() => activeRecords, [activeRecords]);
+  const manualTransactions = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'manual' || r.type === 'MANUAL'), [activeRecords]);
+  const autoTransactions = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() !== 'manual' && r.type !== 'MANUAL'), [activeRecords]);
 
-  const renderTable = (records: any[], type: 'recharge' | 'deduction' | 'refund') => (
+  const renderTable = (records: any[]) => (
     <Card className="glass border-white/5 overflow-hidden">
       <Table>
         <TableHeader className="bg-white/5">
@@ -99,16 +114,16 @@ export default function WalletLogsPage() {
             <TableHead className="text-[10px] font-black uppercase">Transaction ID</TableHead>
             <TableHead className="text-[10px] font-black uppercase">User</TableHead>
             <TableHead className="text-[10px] font-black uppercase">Amount</TableHead>
-            <TableHead className="text-[10px] font-black uppercase">{type === 'deduction' ? 'Action / Location' : 'Method'}</TableHead>
+            <TableHead className="text-[10px] font-black uppercase">Method / Action</TableHead>
             <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
-            {type === 'recharge' && <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>}
+            <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {records.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-xs uppercase font-bold tracking-widest">
-                No {type}s found {searchResults ? 'in search results' : 'in recent logs'}
+                No transactions found {searchResults ? 'in search results' : 'in recent logs'}
               </TableCell>
             </TableRow>
           ) : (
@@ -117,20 +132,22 @@ export default function WalletLogsPage() {
                 <TableCell className="font-mono font-bold text-xs text-primary max-w-[150px] truncate select-all" title={req.id}>
                   {req.id}
                 </TableCell>
-                <TableCell className="font-bold uppercase text-xs">{req.username || req.userId || 'Unknown'}</TableCell>
+                <TableCell className="font-bold uppercase text-xs">
+                  {req.username || req.userId || 'Unknown'}
+                  <PlayerTHBadge userId={req.userId} />
+                </TableCell>
                 <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : 'text-primary'}`}>
-                  🪙 {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.amount}
+                  🪙 {req.amount > 0 ? '+' : ''}{req.amount}
                 </TableCell>
                 <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
-                  {type === 'deduction' ? (req.description || 'Arena Entry') : (req.method || 'Manual')}
+                  {req.description || req.method || (req.amount < 0 ? 'Arena Entry' : 'Manual')}
                 </TableCell>
                 <TableCell>
                   <Badge variant={req.status === 'pending' ? 'outline' : 'default'}>
-                    {(req.status || (type === 'deduction' ? 'Deducted' : 'Unknown')).toUpperCase()}
+                    {(req.status || 'Unknown').toUpperCase()}
                   </Badge>
                 </TableCell>
-                {type === 'recharge' && (
-                  <TableCell className="text-right">
+                <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {req.screenshotUrl && (
                         <Button size="icon" variant="outline" onClick={() => setSelectedProof(req.screenshotUrl)}>
@@ -144,7 +161,6 @@ export default function WalletLogsPage() {
                       )}
                     </div>
                   </TableCell>
-                )}
               </TableRow>
             ))
           )}
@@ -160,23 +176,39 @@ export default function WalletLogsPage() {
           <h2 className="text-sm font-black uppercase tracking-wider text-white">TRANSACTION AUDITS</h2>
           <p className="text-[10px] text-muted-foreground uppercase font-black">Audit recharges, deductions, and refunds.</p>
         </div>
-        
-        <form onSubmit={handleSearch} className="relative flex-1 max-w-md w-full flex items-center">
-          <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search Receipt ID, Razorpay ID, User ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 transition-colors"
-          />
-          {searchTerm && (
-            <button type="button" onClick={clearSearch} className="absolute right-3 text-muted-foreground hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
-          )}
-          <Button type="submit" disabled={isSearching} className="hidden">Search</Button>
-        </form>
+        <div className="flex gap-4 w-full md:w-auto">
+          <form onSubmit={handleSearch} className="relative flex-1 max-w-md w-full flex items-center">
+            <Search className="absolute left-3 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search Receipt ID, Razorpay ID, User ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 transition-colors"
+            />
+            {searchTerm && (
+              <button type="button" onClick={clearSearch} className="absolute right-3 text-muted-foreground hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            <Button type="submit" disabled={isSearching} className="hidden">Search</Button>
+          </form>
+
+          <div className="relative flex items-center">
+            <Calendar className="absolute left-3 w-4 h-4 text-muted-foreground" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 transition-colors min-w-[150px]"
+            />
+            {selectedDate && (
+              <button type="button" onClick={() => setSelectedDate('')} className="absolute right-3 text-muted-foreground hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
 
         <NextLink href="/admin/wallets/analytics">
           <Button className="bg-primary hover:bg-primary/95 text-white font-black text-xs uppercase rounded-xl flex items-center gap-2">
@@ -185,27 +217,27 @@ export default function WalletLogsPage() {
         </NextLink>
       </div>
 
-      <Tabs defaultValue="recharges" className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 bg-black/40 border border-white/5 mb-6">
-          <TabsTrigger value="recharges" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-black">
-            Recharges
+          <TabsTrigger value="all" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-black">
+            All Transactions
           </TabsTrigger>
-          <TabsTrigger value="deductions" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
-            Deductions
+          <TabsTrigger value="manual" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Manual
           </TabsTrigger>
-          <TabsTrigger value="refunds" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
-            Refunds
+          <TabsTrigger value="auto" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Auto
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="recharges" className="mt-0 space-y-4">
-          {renderTable(recharges, 'recharge')}
+        <TabsContent value="all" className="mt-0 space-y-4">
+          {renderTable(allTransactions)}
         </TabsContent>
-        <TabsContent value="deductions" className="mt-0 space-y-4">
-          {renderTable(deductions, 'deduction')}
+        <TabsContent value="manual" className="mt-0 space-y-4">
+          {renderTable(manualTransactions)}
         </TabsContent>
-        <TabsContent value="refunds" className="mt-0 space-y-4">
-          {renderTable(refunds, 'refund')}
+        <TabsContent value="auto" className="mt-0 space-y-4">
+          {renderTable(autoTransactions)}
         </TabsContent>
       </Tabs>
 
