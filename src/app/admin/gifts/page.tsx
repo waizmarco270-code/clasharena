@@ -189,7 +189,7 @@ export default function AdminGiftsPage() {
         
         {/* INDIVIDUAL TARGETING */}
         <div className="space-y-6">
-          <Card className="glass border-white/5 relative overflow-hidden group">
+          <Card className="glass border-white/5 relative group">
             <CardHeader className="border-b border-white/5 bg-black/40">
               <CardTitle className="text-sm font-black uppercase">Target Individual</CardTitle>
               <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Search by Username, User ID, or Receipt ID</CardDescription>

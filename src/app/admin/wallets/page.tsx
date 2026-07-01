@@ -154,8 +154,15 @@ export default function WalletLogsPage() {
   const refunds = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'refund' || r.rejectionReason?.toLowerCase().includes('refund')), [activeRecords]);
 
   const pendingTransactions = useMemo(() => recharges.filter((r: any) => r.status === 'pending'), [recharges]);
-  const manualTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && (r.method?.toLowerCase() === 'manual' || r.type === 'MANUAL')), [recharges]);
-  const autoTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && r.method?.toLowerCase() !== 'manual' && r.type !== 'MANUAL'), [recharges]);
+  
+  const isManual = (r: any) => {
+    if (r.method?.toLowerCase() === 'manual' || r.type === 'MANUAL') return true;
+    if (!r.method && !r.type && !r.id?.startsWith('pay_')) return true; // Fallback for old manual records
+    return false;
+  };
+
+  const manualTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && isManual(r)), [recharges]);
+  const autoTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && !isManual(r)), [recharges]);
 
   const renderTable = (records: any[], type: 'recharge' | 'deduction' | 'refund') => (
     <Card className="glass border-white/5 overflow-hidden">
