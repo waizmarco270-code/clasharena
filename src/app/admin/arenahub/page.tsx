@@ -117,7 +117,7 @@ export default function ArenaHubPage() {
     e.preventDefault();
     setTLoading(true);
 
-    if (tForm.subCategory === 'championship') {
+    if (tForm.type === 'championship') {
       const sum = Object.values(tForm.thDistribution).reduce((a, b) => a + b, 0);
       if (sum !== tForm.totalPlayers) {
         toast({ variant: 'destructive', title: 'INVALID TH DISTRIBUTION', description: `Sum of TH distribution (${sum}) must equal Total Players (${tForm.totalPlayers}).` });
@@ -164,7 +164,7 @@ export default function ArenaHubPage() {
               title: 'Tournament Updated! ⚔️',
               body: updateBody,
               imageUrl: tournamentData.imageUrl || undefined,
-              redirectUrl: `/arena/tournament/${editTId}`,
+              redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${editTId}` : `/arena/tournament/${editTId}`,
               data: {
                 type: 'update_tournament',
                 name: tournamentData.name,
@@ -186,11 +186,11 @@ export default function ArenaHubPage() {
       const newTourneyData = { 
         ...tournamentData, 
         currentPlayers: 0, 
-        status: tournamentData.subCategory === 'championship' ? 'registration' : 'upcoming', 
+        status: tournamentData.type === 'championship' ? 'registration' : 'upcoming', 
         createdAt: new Date().toISOString() 
       };
 
-      if (tournamentData.subCategory === 'championship') {
+      if (tournamentData.type === 'championship') {
         const initialCurrentRegistered: Record<number, number> = {};
         Object.keys(tournamentData.thDistribution).forEach(th => {
           initialCurrentRegistered[parseInt(th)] = 0;
@@ -209,7 +209,7 @@ export default function ArenaHubPage() {
               title: 'New Tournament Active! ⚔️',
               body: deployBody,
               imageUrl: tournamentData.imageUrl || undefined,
-              redirectUrl: `/arena/tournament/${tRef.id}`,
+              redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${tRef.id}` : `/arena/tournament/${tRef.id}`,
               data: {
                 type: 'new_tournament',
                 name: tournamentData.name,
@@ -344,14 +344,16 @@ export default function ArenaHubPage() {
                     <SelectContent><SelectItem value="paid">PAID</SelectItem><SelectItem value="free">FREE</SelectItem><SelectItem value="championship">CHAMPIONSHIP</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Sub Category</Label>
-                  <Select value={tForm.subCategory} onValueChange={val => setTForm({...tForm, subCategory: val as any})}>
-                    <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="championship">CHAMPIONSHIP</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                {tForm.subCategory !== 'championship' && (
+                {tForm.type !== 'championship' && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Sub Category</Label>
+                    <Select value={tForm.subCategory} onValueChange={val => setTForm({...tForm, subCategory: val as any})}>
+                      <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {tForm.type !== 'championship' && (
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
                     <Select value={tForm.townHall.toString()} onValueChange={val => setTForm({...tForm, townHall: parseInt(val)})}>
@@ -360,13 +362,13 @@ export default function ArenaHubPage() {
                     </Select>
                   </div>
                 )}
-                {tForm.subCategory !== 'championship' && (
+                {tForm.type !== 'championship' && (
                   <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} className="bg-white/5" /></div>
                 )}
                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label><Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} className="bg-white/5" /></div>
               </div>
 
-              {tForm.subCategory === 'championship' && (
+              {tForm.type === 'championship' && (
                 <div className="space-y-6 p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10">
                   <Label className="text-[12px] font-black uppercase flex items-center gap-2 text-blue-500"><Swords className="w-4 h-4" /> CHAMPIONSHIP CONFIGURATION</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

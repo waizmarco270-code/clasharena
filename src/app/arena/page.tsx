@@ -138,7 +138,7 @@ function TournamentCard({ t, now }: { t: any, now: Date }) {
       </div>
 
       <CardFooter className="p-6 bg-card/20 backdrop-blur-xl border-t border-white/5">
-        <Link href={t.subCategory === 'championship' ? `/arena/championship/${t.id}` : `/arena/tournament/${t.id}`} className="w-full">
+        <Link href={t.type === 'championship' ? `/arena/championship/${t.id}` : `/arena/tournament/${t.id}`} className="w-full">
           <Button 
             className={cn(
               "w-full font-black uppercase tracking-[0.2em] h-14 rounded-2xl transition-all text-sm shadow-xl",
@@ -199,6 +199,80 @@ function TournamentSkeleton() {
       </div>
       <CardFooter className="p-6 flex-1 bg-white/5">
         <Skeleton className="h-14 w-full rounded-2xl bg-white/10" />
+      </CardFooter>
+    </Card>
+  );
+}
+
+function ChampionshipCard({ t, now }: { t: any, now: Date }) {
+  const getRegistrationStatus = () => {
+    if (t.status === 'completed') return 'COMPLETED';
+    if (t.status !== 'registration' && t.status !== 'upcoming') return t.status.toUpperCase();
+    
+    const curr = now || new Date();
+    const regStart = new Date(t.registrationStartTime);
+    const regEnd = new Date(t.registrationEndTime);
+
+    if (isBefore(curr, regStart)) return 'WAITING';
+    if (isAfter(curr, regStart) && isBefore(curr, regEnd)) {
+        return t.totalRegistered >= t.totalPlayers ? 'FULL' : 'OPEN';
+    }
+    return 'CLOSED';
+  };
+
+  const regStatus = getRegistrationStatus();
+
+  return (
+    <Card className="overflow-hidden glass border-orange-500/30 flex flex-col hover:border-orange-500/60 transition-all group relative rounded-[2.5rem] z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+      <div className="absolute inset-0 bg-orange-500/5 mix-blend-overlay z-0 pointer-events-none" />
+      <div className="relative h-80 z-10">
+        <Image 
+          src={t.imageUrl || 'https://picsum.photos/seed/cocchamp/800/600'} 
+          alt={t.name} 
+          fill 
+          className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-90" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-black/40 to-transparent" />
+        
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
+           <div className="bg-orange-600/90 backdrop-blur-xl px-4 py-2 rounded-full border border-orange-400/50 flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.5)]">
+              <Trophy className="w-4 h-4 text-white" />
+              <span className="text-xs font-black text-white uppercase italic tracking-wider">
+                CHAMPIONSHIP SERIES
+              </span>
+           </div>
+        </div>
+
+        <div className="absolute bottom-6 left-6 right-6 flex flex-col justify-end pointer-events-none">
+          <h2 className="text-3xl font-headline font-black uppercase italic tracking-tight drop-shadow-2xl text-white mb-2 line-clamp-2">
+            {t.name}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-orange-200 bg-orange-950/80 px-3 py-1.5 rounded-full border border-orange-500/30 backdrop-blur-md">
+              <Users className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{t.totalRegistered || 0} / {t.totalPlayers} REGISTERED</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-orange-200 bg-orange-950/80 px-3 py-1.5 rounded-full border border-orange-500/30 backdrop-blur-md">
+              <Coins className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{t.entryFee === 0 ? 'FREE' : `${t.entryFee} COINS`}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <CardFooter className="p-6 bg-orange-950/20 backdrop-blur-xl border-t border-orange-500/20 z-10">
+        <Link href={`/arena/championship/${t.id}`} className="w-full">
+          <Button 
+            className={cn(
+              "w-full font-black uppercase tracking-[0.2em] h-14 rounded-2xl transition-all text-sm shadow-[0_0_20px_rgba(249,115,22,0.3)]",
+              ['OPEN', 'PARTY_PHASE', 'DRAFT', 'LEADER_SELECTION', 'TEAMS_LOCKED', 'CLAN_ASSIGNED', 'BATTLE_STARTED', 'VERIFICATION'].includes(regStatus)
+                ? 'bg-orange-600 hover:bg-orange-500 text-white border-t border-orange-400/50' 
+                : 'bg-muted text-muted-foreground'
+            )}
+          >
+            {regStatus.replace('_', ' ')}
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
@@ -288,20 +362,9 @@ export default function ArenaPage() {
             ))}
           </div>
 
-          {activeTab === 'championship' ? (
-            <div className="flex flex-col items-center justify-center py-24 md:py-32 space-y-6 glass border-white/10 rounded-[2.5rem] md:rounded-[3rem]">
-               <Zap className="w-16 h-16 md:w-20 md:h-20 text-orange-500 animate-pulse" />
-               <div className="text-center space-y-2 px-4">
-                  <h2 className="font-headline text-4xl md:text-5xl font-black uppercase italic tracking-tighter">COMING <span className="text-orange-500">SOON</span></h2>
-                  <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px] md:text-xs">High Stakes Championship Protocol is being initialized</p>
-               </div>
-               <Button variant="outline" onClick={() => setActiveTab('all')} className="rounded-full border-orange-500/20 text-orange-500 font-black px-10">GO BACK</Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-3 flex-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-1">Select Battle Mode</p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 ml-1">Select Battle Mode</p>
                   <ScrollArea className="w-full whitespace-nowrap">
                     <div className="flex gap-2 pb-2">
                       {subCategories.map(sub => (
@@ -363,10 +426,10 @@ export default function ArenaPage() {
                         <p className="text-muted-foreground font-black uppercase text-[10px] tracking-widest">Adjust filters or check back for new battlegrounds</p>
                      </div>
                    </div>
-                 ) : filteredTournaments.map((t: any) => (<TournamentCard key={t.id} t={t} now={now} />))}
+                  ) : filteredTournaments.map((t: any) => (
+                    t.type === 'championship' ? <ChampionshipCard key={t.id} t={t} now={now} /> : <TournamentCard key={t.id} t={t} now={now} />
+                  ))}
               </div>
-            </>
-          )}
         </div>
       </div>
     </PageWrapper>
