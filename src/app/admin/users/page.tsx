@@ -57,7 +57,7 @@ export default function UserManagementPage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || myProfile?.isSuperAdmin;
 
-  const [limitCount, setLimitCount] = useState(100);
+  const [limitCount, setLimitCount] = useState(50);
   // Retrieve all users (Active Player Cache)
   const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(limitCount)), [db, limitCount]);
   const { data: allUsers, loading } = useCollection(allUsersQuery);
@@ -119,7 +119,7 @@ export default function UserManagementPage() {
       // 6. Coin Balance Filter
       if (selectedCoinRange !== 'all') {
         const balance = u.balance || 0;
-        if (selectedCoinRange === '0-100' && (balance < 0 || balance > 100)) return false;
+        if (selectedCoinRange === '1-100' && (balance < 1 || balance > 100)) return false;
         if (selectedCoinRange === '100-500' && (balance < 100 || balance > 500)) return false;
         if (selectedCoinRange === '500-1000' && (balance < 500 || balance > 1000)) return false;
         if (selectedCoinRange === '1000+' && balance < 1000) return false;
@@ -308,7 +308,7 @@ export default function UserManagementPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-zinc-950 border-white/10 text-white z-50">
                     <SelectItem value="all">All Balances</SelectItem>
-                    <SelectItem value="0-100">0 - 100 Coins</SelectItem>
+                    <SelectItem value="1-100">1 - 100 Coins</SelectItem>
                     <SelectItem value="100-500">100 - 500 Coins</SelectItem>
                     <SelectItem value="500-1000">500 - 1000 Coins</SelectItem>
                     <SelectItem value="1000+">1000+ Coins</SelectItem>

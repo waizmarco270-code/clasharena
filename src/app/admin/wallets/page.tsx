@@ -1,19 +1,21 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch, getDoc, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch, getDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Eye, TrendingUp, Search, X, Loader2, Calendar } from 'lucide-react';
 import { default as NextLink } from 'next/link';
 import { PlayerTHBadge } from '@/components/PlayerTHBadge';
+import { useUser } from '@clerk/nextjs';
+import { Trash2 } from 'lucide-react';
 
 export default function WalletLogsPage() {
   const db = useFirestore();
@@ -34,6 +36,18 @@ export default function WalletLogsPage() {
   }, [db, limitCount, selectedDate]);
   
   const { data: rechargeRequests } = useCollection(rechargeQuery);
+
+  const { user } = useUser();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    if (user?.id === 'user_3FPUpUpNM4gNnZFAu8ATO6bcQ16') {
+      setIsSuperAdmin(true);
+    } else if (user?.id) {
+      getDoc(doc(db, 'users', user.id)).then(snap => {
+        if (snap.exists() && snap.data().isSuperAdmin) setIsSuperAdmin(true);
+      }).catch(console.error);
+    }
+  }, [user, db]);
 
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -98,15 +112,52 @@ export default function WalletLogsPage() {
     }
   };
 
+  const handleRejectRecharge = async (req: any) => {
+    const reason = prompt("Enter rejection reason (User will see this):");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast({ variant: 'destructive', title: "Reason Required", description: "You must provide a reason for rejection." });
+      return;
+    }
+    
+    if (processingId) return;
+    setProcessingId(req.id);
+    try {
+      await updateDoc(doc(db, 'recharge-requests', req.id), { 
+        status: 'rejected',
+        rejectionReason: reason 
+      });
+      toast({ title: "RECHARGE REJECTED" });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Failed", description: e.message });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    if (!confirm("Are you absolutely sure you want to permanently delete this log?")) return;
+    try {
+      await deleteDoc(doc(db, 'recharge-requests', id));
+      toast({ title: "LOG DELETED" });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Failed", description: e.message });
+    }
+  };
+
   // Filter logs for tabs (Fully read-optimized on the client)
   // Exclude GIFT_CLAIM completely from Wallet Logs
   const activeRecords = (searchResults || rechargeRequests || []).filter((r: any) => r.type !== 'GIFT_CLAIM');
   
-  const allTransactions = useMemo(() => activeRecords, [activeRecords]);
-  const manualTransactions = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'manual' || r.type === 'MANUAL'), [activeRecords]);
-  const autoTransactions = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() !== 'manual' && r.type !== 'MANUAL'), [activeRecords]);
+  const recharges = useMemo(() => activeRecords.filter((r: any) => r.amount > 0 && r.method?.toLowerCase() !== 'refund' && (!r.rejectionReason?.toLowerCase().includes('refund'))), [activeRecords]);
+  const deductions = useMemo(() => activeRecords.filter((r: any) => r.amount < 0 || r.type === 'TOURNAMENT_ENTRY'), [activeRecords]);
+  const refunds = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'refund' || r.rejectionReason?.toLowerCase().includes('refund')), [activeRecords]);
 
-  const renderTable = (records: any[]) => (
+  const pendingTransactions = useMemo(() => recharges.filter((r: any) => r.status === 'pending'), [recharges]);
+  const manualTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && (r.method?.toLowerCase() === 'manual' || r.type === 'MANUAL')), [recharges]);
+  const autoTransactions = useMemo(() => recharges.filter((r: any) => r.status !== 'pending' && r.method?.toLowerCase() !== 'manual' && r.type !== 'MANUAL'), [recharges]);
+
+  const renderTable = (records: any[], type: 'recharge' | 'deduction' | 'refund') => (
     <Card className="glass border-white/5 overflow-hidden">
       <Table>
         <TableHeader className="bg-white/5">
@@ -114,7 +165,7 @@ export default function WalletLogsPage() {
             <TableHead className="text-[10px] font-black uppercase">Transaction ID</TableHead>
             <TableHead className="text-[10px] font-black uppercase">User</TableHead>
             <TableHead className="text-[10px] font-black uppercase">Amount</TableHead>
-            <TableHead className="text-[10px] font-black uppercase">Method / Action</TableHead>
+            <TableHead className="text-[10px] font-black uppercase">{type === 'deduction' ? 'Action / Location' : 'Method / Action'}</TableHead>
             <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
             <TableHead className="text-[10px] font-black uppercase text-right">Actions</TableHead>
           </TableRow>
@@ -123,7 +174,7 @@ export default function WalletLogsPage() {
           {records.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-xs uppercase font-bold tracking-widest">
-                No transactions found {searchResults ? 'in search results' : 'in recent logs'}
+                No {type}s found {searchResults ? 'in search results' : 'in recent logs'}
               </TableCell>
             </TableRow>
           ) : (
@@ -137,14 +188,14 @@ export default function WalletLogsPage() {
                   <PlayerTHBadge userId={req.userId} />
                 </TableCell>
                 <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : 'text-primary'}`}>
-                  🪙 {req.amount > 0 ? '+' : ''}{req.amount}
+                  🪙 {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.amount}
                 </TableCell>
                 <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
-                  {req.description || req.method || (req.amount < 0 ? 'Arena Entry' : 'Manual')}
+                  {type === 'deduction' ? (req.description || 'Arena Entry') : (req.description || req.method || 'Manual')}
                 </TableCell>
                 <TableCell>
                   <Badge variant={req.status === 'pending' ? 'outline' : 'default'}>
-                    {(req.status || 'Unknown').toUpperCase()}
+                    {(req.status || (type === 'deduction' ? 'Deducted' : 'Unknown')).toUpperCase()}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -155,8 +206,18 @@ export default function WalletLogsPage() {
                         </Button>
                       )}
                       {req.status === 'pending' && (
-                        <Button size="sm" className="bg-green-600" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>
-                          APPROVE
+                        <>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApproveRecharge(req)} disabled={processingId === req.id}>
+                            APPROVE
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleRejectRecharge(req)} disabled={processingId === req.id}>
+                            REJECT
+                          </Button>
+                        </>
+                      )}
+                      {isSuperAdmin && (
+                        <Button size="icon" variant="ghost" className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => handleDeleteLog(req.id)}>
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
                     </div>
@@ -217,27 +278,48 @@ export default function WalletLogsPage() {
         </NextLink>
       </div>
 
-      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="recharges" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 bg-black/40 border border-white/5 mb-6">
-          <TabsTrigger value="all" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-black">
-            All Transactions
+          <TabsTrigger value="recharges" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-black">
+            Recharges
           </TabsTrigger>
-          <TabsTrigger value="manual" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
-            Manual
+          <TabsTrigger value="deductions" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Deductions
           </TabsTrigger>
-          <TabsTrigger value="auto" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
-            Auto
+          <TabsTrigger value="refunds" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Refunds
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="mt-0 space-y-4">
-          {renderTable(allTransactions)}
+        <TabsContent value="recharges" className="mt-0 space-y-4">
+          <Tabs defaultValue="transactions" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-black/20 border border-white/5 mb-4 rounded-xl p-1">
+              <TabsTrigger value="transactions" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg">
+                Pending
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg">
+                Manual
+              </TabsTrigger>
+              <TabsTrigger value="auto" className="text-xs font-black uppercase tracking-widest data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-lg">
+                Auto
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="transactions" className="mt-0 space-y-4">
+              {renderTable(pendingTransactions, 'recharge')}
+            </TabsContent>
+            <TabsContent value="manual" className="mt-0 space-y-4">
+              {renderTable(manualTransactions, 'recharge')}
+            </TabsContent>
+            <TabsContent value="auto" className="mt-0 space-y-4">
+              {renderTable(autoTransactions, 'recharge')}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
-        <TabsContent value="manual" className="mt-0 space-y-4">
-          {renderTable(manualTransactions)}
+        <TabsContent value="deductions" className="mt-0 space-y-4">
+          {renderTable(deductions, 'deduction')}
         </TabsContent>
-        <TabsContent value="auto" className="mt-0 space-y-4">
-          {renderTable(autoTransactions)}
+        <TabsContent value="refunds" className="mt-0 space-y-4">
+          {renderTable(refunds, 'refund')}
         </TabsContent>
       </Tabs>
 
