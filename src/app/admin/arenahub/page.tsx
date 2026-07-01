@@ -61,15 +61,23 @@ export default function ArenaHubPage() {
     name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8, entryFee: 0,
     rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardImageUrl: '',
     prizePool: '', rules: [] as string[], imageUrl: '', townHall: 0,
-    registrationStartTime: '', registrationEndTime: '', startTime: ''
+    registrationStartTime: '', registrationEndTime: '', startTime: '',
+    totalPlayers: 30, thDistribution: {} as Record<number, number>, reservePlayers: 2,
+    clan1: '', clan2: '', chatEnabled: true, notificationsEnabled: true,
+    leaderSelectionMode: 'manual' as 'manual' | 'application', winnerRefundAmount: 0
   });
+
+  const [thInput, setThInput] = useState({ level: 16, count: 5 });
 
   const resetTForm = () => {
     setTForm({
       name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
       entryFee: 0, rewardType: 'coin', rewardValue: '', rewardItemName: '',
       rewardImageUrl: '', prizePool: '', rules: [], imageUrl: '', townHall: 0,
-      registrationStartTime: '', registrationEndTime: '', startTime: ''
+      registrationStartTime: '', registrationEndTime: '', startTime: '',
+      totalPlayers: 30, thDistribution: {}, reservePlayers: 2,
+      clan1: '', clan2: '', chatEnabled: true, notificationsEnabled: true,
+      leaderSelectionMode: 'manual', winnerRefundAmount: 0
     });
     setEditTId(null);
     setNewRule('');
@@ -108,6 +116,15 @@ export default function ArenaHubPage() {
   const handleCreateTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     setTLoading(true);
+
+    if (tForm.subCategory === 'championship') {
+      const sum = Object.values(tForm.thDistribution).reduce((a, b) => a + b, 0);
+      if (sum !== tForm.totalPlayers) {
+        toast({ variant: 'destructive', title: 'INVALID TH DISTRIBUTION', description: `Sum of TH distribution (${sum}) must equal Total Players (${tForm.totalPlayers}).` });
+        setTLoading(false);
+        return;
+      }
+    }
 
     let poolSummary = '';
     if (tForm.rewardType === 'money') poolSummary = `₹ ${tForm.rewardValue}`;
@@ -165,12 +182,24 @@ export default function ArenaHubPage() {
     } else {
       const tRef = doc(collection(db, 'tournaments'));
       const deployBody = `Arena "${tournamentData.name}" has been deployed for Town Hall ${tournamentData.townHall || 'any'}.${regTimeline ? ` Registration: ${regTimeline}.` : ''} Join now!`;
-      setDoc(tRef, { 
+      
+      const newTourneyData = { 
         ...tournamentData, 
         currentPlayers: 0, 
-        status: 'upcoming', 
+        status: tournamentData.subCategory === 'championship' ? 'registration' : 'upcoming', 
         createdAt: new Date().toISOString() 
-      })
+      };
+
+      if (tournamentData.subCategory === 'championship') {
+        const initialCurrentRegistered: Record<number, number> = {};
+        Object.keys(tournamentData.thDistribution).forEach(th => {
+          initialCurrentRegistered[parseInt(th)] = 0;
+        });
+        (newTourneyData as any).currentRegistered = initialCurrentRegistered;
+        (newTourneyData as any).totalRegistered = 0;
+      }
+
+      setDoc(tRef, newTourneyData)
         .then(() => {
           fetch('/api/notifications/send', {
             method: 'POST',
@@ -319,19 +348,67 @@ export default function ArenaHubPage() {
                   <Label className="text-[10px] font-black uppercase">Sub Category</Label>
                   <Select value={tForm.subCategory} onValueChange={val => setTForm({...tForm, subCategory: val as any})}>
                     <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="knockout">KNOCKOUT</SelectItem><SelectItem value="championship">CHAMPIONSHIP</SelectItem><SelectItem value="1vs1">1 VS 1</SelectItem><SelectItem value="tdm">TEAM DEATH MATCH</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
-                  <Select value={tForm.townHall.toString()} onValueChange={val => setTForm({...tForm, townHall: parseInt(val)})}>
-                    <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="0">NONE (ANY LEVEL)</SelectItem>{[9,10,11,12,13,14,15,16,17,18].map(th => (<SelectItem key={th} value={th.toString()}>TOWN HALL {th}</SelectItem>))}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} className="bg-white/5" /></div>
+                {tForm.subCategory !== 'championship' && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
+                    <Select value={tForm.townHall.toString()} onValueChange={val => setTForm({...tForm, townHall: parseInt(val)})}>
+                      <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="0">NONE (ANY LEVEL)</SelectItem>{[9,10,11,12,13,14,15,16,17,18].map(th => (<SelectItem key={th} value={th.toString()}>TOWN HALL {th}</SelectItem>))}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {tForm.subCategory !== 'championship' && (
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} className="bg-white/5" /></div>
+                )}
                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label><Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} className="bg-white/5" /></div>
               </div>
+
+              {tForm.subCategory === 'championship' && (
+                <div className="space-y-6 p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10">
+                  <Label className="text-[12px] font-black uppercase flex items-center gap-2 text-blue-500"><Swords className="w-4 h-4" /> CHAMPIONSHIP CONFIGURATION</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Total Players</Label><Input type="number" value={tForm.totalPlayers} onChange={e => setTForm({...tForm, totalPlayers: parseInt(e.target.value) || 0})} className="bg-white/5" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Reserve Players</Label><Input type="number" value={tForm.reservePlayers} onChange={e => setTForm({...tForm, reservePlayers: parseInt(e.target.value) || 0})} className="bg-white/5" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Clan 1 Name / Tag</Label><Input value={tForm.clan1} onChange={e => setTForm({...tForm, clan1: e.target.value})} className="bg-white/5" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Clan 2 Name / Tag</Label><Input value={tForm.clan2} onChange={e => setTForm({...tForm, clan2: e.target.value})} className="bg-white/5" /></div>
+                    
+                    <div className="space-y-2 md:col-span-2 border-t border-white/5 pt-4 mt-2">
+                      <Label className="text-[10px] font-black uppercase">Town Hall Distribution (Must sum to {tForm.totalPlayers})</Label>
+                      <div className="flex gap-2">
+                        <Select value={thInput.level.toString()} onValueChange={v => setThInput({...thInput, level: parseInt(v)})}>
+                          <SelectTrigger className="w-32 bg-white/5"><SelectValue /></SelectTrigger>
+                          <SelectContent>{[9,10,11,12,13,14,15,16,17,18].map(th => (<SelectItem key={th} value={th.toString()}>TH {th}</SelectItem>))}</SelectContent>
+                        </Select>
+                        <Input type="number" value={thInput.count} onChange={e => setThInput({...thInput, count: parseInt(e.target.value) || 0})} className="w-24 bg-white/5" placeholder="Count" />
+                        <Button type="button" onClick={() => setTForm(p => ({ ...p, thDistribution: { ...p.thDistribution, [thInput.level]: thInput.count } }))} className="bg-blue-600"><Plus className="w-4 h-4" /> ADD</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {Object.entries(tForm.thDistribution).map(([th, count]) => (
+                          <div key={th} className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg border border-white/5">
+                            <span className="text-xs font-bold">TH{th}: {count}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-4 w-4 rounded-full hover:bg-red-500/20" onClick={() => setTForm(p => { const newDist = {...p.thDistribution}; delete newDist[parseInt(th)]; return { ...p, thDistribution: newDist }; })}>
+                              <X className="w-3 h-3 text-red-400" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-mono text-muted-foreground mt-2">Current Sum: {Object.values(tForm.thDistribution).reduce((a,b)=>a+b,0)} / {tForm.totalPlayers}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Leader Selection Mode</Label>
+                      <Select value={tForm.leaderSelectionMode} onValueChange={val => setTForm({...tForm, leaderSelectionMode: val as any})}>
+                        <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="manual">MANUAL</SelectItem><SelectItem value="application">APPLICATIONS</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Winner Refund Amount</Label><Input type="number" value={tForm.winnerRefundAmount} onChange={e => setTForm({...tForm, winnerRefundAmount: parseInt(e.target.value) || 0})} className="bg-white/5" /></div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-6 p-6 rounded-2xl bg-primary/5 border border-primary/10">
                 <Label className="text-[12px] font-black uppercase flex items-center gap-2 text-primary"><Trophy className="w-4 h-4" /> REWARD PROTOCOL</Label>

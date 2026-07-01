@@ -138,7 +138,7 @@ function TournamentCard({ t, now }: { t: any, now: Date }) {
       </div>
 
       <CardFooter className="p-6 bg-card/20 backdrop-blur-xl border-t border-white/5">
-        <Link href={`/arena/tournament/${t.id}`} className="w-full">
+        <Link href={t.subCategory === 'championship' ? `/arena/championship/${t.id}` : `/arena/tournament/${t.id}`} className="w-full">
           <Button 
             className={cn(
               "w-full font-black uppercase tracking-[0.2em] h-14 rounded-2xl transition-all text-sm shadow-xl",
