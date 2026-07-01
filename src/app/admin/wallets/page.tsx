@@ -18,7 +18,7 @@ import { PlayerTHBadge } from '@/components/PlayerTHBadge';
 export default function WalletLogsPage() {
   const db = useFirestore();
   const { toast } = useToast();
-
+  const [limitCount, setLimitCount] = useState(30);
   const [selectedDate, setSelectedDate] = useState<string>('');
   
   const rechargeQuery = useMemo(() => {
