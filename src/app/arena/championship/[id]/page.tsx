@@ -5,6 +5,8 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ChampionshipGuideContent } from '@/components/championship/ChampionshipGuideContent';
 import { Swords, Users, Trophy, ChevronLeft, ShieldCheck, Zap, Info, Loader2 } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -35,6 +37,9 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
   const [registering, setRegistering] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [countdown, setCountdown] = useState<string>('');
+  
+  const isSuperAdmin = user?.id === "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16" || profile?.isSuperAdmin;
+  const isAdmin = profile?.isAdmin || isSuperAdmin;
 
   useEffect(() => {
     if (!t) return;
@@ -128,7 +133,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
           <Link href="/arena">
             <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full hover:bg-white/10"><ChevronLeft className="w-6 h-6" /></Button>
           </Link>
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-headline font-black uppercase italic tracking-wider flex items-center gap-3">
               <Swords className="w-8 h-8 text-blue-500" /> {t.name}
             </h1>
@@ -137,6 +142,21 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
               <Badge variant="outline" className="border-blue-500/50 text-blue-400 font-black uppercase">{t.totalPlayers} PLAYERS ({t.totalPlayers/2} VS {t.totalPlayers/2})</Badge>
             </div>
           </div>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+               <Button variant="outline" size="icon" className="w-12 h-12 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-lg">
+                 <Info className="w-6 h-6 text-blue-400" />
+               </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl bg-zinc-950 border-white/10 max-h-[85vh] overflow-y-auto custom-scrollbar">
+              <DialogHeader>
+                <DialogTitle className="font-black uppercase text-2xl text-white">Championship Guide</DialogTitle>
+                <DialogDescription className="text-muted-foreground font-medium">Everything you need to know about this tournament</DialogDescription>
+              </DialogHeader>
+              <ChampionshipGuideContent />
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="relative h-64 w-full rounded-[2.5rem] overflow-hidden border border-white/10">
@@ -186,30 +206,37 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
               </div>
               <CardContent className="p-6">
                 {!registration ? (
-                  <Button 
-                    className={cn("w-full h-14 rounded-xl font-black uppercase text-lg", status === 'OPEN' && isAllowedTh && !isMyThFull ? "bg-blue-600 hover:bg-blue-700 glow-primary" : "bg-white/10 text-white/40 cursor-not-allowed")}
-                    disabled={status !== 'OPEN' || !isAllowedTh || isMyThFull || registering}
-                    onClick={handleRegister}
-                  >
-                    {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : 
-                     !isAllowedTh ? `TH ${myTh} NOT ALLOWED` :
-                     isMyThFull ? `TH ${myTh} FULL` :
-                     status === 'OPEN' ? 'REGISTER NOW' : 
-                     status === 'REGISTRATION_SOON' ? 'WAITING' : 'CLOSED'}
-                  </Button>
+                  <div className="space-y-3">
+                    <Button 
+                      className={cn("w-full h-14 rounded-xl font-black uppercase text-lg", status === 'OPEN' && isAllowedTh && !isMyThFull ? "bg-blue-600 hover:bg-blue-700 glow-primary" : "bg-white/10 text-white/40 cursor-not-allowed")}
+                      disabled={status !== 'OPEN' || !isAllowedTh || isMyThFull || registering}
+                      onClick={handleRegister}
+                    >
+                      {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                       !isAllowedTh ? `TH ${myTh} NOT ALLOWED` :
+                       isMyThFull ? `TH ${myTh} FULL` :
+                       status === 'OPEN' ? 'REGISTER NOW' : 
+                       status === 'REGISTRATION_SOON' ? 'WAITING' : 'CLOSED'}
+                    </Button>
+                    
+                    {isAdmin && (
+                      <Button 
+                        variant="outline" 
+                        className="w-full h-12 rounded-xl font-black uppercase text-xs border-white/20 text-muted-foreground hover:text-white"
+                        onClick={() => router.push(`/arena/championship/${id}/lobby?spectate=true`)}
+                      >
+                        [ SPECTATE GHOST MODE ]
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl text-center font-black uppercase text-sm">
                       SUCCESSFULLY REGISTERED
                     </div>
-                    {status === 'OPEN' && (
-                      <p className="text-xs text-center font-bold text-muted-foreground uppercase">Waiting for registration to close before Party Phase begins.</p>
-                    )}
-                    {['PARTY_PHASE', 'LEADER_SELECTION', 'DRAFT', 'TEAMS_LOCKED', 'CLAN_ASSIGNED', 'BATTLE_STARTED', 'VERIFICATION', 'REWARDS'].includes(status) && (
-                      <Link href={`/arena/championship/${id}/lobby`}>
-                        <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 font-black uppercase text-lg glow-primary rounded-xl">ENTER LOBBY</Button>
-                      </Link>
-                    )}
+                    <Link href={`/arena/championship/${id}/lobby`}>
+                      <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 font-black uppercase text-lg glow-primary rounded-xl mt-4 shadow-[0_0_20px_rgba(37,99,235,0.4)]">ENTER LOBBY</Button>
+                    </Link>
                   </div>
                 )}
               </CardContent>

@@ -31,20 +31,38 @@ export async function POST(request: Request) {
 
         const giftData = giftSnap.data()!;
 
+        if (giftData.status === 'closed') {
+          throw new Error('This gift has been closed');
+        }
+
+        if (giftData.maxClaims > 0 && giftData.totalClaims >= giftData.maxClaims) {
+          throw new Error('Gift claim limit reached');
+        }
+
         if (giftData.expiresAt && new Date(giftData.expiresAt).getTime() < Date.now()) {
           throw new Error('This gift has expired');
         }
 
-        transaction.update(giftRef, {
-          totalClaims: FieldValue.increment(1)
-        });
+        const newTotalClaims = (giftData.totalClaims || 0) + 1;
+        const updates: any = {
+          totalClaims: FieldValue.increment(1),
+          claimedBy: FieldValue.arrayUnion({
+            userId,
+            username: userData.username || 'Warrior',
+            townHall: userData.townHall || 0
+          })
+        };
+
+        if (giftData.maxClaims > 0 && newTotalClaims >= giftData.maxClaims) {
+          updates.status = 'closed';
+        }
+
+        transaction.update(giftRef, updates);
 
         transaction.update(userRef, {
           balance: FieldValue.increment(giftData.amount),
           claimedGlobalGifts: FieldValue.arrayUnion(giftId)
         });
-
-        // (No recharge-requests logging for global gifts anymore to keep Wallet Logs clean)
 
         return { amount: giftData.amount };
       } else if (type === 'individual') {

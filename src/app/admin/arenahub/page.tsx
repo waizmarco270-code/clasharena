@@ -1,5 +1,7 @@
 'use client';
 
+import { default as NextLink } from 'next/link';
+
 import { useMemo, useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +23,8 @@ import {
   ImagePlus,
   Camera,
   X,
-  Wallet
+  Wallet,
+  EyeOff
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 
 export default function ArenaHubPage() {
@@ -64,7 +68,7 @@ export default function ArenaHubPage() {
     registrationStartTime: '', registrationEndTime: '', startTime: '',
     totalPlayers: 30, thDistribution: {} as Record<number, number>, reservePlayers: 2,
     clan1: '', clan2: '', chatEnabled: true, notificationsEnabled: true,
-    leaderSelectionMode: 'manual' as 'manual' | 'application', winnerRefundAmount: 0
+    leaderPassCost: 0, winnerRefundAmount: 0, isStealth: false
   });
 
   const [thInput, setThInput] = useState({ level: 16, count: 5 });
@@ -77,7 +81,7 @@ export default function ArenaHubPage() {
       registrationStartTime: '', registrationEndTime: '', startTime: '',
       totalPlayers: 30, thDistribution: {}, reservePlayers: 2,
       clan1: '', clan2: '', chatEnabled: true, notificationsEnabled: true,
-      leaderSelectionMode: 'manual', winnerRefundAmount: 0
+      leaderPassCost: 0, winnerRefundAmount: 0, isStealth: false
     });
     setEditTId(null);
     setNewRule('');
@@ -156,24 +160,26 @@ export default function ArenaHubPage() {
       const updateBody = `Arena "${tournamentData.name}" has been updated.${regTimeline ? ` Registration: ${regTimeline}.` : ''} Check the new battlefield details!`;
       updateDoc(doc(db, 'tournaments', editTId), tournamentData)
         .then(() => {
-          fetch('/api/notifications/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              audience: 'broadcast',
-              title: 'Tournament Updated! ⚔️',
-              body: updateBody,
-              imageUrl: tournamentData.imageUrl || undefined,
-              redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${editTId}` : `/arena/tournament/${editTId}`,
-              data: {
-                type: 'update_tournament',
-                name: tournamentData.name,
-                id: editTId
-              }
-            })
-          }).catch((e) => {
-            console.error("Failed to send tournament update push alert:", e);
-          });
+          if (!tournamentData.isStealth) {
+            fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audience: 'broadcast',
+                title: 'Tournament Updated! ⚔️',
+                body: updateBody,
+                imageUrl: tournamentData.imageUrl || undefined,
+                redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${editTId}` : `/arena/tournament/${editTId}`,
+                data: {
+                  type: 'update_tournament',
+                  name: tournamentData.name,
+                  id: editTId
+                }
+              })
+            }).catch((e) => {
+              console.error("Failed to send tournament update push alert:", e);
+            });
+          }
           toast({ title: "ARENA UPDATED" });
           setTOpen(false);
           resetTForm();
@@ -201,24 +207,26 @@ export default function ArenaHubPage() {
 
       setDoc(tRef, newTourneyData)
         .then(() => {
-          fetch('/api/notifications/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              audience: 'broadcast',
-              title: 'New Tournament Active! ⚔️',
-              body: deployBody,
-              imageUrl: tournamentData.imageUrl || undefined,
-              redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${tRef.id}` : `/arena/tournament/${tRef.id}`,
-              data: {
-                type: 'new_tournament',
-                name: tournamentData.name,
-                id: tRef.id
-              }
-            })
-          }).catch((e) => {
-            console.error("Failed to send tournament push alert:", e);
-          });
+          if (!tournamentData.isStealth) {
+            fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audience: 'broadcast',
+                title: 'New Tournament Active! ⚔️',
+                body: deployBody,
+                imageUrl: tournamentData.imageUrl || undefined,
+                redirectUrl: tournamentData.type === 'championship' ? `/arena/championship/${tRef.id}` : `/arena/tournament/${tRef.id}`,
+                data: {
+                  type: 'new_tournament',
+                  name: tournamentData.name,
+                  id: tRef.id
+                }
+              })
+            }).catch((e) => {
+              console.error("Failed to send tournament push alert:", e);
+            });
+          }
           toast({ title: "ARENA DEPLOYED" });
           setTOpen(false);
           resetTForm();
@@ -244,21 +252,23 @@ export default function ArenaHubPage() {
         <TabsContent value="latest">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {latestTournaments.map((t: any) => (
-              <Card key={t.id} className="glass border-white/5 overflow-hidden group">
-                <div className="relative h-32">
-                  <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50" />
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60" onClick={() => { setEditTId(t.id); setTForm({ ...t }); setTOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
-                    <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setDeleteTId(t.id)}><Trash2 className="w-4 h-4" /></Button>
+              <Card key={t.id} className="glass border-white/5 overflow-hidden group relative">
+                <NextLink href={t.type === 'championship' ? `/admin/championship/${t.id}` : `/admin/tournament/${t.id}`} className="block">
+                  <div className="relative h-32">
+                    <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50 hover:opacity-80 transition-opacity" />
                   </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
+                    <div className="flex justify-between items-center mt-2">
+                       <TournamentStatusBadge t={t} />
+                       <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
+                    </div>
+                  </CardContent>
+                </NextLink>
+                <div className="absolute top-2 right-2 flex gap-1 z-10">
+                  <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60" onClick={(e) => { e.preventDefault(); setEditTId(t.id); setTForm({ ...t }); setTOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={(e) => { e.preventDefault(); setDeleteTId(t.id); }}><Trash2 className="w-4 h-4" /></Button>
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
-                  <div className="flex justify-between items-center mt-2">
-                     <TournamentStatusBadge t={t} />
-                     <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
-                  </div>
-                </CardContent>
               </Card>
             ))}
           </div>
@@ -273,20 +283,22 @@ export default function ArenaHubPage() {
         <TabsContent value="past">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pastTournaments.map((t: any) => (
-              <Card key={t.id} className="glass border-white/5 overflow-hidden group opacity-70">
-                <div className="relative h-32 grayscale">
-                  <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-30" />
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setDeleteTId(t.id)}><Trash2 className="w-4 h-4" /></Button>
+              <Card key={t.id} className="glass border-white/5 overflow-hidden group opacity-70 relative">
+                <NextLink href={t.type === 'championship' ? `/admin/championship/${t.id}` : `/admin/tournament/${t.id}`} className="block">
+                  <div className="relative h-32 grayscale">
+                    <Image src={t.imageUrl || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-30 hover:opacity-50 transition-opacity" />
                   </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
+                    <div className="flex justify-between items-center mt-2">
+                       <TournamentStatusBadge t={t} />
+                       <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
+                    </div>
+                  </CardContent>
+                </NextLink>
+                <div className="absolute top-2 right-2 flex gap-1 z-10">
+                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={(e) => { e.preventDefault(); setDeleteTId(t.id); }}><Trash2 className="w-4 h-4" /></Button>
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
-                  <div className="flex justify-between items-center mt-2">
-                     <TournamentStatusBadge t={t} />
-                     <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall || 'ANY'}</span></div>
-                  </div>
-                </CardContent>
               </Card>
             ))}
           </div>
@@ -401,11 +413,11 @@ export default function ArenaHubPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase">Leader Selection Mode</Label>
-                      <Select value={tForm.leaderSelectionMode} onValueChange={val => setTForm({...tForm, leaderSelectionMode: val as any})}>
-                        <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="manual">MANUAL</SelectItem><SelectItem value="application">APPLICATIONS</SelectItem></SelectContent>
-                      </Select>
+                      <label className="text-[10px] font-black uppercase text-primary">Leader Pass Cost (Coins)</label>
+                      <div className="relative">
+                        <Wallet className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input type="number" min="0" placeholder="e.g. 50 (0 to disable)" value={tForm.leaderPassCost} onChange={e => setTForm({...tForm, leaderPassCost: Number(e.target.value)})} className="pl-10 h-10 bg-white/5 border border-white/10" />
+                      </div>
                     </div>
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Winner Refund Amount</Label><Input type="number" value={tForm.winnerRefundAmount} onChange={e => setTForm({...tForm, winnerRefundAmount: parseInt(e.target.value) || 0})} className="bg-white/5" /></div>
                   </div>
@@ -497,7 +509,20 @@ export default function ArenaHubPage() {
             </form>
           </div>
 
-          <div className="p-6 border-t border-white/10 bg-black/40 shrink-0">
+          <div className="p-6 border-t border-white/10 bg-black/40 shrink-0 flex flex-col gap-4">
+            <div className="flex items-center justify-between p-4 bg-primary/10 rounded-xl border border-primary/20">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/20 p-2 rounded-lg">
+                  <EyeOff className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black uppercase text-primary">STEALTH MODE (TESTING)</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Hides from users & mutes notifications</p>
+                </div>
+              </div>
+              <Switch checked={tForm.isStealth} onCheckedChange={c => setTForm({...tForm, isStealth: c})} />
+            </div>
+
             <Button type="submit" form="t-form" disabled={tLoading} className="w-full h-14 bg-primary font-black uppercase text-xl glow-primary rounded-2xl">
               {tLoading ? <Loader2 className="animate-spin" /> : editTId ? 'UPDATE BATTLEFIELD' : 'DEPLOY TOURNAMENT'}
             </Button>

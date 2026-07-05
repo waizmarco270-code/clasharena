@@ -149,9 +149,9 @@ export default function WalletLogsPage() {
   // Exclude GIFT_CLAIM completely from Wallet Logs
   const activeRecords = (searchResults || rechargeRequests || []).filter((r: any) => r.type !== 'GIFT_CLAIM');
   
-  const recharges = useMemo(() => activeRecords.filter((r: any) => r.amount > 0 && r.method?.toLowerCase() !== 'refund' && (!r.rejectionReason?.toLowerCase().includes('refund'))), [activeRecords]);
-  const deductions = useMemo(() => activeRecords.filter((r: any) => r.amount < 0 || r.type === 'TOURNAMENT_ENTRY'), [activeRecords]);
-  const refunds = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'refund' || r.rejectionReason?.toLowerCase().includes('refund')), [activeRecords]);
+  const recharges = useMemo(() => activeRecords.filter((r: any) => r.amount > 0 && r.method?.toLowerCase() !== 'refund' && (!r.rejectionReason?.toLowerCase().includes('refund')) && !r.type?.includes('TOURNAMENT_WIN_REFUND') && !r.type?.includes('TOURNAMENT_WIN_REWARD') && !r.type?.includes('LEADER_PASS_REFUND')), [activeRecords]);
+  const deductions = useMemo(() => activeRecords.filter((r: any) => r.amount < 0 || r.type === 'TOURNAMENT_ENTRY' || r.type === 'TOURNAMENT_LEADER_PASS'), [activeRecords]);
+  const refunds = useMemo(() => activeRecords.filter((r: any) => r.method?.toLowerCase() === 'refund' || r.rejectionReason?.toLowerCase().includes('refund') || r.type === 'TOURNAMENT_WIN_REFUND' || r.type === 'TOURNAMENT_WIN_REWARD' || r.type === 'LEADER_PASS_REFUND'), [activeRecords]);
 
   const pendingTransactions = useMemo(() => recharges.filter((r: any) => r.status === 'pending'), [recharges]);
   

@@ -28,6 +28,7 @@ import {
   Gift,
   ExternalLink,
   Camera,
+  Key,
   ImagePlus,
   AlertTriangle,
   Send,
@@ -35,7 +36,8 @@ import {
   ChevronRight,
   ChevronLeft,
   QrCode,
-  IndianRupee
+  IndianRupee,
+  X
 } from 'lucide-react';
 import { useFirestore, useCollection, useProfile, useBackgrounds, useDoc } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, limit, increment, updateDoc, getDocs } from 'firebase/firestore';
@@ -978,14 +980,17 @@ export default function Dashboard() {
   const latestTournaments = useMemo(() => {
     if (!allT) return [];
     return allT
-      .filter(t => t.status === 'open' || t.status === 'upcoming')
+      .filter(t => {
+        if (t.isStealth && !isAdmin) return false;
+        return ['open', 'upcoming', 'registration'].includes(t.status);
+      })
       .sort((a, b) => {
         const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return timeB - timeA;
       })
       .slice(0, 3);
-  }, [allT]);
+  }, [allT, isAdmin]);
 
   // Reward Claims Monitoring (Priority 1)
   const claimsQuery = useMemo(() => {
@@ -1012,7 +1017,7 @@ export default function Dashboard() {
     if (!profile) return [];
     const individual = profile.pendingGifts || [];
     const claimedGlobals = profile.claimedGlobalGifts || [];
-    const globals = globalGifts.filter(g => !claimedGlobals.includes(g.id) && (!g.expiresAt || new Date(g.expiresAt).getTime() > Date.now()));
+    const globals = globalGifts.filter(g => g.status !== 'closed' && !claimedGlobals.includes(g.id) && (!g.expiresAt || new Date(g.expiresAt).getTime() > Date.now()));
     return [...individual.map((g: any) => ({ ...g, type: 'individual' })), ...globals.map(g => ({ ...g, type: 'global' }))];
   }, [profile, globalGifts]);
 
@@ -1032,6 +1037,39 @@ export default function Dashboard() {
       }
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Claim Failed', description: err.message });
+    }
+  };
+
+  // Flash Gift Code Logic
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const handleRedeemCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!redeemCode.trim()) return;
+    setIsRedeeming(true);
+    try {
+      const res = await fetch('/api/codes/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: redeemCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      toast({ title: 'Code Redeemed!', description: data.message });
+      setRedeemCode('');
+      setShowRedeem(false);
+      
+      // Update local balance optimistically
+      if (profile && data.amount) {
+        // the user doc listener will catch this automatically, but we could force a mutate if needed
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Redemption Failed', description: err.message });
+    } finally {
+      setIsRedeeming(false);
     }
   };
 
@@ -1078,29 +1116,31 @@ export default function Dashboard() {
     e.preventDefault();
     if (!user || isSubmitting) return;
     setIsSubmitting(true);
-    const lockDate = new Date();
-    lockDate.setDate(lockDate.getDate() + 3);
-    const newProfile = {
-      username: formData.username,
-      tag: formData.tag.startsWith('#') ? formData.tag.toUpperCase() : `#${formData.tag.toUpperCase()}`,
-      townHall: parseInt(formData.townHall),
-      avatarUrl: user.imageUrl,
-      upiId: formData.upiId,
-      upiQrUrl: formData.upiQrUrl,
-      profileLockedUntil: lockDate.toISOString(),
-      balance: profile?.balance ?? 0,
-      wins: profile?.wins ?? 0,
-      tournamentsPlayed: profile?.tournamentsPlayed ?? 0,
-      earnings: profile?.earnings ?? 0,
-      rank: profile?.rank || 'ROOKIE',
-      isAdmin: profile?.isAdmin || (user.id === MASTER_SUPER_ADMIN_ID),
-      isSuperAdmin: profile?.isSuperAdmin || (user.id === MASTER_SUPER_ADMIN_ID)
-    };
-    if (userRef) {
-      setDoc(userRef, newProfile, { merge: true }).then(() => { 
-        setSetupOpen(false); 
-        toast({ title: "Identity Secured!" }); 
-      }).finally(() => setIsSubmitting(false));
+    
+    try {
+      const res = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.username,
+          tag: formData.tag,
+          townHall: formData.townHall,
+          upiId: formData.upiId,
+          upiQrUrl: formData.upiQrUrl,
+          avatarUrl: user.imageUrl,
+          isSetup: true
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to setup profile');
+
+      setSetupOpen(false); 
+      toast({ title: "Identity Secured!" });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Setup Failed', description: err.message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1135,7 +1175,37 @@ export default function Dashboard() {
               </div>
               <p className="text-muted-foreground font-medium">Welcome back, <span className="text-foreground font-bold">{profile?.username || user?.firstName || 'Warrior'}</span>.</p>
             </div>
-            <NextLink href="/arena"><Button className="bg-primary text-white font-black px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest animate-shimmer">DEPLOY TO ARENA</Button></NextLink>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+              <div className="relative">
+                {showRedeem ? (
+                  <form onSubmit={handleRedeemCode} className="flex items-center gap-1 sm:gap-2 animate-in slide-in-from-right-4 fade-in duration-200">
+                    <Input 
+                      value={redeemCode} 
+                      onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} 
+                      placeholder="ENTER SECRET CODE" 
+                      className="bg-black/60 border-primary/50 text-white font-mono uppercase font-black w-[160px] sm:w-48 h-12 text-sm sm:text-base"
+                      autoFocus
+                    />
+                    <Button type="submit" disabled={isRedeeming || !redeemCode.trim()} className="bg-primary hover:bg-primary/90 text-black h-12 font-black px-3 sm:px-4 text-xs sm:text-sm">
+                      {isRedeeming ? <Loader2 className="w-4 h-4 animate-spin" /> : 'REDEEM'}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setShowRedeem(false)} className="h-12 w-10 sm:w-12 p-0 text-muted-foreground hover:text-white"><X className="w-4 h-4" /></Button>
+                  </form>
+                ) : (
+                  <Button onClick={() => setShowRedeem(true)} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 h-12 px-4 font-black uppercase text-xs flex items-center gap-2">
+                    <Key className="w-4 h-4" /> Redeem Code
+                  </Button>
+                )}
+              </div>
+              {!showRedeem && (
+                <NextLink href="/arena">
+                  <Button className="bg-primary text-white font-black px-6 sm:px-8 h-12 rounded-xl glow-primary shadow-xl uppercase text-[10px] tracking-widest animate-shimmer">
+                    DEPLOY TO ARENA
+                  </Button>
+                </NextLink>
+              )}
+            </div>
           </div>
 
           {/* Reward Verification Portal (Top Priority) */}
@@ -1235,8 +1305,8 @@ export default function Dashboard() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                             <div className="absolute bottom-4 left-6 right-6">
                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge className={cn("uppercase font-black text-[9px] px-2 py-0.5 rounded", t.status === 'open' ? "bg-red-600 animate-pulse" : "bg-blue-600")}>
-                                     {t.status === 'open' ? 'LIVE RECRUITMENT' : 'UPCOMING'}
+                                  <Badge className={cn("uppercase font-black text-[9px] px-2 py-0.5 rounded", (t.status === 'open' || t.status === 'registration') ? "bg-red-600 animate-pulse" : "bg-blue-600")}>
+                                     {(t.status === 'open' || t.status === 'registration') ? 'LIVE RECRUITMENT' : 'UPCOMING'}
                                   </Badge>
                                   <Badge variant="outline" className="glass text-[9px] font-black uppercase text-white px-2 py-0.5 rounded">TH {t.townHall || 'ANY'}</Badge>
                                </div>
@@ -1248,7 +1318,7 @@ export default function Dashboard() {
                                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Reward Pool</p>
                                <p className="text-lg font-headline font-black text-primary">{t.prizePool}</p>
                             </div>
-                            <NextLink href={`/arena/tournament/${t.id}`}>
+                            <NextLink href={t.type === 'championship' ? `/arena/championship/${t.id}` : `/arena/tournament/${t.id}`}>
                                <Button className="bg-white text-black font-black uppercase h-10 px-6 rounded-xl hover:scale-105 transition-transform text-xs">
                                  JOIN BATTLE <ArrowRight className="ml-2 w-3.5 h-3.5" />
                                </Button>
@@ -1323,7 +1393,10 @@ export default function Dashboard() {
 
       <Dialog open={setupOpen} onOpenChange={() => {}}>
         <DialogContent className="glass border-border/20 max-w-2xl p-0 overflow-hidden h-[95vh] flex flex-col outline-none">
-          <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle></DialogHeader>
+          <DialogHeader className="pt-8 px-8 shrink-0">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">ARENA <span className="legendary-text">IDENTITY</span></DialogTitle>
+            <DialogDescription className="sr-only">Setup your Arena Identity</DialogDescription>
+          </DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="setup-form" onSubmit={handlePreSubmit} className="space-y-8 pb-8">
               <div className="flex flex-col items-center gap-4">
@@ -1351,9 +1424,10 @@ export default function Dashboard() {
             <ShieldAlert className="w-10 h-10 text-red-500 animate-pulse" />
           </div>
 
-          <h3 className="font-headline text-2xl font-black uppercase italic tracking-tight text-white mb-2 leading-none">
+          <DialogTitle className="font-headline text-2xl font-black uppercase italic tracking-tight text-white mb-2 leading-none">
             CONFIRM <span className="text-red-500">IDENTITY</span>
-          </h3>
+          </DialogTitle>
+          <DialogDescription className="sr-only">Confirm your Clash of Clans identity.</DialogDescription>
           <p className="text-[10px] font-black tracking-[0.2em] text-red-500 uppercase mb-6">
             CRITICAL ACCOUNT VERIFICATION
           </p>

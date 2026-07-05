@@ -23,9 +23,13 @@ if (getApps().length > 0) {
         privateKey: formattedKey,
       }),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Firebase admin init error:", error);
+    try { require('fs').appendFileSync('error.log', new Date().toISOString() + '\\nINIT ERROR:\\n' + (error.stack || error.message || error) + '\\n\\n'); } catch (e) {}
   }
+} else {
+  console.warn("FIREBASE ADMIN WARNING: Missing environment variables! projectId:", !!projectId, "clientEmail:", !!clientEmail, "formattedKey:", !!formattedKey);
+  try { require('fs').appendFileSync('error.log', new Date().toISOString() + '\\nMISSING ENV VARS:\\nprojectId: ' + !!projectId + '\\nclientEmail: ' + !!clientEmail + '\\nformattedKey: ' + !!formattedKey + '\\n\\n'); } catch (e) {}
 }
 
 export const adminMessaging = app ? getMessaging(app) : null as any;

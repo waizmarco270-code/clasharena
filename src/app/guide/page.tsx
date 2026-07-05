@@ -30,6 +30,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useUser } from '@clerk/nextjs';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ChampionshipGuideContent } from '@/components/championship/ChampionshipGuideContent';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -392,6 +393,32 @@ export default function BattleGuidePage() {
                 );
               })}
             </div>
+
+            {/* Championship Specific Guide */}
+            <Card className="glass border-blue-500/30 bg-blue-900/10 rounded-3xl overflow-hidden relative shadow-[0_0_30px_rgba(37,99,235,0.15)] mt-12">
+               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+               <CardContent className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                 <div className="lg:col-span-3 space-y-4">
+                   <div className="flex items-center gap-3 mb-6">
+                     <div className="h-10 w-10 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0 text-blue-400">
+                       <Swords className="w-5 h-5" />
+                     </div>
+                     <h3 className="font-headline text-xl md:text-2xl font-black italic uppercase tracking-tighter text-blue-400">
+                       Championship Tournament Guide
+                     </h3>
+                   </div>
+                   <ChampionshipGuideContent />
+                 </div>
+                 <div className="lg:col-span-2">
+                   <div className="sticky top-6 flex flex-col items-center justify-center aspect-[4/3] lg:aspect-video bg-blue-500/5 border border-blue-500/20 border-dashed rounded-3xl p-6 text-center">
+                     <Video className="w-12 h-12 text-blue-500/50 mb-4 animate-pulse" />
+                     <p className="text-xs font-black uppercase text-blue-400/80 tracking-wider">Video Guide Coming Soon</p>
+                     <p className="text-[10px] font-bold text-blue-400/50 mt-1 uppercase">Admin placeholder for Championship tutorial</p>
+                     <Button variant="outline" size="sm" className="mt-6 border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-[10px] font-black uppercase rounded-xl">Attach Link Later</Button>
+                   </div>
+                 </div>
+               </CardContent>
+            </Card>
 
           </div>
         )}

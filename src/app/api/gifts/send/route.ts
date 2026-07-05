@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Super Admin only.' }, { status: 403 });
     }
 
-    const { target, targetUserId, amount, message, action } = await request.json();
+    const { target, targetUserId, amount, message, action, limit, expireHours } = await request.json();
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
@@ -51,14 +51,27 @@ export async function POST(request: Request) {
 
       if (target === 'global') {
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
+        const days = Number(requestData.expireDays) || 0;
+        const hours = Number(requestData.expireHours) || 0;
+        const mins = Number(requestData.expireMins) || 0;
+
+        if (days > 0 || hours > 0 || mins > 0) {
+          expiresAt.setDate(expiresAt.getDate() + days);
+          expiresAt.setHours(expiresAt.getHours() + hours);
+          expiresAt.setMinutes(expiresAt.getMinutes() + mins);
+        } else {
+          expiresAt.setDate(expiresAt.getDate() + 7); // Default 7 days
+        }
 
         await adminDb.collection('global-gifts').doc(giftId).set({
           ...giftData,
           type: 'global',
           createdAt: serverTime,
           expiresAt: expiresAt.toISOString(),
-          totalClaims: 0
+          totalClaims: 0,
+          maxClaims: Number(limit) || 0,
+          status: 'active',
+          claimedBy: []
         });
 
         // Send broadcast push notification

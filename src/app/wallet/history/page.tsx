@@ -84,7 +84,8 @@ export default function WalletHistoryPage() {
         const method = (log.method || '').toLowerCase();
         if (methodFilter === 'automatic') return method === 'automatic';
         if (methodFilter === 'manual') return method === 'manual';
-        if (methodFilter === 'refund') return method === 'refund' || (log.rejectionReason || '').toLowerCase().includes('refund');
+        if (methodFilter === 'deduction') return Number(log.amount) < 0 || log.type === 'TOURNAMENT_ENTRY' || log.type === 'TOURNAMENT_LEADER_PASS';
+        if (methodFilter === 'refund') return method === 'refund' || (log.rejectionReason || '').toLowerCase().includes('refund') || log.type === 'TOURNAMENT_WIN_REFUND' || log.type === 'TOURNAMENT_WIN_REWARD' || log.type === 'LEADER_PASS_REFUND';
         return true;
       });
     }
@@ -232,6 +233,7 @@ export default function WalletHistoryPage() {
                 <option value="all" className="bg-zinc-950 text-white">All Methods</option>
                 <option value="automatic" className="bg-zinc-950 text-white">⚡ Automatic</option>
                 <option value="manual" className="bg-zinc-950 text-white">📝 Manual</option>
+                <option value="deduction" className="bg-zinc-950 text-white">➖ Deduction</option>
                 <option value="refund" className="bg-zinc-950 text-white">🔄 Refund</option>
               </select>
             </div>

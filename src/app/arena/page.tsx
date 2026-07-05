@@ -27,7 +27,7 @@ import {
   Users,
   ShieldCheck
 } from 'lucide-react';
-import { useCollection, useFirestore, useBackgrounds } from '@/firebase';
+import { useCollection, useFirestore, useBackgrounds, useProfile } from '@/firebase';
 import { collection, query, orderBy, where, doc, limit } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -280,6 +280,7 @@ function ChampionshipCard({ t, now }: { t: any, now: Date }) {
 
 export default function ArenaPage() {
   const db = useFirestore();
+  const { profile } = useProfile();
   const [activeTab, setActiveTab] = useState('all');
   const [activeSub, setActiveSub] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -310,6 +311,11 @@ export default function ArenaPage() {
   const filteredTournaments = useMemo(() => {
     if (!allTournaments) return [];
     return allTournaments.filter(t => {
+      // STEALTH MODE (Ghost Arena) Check
+      if (t.isStealth && !profile?.isAdmin && !profile?.isSuperAdmin) {
+        return false;
+      }
+
       const matchesMain = activeTab === 'all' || t.type === activeTab || (activeTab === 'history' && t.status === 'completed');
       if (!matchesMain) return false;
 
@@ -323,7 +329,7 @@ export default function ArenaPage() {
 
       return matchesSearch && matchesTH;
     });
-  }, [allTournaments, activeTab, activeSub, searchTerm, thFilter]);
+  }, [allTournaments, activeTab, activeSub, searchTerm, thFilter, profile?.isAdmin, profile?.isSuperAdmin]);
 
   const mainTabs = [
     { id: 'all', label: 'ALL ARENAS', color: 'bg-muted/40' },

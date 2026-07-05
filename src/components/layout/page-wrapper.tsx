@@ -101,11 +101,11 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <MaintenanceGuard>
       <SidebarProvider defaultOpen={true}>
-        <div className="flex min-h-screen w-full bg-background">
+        <div className="flex min-h-screen w-full bg-background relative overflow-x-hidden">
           {userId && <AppSidebar />}
-          <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent">
+          <SidebarInset className="flex flex-col flex-1 min-w-0 bg-transparent overflow-x-hidden w-full">
             <Header />
-            <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+            <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full">
               {children}
             </main>
             {userId && <BottomNav />}

@@ -133,15 +133,46 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!user || !userRef || isSubmitting) return;
     setIsSubmitting(true);
-    const identityUpdate = !isLocked ? {
-      username: formData.username,
-      tag: formData.tag.startsWith('#') ? formData.tag.toUpperCase() : `#${formData.tag.toUpperCase()}`,
-      townHall: parseInt(formData.townHall),
-      profileLockedUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-    } : {};
-    setDoc(userRef, { upiId: formData.upiId, upiQrUrl: formData.upiQrUrl, updatedAt: new Date().toISOString(), ...identityUpdate }, { merge: true })
-      .then(() => { setEditOpen(false); toast({ title: "Profile Updated!" }); setIsSubmitting(false); })
-      .finally(() => setIsSubmitting(false));
+    
+    try {
+      const res = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.username,
+          tag: formData.tag,
+          townHall: formData.townHall,
+          upiId: formData.upiId,
+          upiQrUrl: formData.upiQrUrl
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+
+      setEditOpen(false); 
+      toast({ title: "Profile Updated!" });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Update Failed', description: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const [buyingChanger, setBuyingChanger] = useState(false);
+  const handleBuyChangerCard = async () => {
+    if (!user || buyingChanger) return;
+    setBuyingChanger(true);
+    try {
+      const res = await fetch('/api/profile/buy-changer', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to buy Profile Changer Card');
+      toast({ title: "Profile Unlocked 🔓", description: "You can now edit your identity!" });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Purchase Failed', description: err.message });
+    } finally {
+      setBuyingChanger(false);
+    }
   };
 
   const handleClaimBadge = async (rankType: RankType) => {
@@ -304,6 +335,7 @@ export default function ProfilePage() {
         <DialogContent className="glass border-white/10 max-w-4xl p-0 overflow-hidden outline-none rounded-[2.5rem] flex flex-col h-[75vh]">
           <div className="bg-primary p-6 shrink-0">
              <DialogTitle className="font-headline text-xl uppercase italic text-white">Victory Evidence: {selectedProof?.tournamentName || 'Victory Proof'}</DialogTitle>
+             <DialogDescription className="sr-only">Proof of victory</DialogDescription>
           </div>
           <ScrollArea className="flex-1">
              <div className="p-8 space-y-8">
@@ -366,10 +398,33 @@ export default function ProfilePage() {
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="glass max-w-2xl p-0 h-[95vh] flex flex-col">
-          <DialogHeader className="pt-8 px-8 shrink-0"><DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">EDIT <span className="text-primary">IDENTITY</span></DialogTitle></DialogHeader>
+          <DialogHeader className="pt-8 px-8 shrink-0">
+            <DialogTitle className="font-headline text-2xl font-black italic uppercase text-center">EDIT <span className="text-primary">IDENTITY</span></DialogTitle>
+            <DialogDescription className="sr-only">Edit your Arena Identity</DialogDescription>
+          </DialogHeader>
           <ScrollArea className="flex-1 px-8 py-6">
             <form id="edit-form" onSubmit={handleUpdateProfile} className="space-y-8 pb-8">
-              {isLocked && <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 items-center"><Timer className="w-6 h-6 text-primary shrink-0" /><div className="text-[11px]"><p className="font-black text-primary uppercase tracking-widest">IDENTITY LOCKED</p><p className="text-muted-foreground">Main fields unlock in: <span className="text-white font-bold">{countdown}</span></p></div></div>}
+              {isLocked && (
+                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Timer className="w-6 h-6 text-primary shrink-0" />
+                    <div className="text-[11px]">
+                      <p className="font-black text-primary uppercase tracking-widest">IDENTITY LOCKED</p>
+                      <p className="text-muted-foreground">Main fields unlock in: <span className="text-white font-bold">{countdown}</span></p>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button"
+                    onClick={handleBuyChangerCard}
+                    disabled={buyingChanger}
+                    variant="outline"
+                    className="border-primary/50 text-primary bg-primary/10 hover:bg-primary/20 font-black uppercase text-[10px] whitespace-nowrap shadow-lg glow-primary/50"
+                  >
+                    {buyingChanger ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Buy Changer Card (5 🪙)
+                  </Button>
+                </div>
+              )}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input disabled={isLocked} value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="bg-white/5 h-12 font-bold" /></div>
                 <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input disabled={isLocked} value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="bg-white/5 h-12 font-mono uppercase" /></div>

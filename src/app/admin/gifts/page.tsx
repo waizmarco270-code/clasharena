@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, limit, getDocs, getDoc, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User } from 'lucide-react';
+import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AdminGiftsPage() {
   const db = useFirestore();
@@ -46,6 +48,10 @@ export default function AdminGiftsPage() {
   // Global Form State
   const [globalAmount, setGlobalAmount] = useState<string>('');
   const [globalMessage, setGlobalMessage] = useState<string>('');
+  const [globalLimit, setGlobalLimit] = useState<string>('');
+  const [globalExpiry, setGlobalExpiry] = useState<string>('');
+  const [globalExpireDays, setGlobalExpireDays] = useState<string>('');
+  const [globalExpireMins, setGlobalExpireMins] = useState<string>('');
   const [isProcessingGlobal, setIsProcessingGlobal] = useState(false);
 
   // Global Gifts Analytics
@@ -57,6 +63,40 @@ export default function AdminGiftsPage() {
   const indGiftsQuery = useMemo(() => query(collection(db, 'gift-logs'), orderBy('sentAt', 'desc'), limit(indLimit)), [db, indLimit]);
   const { data: indGifts, loading: indGiftsLoading } = useCollection(indGiftsQuery);
   const [analyticsTab, setAnalyticsTab] = useState('individual');
+
+  const [claimersDialog, setClaimersDialog] = useState<any | null>(null);
+
+  const handleCloseGlobalGift = async (giftId: string) => {
+    if (!confirm('Are you sure you want to prematurely close this global gift?')) return;
+    try {
+      const res = await fetch('/api/gifts/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ giftId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: 'Gift Closed', description: data.message });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Failed to Close', description: err.message });
+    }
+  };
+
+  const handleDeleteGlobalGift = async (giftId: string) => {
+    if (!confirm('WARNING: Are you sure you want to PERMANENTLY DELETE this gift from history?')) return;
+    try {
+      const res = await fetch('/api/gifts/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ giftId, action: 'delete' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: 'Gift Deleted', description: data.message });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Failed to Delete', description: err.message });
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +197,11 @@ export default function AdminGiftsPage() {
           target: 'global',
           amount: Number(globalAmount),
           message: globalMessage,
-          action: 'gift'
+          action: 'gift',
+          limit: Number(globalLimit) || 0,
+          expireDays: Number(globalExpireDays) || 0,
+          expireHours: Number(globalExpiry) || 0,
+          expireMins: Number(globalExpireMins) || 0
         })
       });
 
@@ -167,6 +211,10 @@ export default function AdminGiftsPage() {
       toast({ title: 'Global Gift Deployed!', description: 'All users have been notified.' });
       setGlobalAmount('');
       setGlobalMessage('');
+      setGlobalLimit('');
+      setGlobalExpiry('');
+      setGlobalExpireDays('');
+      setGlobalExpireMins('');
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Deployment Failed', description: err.message });
     } finally {
@@ -177,9 +225,14 @@ export default function AdminGiftsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-headline font-black uppercase tracking-wider flex items-center gap-2">
-          <Gift className="w-6 h-6 text-primary" /> Gift Distribution System
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-headline font-black uppercase tracking-wider flex items-center gap-2">
+            <Gift className="w-6 h-6 text-primary" /> Gift Distribution System
+          </h2>
+          <Button onClick={() => window.location.href = '/admin/gifts/codes'} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 uppercase font-black text-xs h-8">
+            Go to Secret Codes
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">
           Securely distribute coins to specific users or broadcast globally.
         </p>
@@ -200,7 +253,7 @@ export default function AdminGiftsPage() {
                 <Search className="absolute left-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
-                  placeholder="Smart search (Name, Tag, ID) or Receipt..."
+                  placeholder="Smart search (Name, Player ID) or Receipt..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -382,6 +435,51 @@ export default function AdminGiftsPage() {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Claim Limit (Optional)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 50"
+                      value={globalLimit}
+                      onChange={(e) => setGlobalLimit(e.target.value)}
+                      className="w-full mt-1 px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Expiry (Optional)</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          placeholder="Days"
+                          value={globalExpireDays}
+                          onChange={(e) => setGlobalExpireDays(e.target.value)}
+                          className="w-full px-3 py-3 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 text-center"
+                        />
+                      </div>
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          placeholder="Hrs"
+                          value={globalExpiry}
+                          onChange={(e) => setGlobalExpiry(e.target.value)}
+                          className="w-full px-3 py-3 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 text-center"
+                        />
+                      </div>
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          placeholder="Mins"
+                          value={globalExpireMins}
+                          onChange={(e) => setGlobalExpireMins(e.target.value)}
+                          className="w-full px-3 py-3 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 text-center"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <Button 
                   onClick={handleSendGlobal} 
                   disabled={isProcessingGlobal}
@@ -485,6 +583,7 @@ export default function AdminGiftsPage() {
                       <TableHead className="text-[10px] font-black uppercase py-4">Status</TableHead>
                       <TableHead className="text-[10px] font-black uppercase py-4">Total Claims</TableHead>
                       <TableHead className="text-[10px] font-black uppercase py-4">Created / Expiry</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase py-4 text-right pr-6">Controls</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -502,13 +601,17 @@ export default function AdminGiftsPage() {
                               <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px]" title={gift.message}>{gift.message}</p>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={isExpired ? 'border-destructive/30 text-destructive' : 'border-primary/30 text-primary'}>
-                                {isExpired ? 'EXPIRED' : 'ACTIVE'}
-                              </Badge>
+                              {gift.status === 'closed' ? (
+                                <Badge variant="outline" className="border-destructive/30 text-destructive bg-destructive/10">CLOSED</Badge>
+                              ) : (
+                                <Badge variant="outline" className={isExpired ? 'border-destructive/30 text-destructive' : 'border-primary/30 text-primary'}>
+                                  {isExpired ? 'EXPIRED' : 'ACTIVE'}
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono font-black text-xs bg-white/5 px-2 py-1 rounded-md">{gift.totalClaims || 0}</span>
+                                <span className="font-mono font-black text-xs bg-white/5 px-2 py-1 rounded-md">{gift.totalClaims || 0} / {gift.maxClaims > 0 ? gift.maxClaims : '∞'}</span>
                                 <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Claimed</span>
                               </div>
                             </TableCell>
@@ -517,6 +620,21 @@ export default function AdminGiftsPage() {
                               {gift.expiresAt && (
                                 <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-0.5"><Timer className="w-3 h-3" /> Exp: {new Date(gift.expiresAt).toLocaleDateString()}</p>
                               )}
+                            </TableCell>
+                            <TableCell className="text-right pr-6">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button size="sm" variant="outline" onClick={() => setClaimersDialog(gift)} className="border-white/10 hover:bg-white/5 text-xs font-black uppercase h-8 px-3">
+                                  <User className="w-3 h-3 mr-1" /> Claimers
+                                </Button>
+                                {gift.status !== 'closed' && !isExpired && (
+                                  <Button size="sm" variant="destructive" onClick={() => handleCloseGlobalGift(gift.id)} className="h-8 px-3 font-black text-xs uppercase bg-destructive/80 hover:bg-destructive">
+                                    <X className="w-3 h-3 mr-1" /> Close
+                                  </Button>
+                                )}
+                                <Button size="icon" variant="ghost" onClick={() => handleDeleteGlobalGift(gift.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -530,6 +648,40 @@ export default function AdminGiftsPage() {
         </Tabs>
       </div>
 
+      {claimersDialog && (
+        <Dialog open={!!claimersDialog} onOpenChange={(open) => !open && setClaimersDialog(null)}>
+          <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="font-headline font-black uppercase text-primary italic">Gift Claimers</DialogTitle>
+              <DialogDescription className="text-xs uppercase font-bold text-muted-foreground">
+                {claimersDialog.totalClaims || 0} users claimed this gift
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[300px] w-full rounded-md border border-white/5 p-4 bg-black/40">
+              {!claimersDialog.claimedBy || claimersDialog.claimedBy.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground font-bold uppercase py-8">No one has claimed this gift yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {claimersDialog.claimedBy.map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5">
+                      <div>
+                        <p className="font-black text-white text-sm uppercase">{c.username}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{c.userId}</p>
+                      </div>
+                      <Badge variant="outline" className="border-primary/20 text-primary text-[10px] font-black uppercase">
+                        TH {c.townHall || '?'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            <DialogFooter>
+              <Button onClick={() => setClaimersDialog(null)} className="w-full font-black uppercase bg-white/10 hover:bg-white/20 text-white">Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

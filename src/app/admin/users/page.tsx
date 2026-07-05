@@ -239,7 +239,7 @@ export default function UserManagementPage() {
                   }} 
                   onFocus={() => setShowSearchDropdown(true)}
                   onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                  placeholder="Smart search (Name, Tag, ID)..." 
+                  placeholder="Smart search (Name, Player ID, User ID)..." 
                   className="pl-10 h-12 bg-white/5 border-white/10 text-white rounded-xl placeholder:text-zinc-500 font-medium" 
                 />
                 
