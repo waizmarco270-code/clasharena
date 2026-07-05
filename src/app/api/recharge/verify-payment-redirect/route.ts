@@ -47,6 +47,7 @@ export async function POST(request: Request) {
 
     const userId = orderData.notes?.userId;
     const amount = Number(orderData.notes?.amount || 0);
+    const coins = Number(orderData.notes?.coins || amount);
 
     if (!userId || isNaN(amount) || amount <= 0) {
       return new Response("Invalid transaction metadata", { status: 400 });
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 
     if (requestSnap.exists) {
       // Replay prevention: redirect to success page directly without double crediting
-      return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${amount}`, request.url), 303);
+      return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${coins}`, request.url), 303);
     }
 
     // 5. Run atomic transaction to update user balance and record the recharge request
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
       // Increment balance
       transaction.update(userRef, {
-        balance: FieldValue.increment(amount)
+        balance: FieldValue.increment(coins)
       });
 
       // Write recharge record
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
         userId,
         username,
         amount,
+        coins,
         transactionId: paymentId,
         orderId: orderId || '',
         status: 'approved',
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
     });
 
     // 6. Redirect back to wallet with success triggers
-    return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${amount}`, request.url), 303);
+    return NextResponse.redirect(new URL(`/wallet?payment=success&amount=${coins}`, request.url), 303);
   } catch (err: any) {
     console.error("Redirect payment error:", err);
     return new Response(`Server Error: ${err.message}`, { status: 500 });

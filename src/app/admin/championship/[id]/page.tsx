@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, use } from 'react';
+import { useMemo, useState, use, useEffect } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,9 @@ export default function AdminChampionshipPage({ params }: { params: Promise<{ id
   const [processing, setProcessing] = useState(false);
   const [leaderA, setLeaderA] = useState(t?.teamALeader || '');
   const [leaderB, setLeaderB] = useState(t?.teamBLeader || '');
+  
+  const [teamAClanLink, setTeamAClanLink] = useState(t?.teamAClanLink || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2CJCY80V9');
+  const [teamBClanLink, setTeamBClanLink] = useState(t?.teamBClanLink || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2C9R8PCRR');
 
   const applicants = useMemo(() => {
     if (!allRegs) return [];
@@ -41,6 +44,11 @@ export default function AdminChampionshipPage({ params }: { params: Promise<{ id
     }
     return [...allRegs].sort((a: any, b: any) => (b.townHall || 0) - (a.townHall || 0));
   }, [allRegs, t?.leaderSelectionMode]);
+
+  useEffect(() => {
+    if (t?.teamALeader && !leaderA) setLeaderA(t.teamALeader);
+    if (t?.teamBLeader && !leaderB) setLeaderB(t.teamBLeader);
+  }, [t?.teamALeader, t?.teamBLeader, leaderA, leaderB]);
 
   const assignLeaders = async () => {
     if (!leaderA || !leaderB) return toast({ variant: 'destructive', title: 'Error', description: 'Select both leaders first.' });
@@ -61,9 +69,47 @@ export default function AdminChampionshipPage({ params }: { params: Promise<{ id
     setProcessing(true);
     try {
       const updateData: any = { status: newStatus };
-      if (newStatus === 'draft') updateData.draftTurn = 'teamA';
       await updateDoc(tRef, updateData);
       toast({ title: 'STATUS ADVANCED', description: `Tournament is now in ${newStatus} phase.` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const startDraft = async () => {
+    if (!confirm(`Are you sure you want to start the Draft? Leaders and their parties will be automatically assigned to teams.`)) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/championship/start-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ championshipId: id })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: 'DRAFT STARTED', description: `Draft phase initiated. First pick goes to ${data.firstTurn.toUpperCase()}.` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const assignClans = async () => {
+    if (!teamAClanLink || !teamBClanLink) return toast({ variant: 'destructive', title: 'Error', description: 'Please provide both clan links.' });
+    if (!confirm(`Are you sure you want to assign these clans? Players will be notified to join.`)) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/championship/assign-clans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ championshipId: id, teamAClanLink, teamBClanLink })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: 'CLANS ASSIGNED', description: `Clan links have been set and phase advanced.` });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
@@ -83,7 +129,13 @@ export default function AdminChampionshipPage({ params }: { params: Promise<{ id
     
     setProcessing(true);
     try {
-      await updateDoc(tRef, { status: prevStatus });
+      const res = await fetch('/api/championship/revert-phase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ championshipId: id, targetPhase: prevStatus })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       toast({ title: 'STATUS REVERTED', description: `Tournament reverted to ${prevStatus}.` });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
@@ -163,14 +215,36 @@ export default function AdminChampionshipPage({ params }: { params: Promise<{ id
           <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Button disabled={processing || t.status !== 'registration'} onClick={() => advanceStatus('party_phase')} className="h-14 font-black uppercase">Start Party Phase</Button>
             <Button disabled={processing || t.status !== 'party_phase'} onClick={() => advanceStatus('leader_selection')} className="h-14 font-black uppercase">Start Leader Selection</Button>
-            <Button disabled={processing || t.status !== 'leader_selection'} onClick={() => advanceStatus('draft')} className="h-14 font-black uppercase">Start Draft</Button>
+            <Button disabled={processing || t.status !== 'leader_selection'} onClick={startDraft} className="h-14 font-black uppercase text-blue-300 border-blue-500 hover:bg-blue-900/50">Start Draft</Button>
             <Button disabled={processing || t.status !== 'draft'} onClick={() => advanceStatus('teams_locked')} className="h-14 font-black uppercase">Lock Teams</Button>
-            <Button disabled={processing || t.status !== 'teams_locked'} onClick={() => advanceStatus('clan_assigned')} className="h-14 font-black uppercase">Assign Clans</Button>
             <Button disabled={processing || t.status !== 'clan_assigned'} onClick={() => advanceStatus('battle_started')} className="h-14 font-black uppercase bg-green-600 hover:bg-green-700">Start Battle</Button>
             <Button disabled={processing || t.status !== 'battle_started'} onClick={() => advanceStatus('verification')} className="h-14 font-black uppercase">Start Verification</Button>
             <Button disabled={processing || t.status !== 'verification'} onClick={() => router.push(`/admin/championship/${id}/rewards`)} className="h-14 font-black uppercase bg-yellow-600 hover:bg-yellow-700 glow-primary"><Trophy className="w-5 h-5 mr-2"/> Finish & Rewards</Button>
           </CardContent>
         </Card>
+
+        {t.status === 'teams_locked' && (
+          <Card className="glass border-white/5 rounded-3xl animate-in fade-in zoom-in duration-500">
+             <CardHeader className="border-b border-white/5 bg-orange-900/20">
+               <CardTitle className="text-lg font-black uppercase text-orange-500">Assign Clans Configuration</CardTitle>
+             </CardHeader>
+             <CardContent className="p-6 space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-blue-400">Team A Clan Link</label>
+                   <Input value={teamAClanLink} onChange={e => setTeamAClanLink(e.target.value)} className="bg-white/5 h-12 font-mono text-xs" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-red-400">Team B Clan Link</label>
+                   <Input value={teamBClanLink} onChange={e => setTeamBClanLink(e.target.value)} className="bg-white/5 h-12 font-mono text-xs" />
+                 </div>
+               </div>
+               <Button onClick={assignClans} disabled={processing} className="w-full h-14 font-black uppercase bg-orange-600 hover:bg-orange-700 glow-primary text-lg">
+                 Confirm & Assign Clans
+               </Button>
+             </CardContent>
+          </Card>
+        )}
 
         {t.status === 'leader_selection' && (
           <Card className="glass border-white/5 rounded-3xl">

@@ -103,7 +103,8 @@ export default function WalletLogsPage() {
     try {
       const batch = writeBatch(db);
       const targetUserRef = doc(db, 'users', req.userId);
-      batch.update(targetUserRef, { balance: increment(req.amount) });
+      const coinsToCredit = req.coins !== undefined ? req.coins : req.amount;
+      batch.update(targetUserRef, { balance: increment(coinsToCredit) });
       batch.update(doc(db, 'recharge-requests', req.id), { status: 'approved' });
       await batch.commit();
       toast({ title: "FUNDS CREDITED" });
@@ -195,7 +196,10 @@ export default function WalletLogsPage() {
                   <PlayerTHBadge userId={req.userId} />
                 </TableCell>
                 <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : 'text-primary'}`}>
-                  🪙 {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.amount}
+                  🪙 {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.coins !== undefined ? req.coins : req.amount}
+                  {req.coins !== undefined && req.coins !== req.amount && (
+                    <span className="block text-[9px] text-muted-foreground mt-0.5 uppercase tracking-widest">PAID ₹{req.amount}</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
                   {type === 'deduction' ? (req.description || 'Arena Entry') : (req.description || req.method || 'Manual')}

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Swords, Users, Trophy, Loader2, Link as LinkIcon, ShieldAlert, CheckCircle2, Info, MessageCircle, Share2, Crown, UserMinus, UserPlus, X } from 'lucide-react';
+import { Swords, Users, Trophy, Loader2, Link as LinkIcon, ShieldAlert, CheckCircle2, Info, MessageCircle, Share2, Crown, UserMinus, UserPlus, X, Star } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { collection, doc, updateDoc, setDoc, query, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { useUser } from "@clerk/nextjs";
@@ -15,15 +15,23 @@ import { cn } from '@/lib/utils';
 import { PlayerTHBadge } from '@/components/PlayerTHBadge';
 import { useSearchParams } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import TournamentChat from '@/components/chat/TournamentChat';
+import confetti from 'canvas-confetti';
+import { useRouter } from 'next/navigation';
 
 export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const isGhost = searchParams.get('spectate') === 'true';
+
+  const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
+  const { data: profile } = useDoc(userRef);
 
   const tRef = useMemo(() => doc(db, 'tournaments', id), [db, id]);
   const { data: t, loading: tLoading } = useDoc(tRef);
@@ -74,6 +82,21 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
   const [joinPartyId, setJoinPartyId] = useState('');
   const [createPartyName, setCreatePartyName] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  const handleJoinClan = async (teamId: string, link: string) => {
+    window.open(link, '_blank');
+    if (!registration?.clanJoined) {
+      try {
+        await fetch('/api/championship/join-clan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ championshipId: id })
+        });
+      } catch (e) {
+        console.error("Join clan error:", e);
+      }
+    }
+  };
 
   const handleCreateParty = async () => {
     if (!user || processing || !createPartyName.trim()) return;
@@ -292,6 +315,35 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
       setProcessing(false);
     }
   };
+
+  useEffect(() => {
+    if (t?.status === 'completed') {
+      const duration = 3 * 1000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#3b82f6', '#ef4444', '#eab308']
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#3b82f6', '#ef4444', '#eab308']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      frame();
+    }
+  }, [t?.status]);
 
   if (tLoading || !t) return <div className="flex justify-center items-center h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!registration && !isGhost) return <div className="text-center mt-20 text-xl font-black uppercase text-red-500">You are not registered for this championship.</div>;
@@ -595,7 +647,17 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  <Card className={cn("glass transition-all duration-500 shadow-[0_0_20px_rgba(37,99,235,0.1)]", t.draftTurn === 'teamA' ? "border-blue-500 border-2" : "border-blue-500/20")}>
-                   <CardHeader className="bg-blue-600/20 border-b border-blue-500/20"><CardTitle className="text-center font-black uppercase text-blue-400">TEAM A ({teamA?.members?.length || 0} / {Math.floor(t.totalPlayers/2)})</CardTitle></CardHeader>
+                   <CardHeader className="bg-blue-600/20 border-b border-blue-500/20">
+                     <CardTitle className="text-center font-black uppercase text-blue-400">TEAM A ({teamA?.members?.length || 0} / {Math.floor(t.totalPlayers/2)})</CardTitle>
+                     {teamA?.leader && (
+                       <div className="flex justify-center mt-2">
+                         <div className="flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-full border border-blue-500/30">
+                           <span className="text-xs font-bold text-white/90">{teamA.members?.find((m:any) => m.userId === teamA.leader)?.username || 'Unknown'}</span>
+                           <Badge variant="outline" className="text-[9px] bg-blue-600 text-white border-none py-0 h-4">LEADER</Badge>
+                         </div>
+                       </div>
+                     )}
+                   </CardHeader>
                    <CardContent className="p-4 space-y-4">
                       <div className="flex flex-wrap gap-2 justify-center mb-4">
                         {Object.entries(teamAQuota).map(([th, rem]) => (
@@ -611,7 +673,17 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
                  </Card>
                  
                  <Card className={cn("glass transition-all duration-500 shadow-[0_0_20px_rgba(220,38,38,0.1)] lg:order-last", t.draftTurn === 'teamB' ? "border-red-500 border-2" : "border-red-500/20")}>
-                   <CardHeader className="bg-red-600/20 border-b border-red-500/20"><CardTitle className="text-center font-black uppercase text-red-400">TEAM B ({teamB?.members?.length || 0} / {Math.floor(t.totalPlayers/2)})</CardTitle></CardHeader>
+                   <CardHeader className="bg-red-600/20 border-b border-red-500/20">
+                     <CardTitle className="text-center font-black uppercase text-red-400">TEAM B ({teamB?.members?.length || 0} / {Math.floor(t.totalPlayers/2)})</CardTitle>
+                     {teamB?.leader && (
+                       <div className="flex justify-center mt-2">
+                         <div className="flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-full border border-red-500/30">
+                           <span className="text-xs font-bold text-white/90">{teamB.members?.find((m:any) => m.userId === teamB.leader)?.username || 'Unknown'}</span>
+                           <Badge variant="outline" className="text-[9px] bg-red-600 text-white border-none py-0 h-4">LEADER</Badge>
+                         </div>
+                       </div>
+                     )}
+                   </CardHeader>
                    <CardContent className="p-4 space-y-4">
                       <div className="flex flex-wrap gap-2 justify-center mb-4">
                         {Object.entries(teamBQuota).map(([th, rem]) => (
@@ -663,6 +735,137 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
           );
         })()}
 
+        {/* TEAMS LOCKED PHASE */}
+        {['teams_locked', 'clan_assigned'].includes(status) && (
+          <div className="space-y-12 mt-12 animate-in fade-in zoom-in duration-500">
+            {/* Hero Section */}
+            <div className="text-center space-y-4 relative">
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-32 bg-primary/20 blur-[100px] -z-10 rounded-full"></div>
+               <h2 className="text-5xl md:text-6xl font-headline font-black uppercase italic tracking-widest text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">
+                 TEAMS LOCKED
+               </h2>
+               <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md">
+                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                 <p className="text-xs font-black uppercase tracking-widest text-white/90">{status === 'clan_assigned' ? 'Clans Assigned. Waiting for battle to start...' : 'Waiting for Admin to assign Clans...'}</p>
+               </div>
+            </div>
+
+            {/* Rosters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto relative">
+               {/* VS Badge */}
+               <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-black border-2 border-white/10 rounded-full items-center justify-center font-headline font-black text-2xl italic z-20 text-white/70 shadow-[0_0_30px_rgba(0,0,0,1)]">
+                 VS
+               </div>
+
+               {/* TEAM A */}
+               <div className="bg-gradient-to-br from-blue-900/40 to-black border-2 border-blue-500/30 rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(37,99,235,0.15)] backdrop-blur-xl relative group">
+                 <div className="absolute inset-0 bg-blue-600/5 group-hover:bg-blue-600/10 transition-colors pointer-events-none"></div>
+                 <div className="p-6 border-b border-blue-500/20 bg-blue-600/10 text-center relative">
+                   <h3 className="text-3xl font-black uppercase text-blue-400 tracking-wider">TEAM A</h3>
+                   <p className="text-xs font-bold text-blue-300/60 mt-1">{teamA?.members?.length || 0} PLAYERS</p>
+                   
+                   {teamA?.leader && (
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600 px-3 py-0.5 rounded-b-lg border-b border-x border-blue-400 shadow-[0_5px_15px_rgba(37,99,235,0.5)] flex items-center gap-2">
+                       <Crown className="w-3 h-3 text-white" />
+                       <span className="text-[10px] font-black uppercase text-white tracking-wider">LEADER</span>
+                     </div>
+                   )}
+                   
+                   {teamA?.leader && (
+                     <div className="mt-4 inline-flex items-center justify-center gap-2 bg-black/60 px-4 py-2 rounded-xl border border-blue-500/50">
+                       <span className="text-sm font-bold text-white uppercase">{teamA.members?.find((m:any) => m.userId === teamA.leader)?.username || 'Unknown'}</span>
+                     </div>
+                   )}
+                   
+                   {status === 'clan_assigned' && t?.teamAClanLink && (
+                     <div className="mt-6 space-y-3">
+                       <p className="text-[10px] font-black uppercase text-blue-300">
+                         {allRegistrations?.filter((r: any) => r.draftedTeam === 'teamA' && r.clanJoined).length || 0} / {teamA?.members?.length || 0} PLAYERS JOINED
+                       </p>
+                       {(registration?.draftedTeam === 'teamA' || !registration?.draftedTeam) && (
+                         <Button onClick={() => handleJoinClan('teamA', t.teamAClanLink)} className="w-full bg-blue-600 hover:bg-blue-500 font-black uppercase tracking-widest shadow-[0_0_20px_rgba(37,99,235,0.6)]">
+                           {registration?.clanJoined ? 'OPEN CLAN LINK' : 'JOIN CLAN (TEAM A)'}
+                         </Button>
+                       )}
+                     </div>
+                   )}
+                 </div>
+                 <div className="p-4">
+                   <div className="grid grid-cols-2 gap-2 mb-4 bg-black/40 p-3 rounded-xl border border-white/5">
+                      {Object.entries(teamA?.members?.reduce((acc:any, m:any) => { acc[m.townHall] = (acc[m.townHall] || 0) + 1; return acc; }, {}) || {}).map(([th, count]: any) => (
+                         <div key={th} className="flex justify-between items-center text-xs"><span className="text-muted-foreground font-bold">TH{th}</span><span className="font-black text-blue-300">{count}</span></div>
+                      ))}
+                   </div>
+                   <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                     {teamA?.members?.map((m: any) => {
+                       const isJoined = allRegistrations?.find((r:any) => r.id === m.userId)?.clanJoined;
+                       return (
+                         <div key={m.userId} className={cn("flex justify-between items-center p-3 rounded-lg border", isJoined ? "bg-green-600/20 border-green-500/50" : (m.userId === teamA.leader ? "bg-blue-600/20 border-blue-500/50" : "bg-white/5 border-white/5"))}>
+                           <span className={cn("font-bold text-sm uppercase", isJoined ? "text-green-400" : (m.userId === teamA.leader ? "text-blue-100" : "text-white/90"))}>{m.username} {isJoined && '✓'}</span>
+                           <PlayerTHBadge userId={m.userId} />
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
+               </div>
+
+               {/* TEAM B */}
+               <div className="bg-gradient-to-br from-red-900/40 to-black border-2 border-red-500/30 rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(220,38,38,0.15)] backdrop-blur-xl relative group">
+                 <div className="absolute inset-0 bg-red-600/5 group-hover:bg-red-600/10 transition-colors pointer-events-none"></div>
+                 <div className="p-6 border-b border-red-500/20 bg-red-600/10 text-center relative">
+                   <h3 className="text-3xl font-black uppercase text-red-400 tracking-wider">TEAM B</h3>
+                   <p className="text-xs font-bold text-red-300/60 mt-1">{teamB?.members?.length || 0} PLAYERS</p>
+                   
+                   {teamB?.leader && (
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 px-3 py-0.5 rounded-b-lg border-b border-x border-red-400 shadow-[0_5px_15px_rgba(220,38,38,0.5)] flex items-center gap-2">
+                       <Crown className="w-3 h-3 text-white" />
+                       <span className="text-[10px] font-black uppercase text-white tracking-wider">LEADER</span>
+                     </div>
+                   )}
+                   
+                   {teamB?.leader && (
+                     <div className="mt-4 inline-flex items-center justify-center gap-2 bg-black/60 px-4 py-2 rounded-xl border border-red-500/50">
+                       <span className="text-sm font-bold text-white uppercase">{teamB.members?.find((m:any) => m.userId === teamB.leader)?.username || 'Unknown'}</span>
+                     </div>
+                   )}
+                   
+                   {status === 'clan_assigned' && t?.teamBClanLink && (
+                     <div className="mt-6 space-y-3">
+                       <p className="text-[10px] font-black uppercase text-red-300">
+                         {allRegistrations?.filter((r: any) => r.draftedTeam === 'teamB' && r.clanJoined).length || 0} / {teamB?.members?.length || 0} PLAYERS JOINED
+                       </p>
+                       {(registration?.draftedTeam === 'teamB' || !registration?.draftedTeam) && (
+                         <Button onClick={() => handleJoinClan('teamB', t.teamBClanLink)} className="w-full bg-red-600 hover:bg-red-500 font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.6)]">
+                           {registration?.clanJoined ? 'OPEN CLAN LINK' : 'JOIN CLAN (TEAM B)'}
+                         </Button>
+                       )}
+                     </div>
+                   )}
+                 </div>
+                 <div className="p-4">
+                   <div className="grid grid-cols-2 gap-2 mb-4 bg-black/40 p-3 rounded-xl border border-white/5">
+                      {Object.entries(teamB?.members?.reduce((acc:any, m:any) => { acc[m.townHall] = (acc[m.townHall] || 0) + 1; return acc; }, {}) || {}).map(([th, count]: any) => (
+                         <div key={th} className="flex justify-between items-center text-xs"><span className="text-muted-foreground font-bold">TH{th}</span><span className="font-black text-red-300">{count}</span></div>
+                      ))}
+                   </div>
+                   <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                     {teamB?.members?.map((m: any) => {
+                       const isJoined = allRegistrations?.find((r:any) => r.id === m.userId)?.clanJoined;
+                       return (
+                         <div key={m.userId} className={cn("flex justify-between items-center p-3 rounded-lg border", isJoined ? "bg-green-600/20 border-green-500/50" : (m.userId === teamB.leader ? "bg-red-600/20 border-red-500/50" : "bg-white/5 border-white/5"))}>
+                           <span className={cn("font-bold text-sm uppercase", isJoined ? "text-green-400" : (m.userId === teamB.leader ? "text-red-100" : "text-white/90"))}>{m.username} {isJoined && '✓'}</span>
+                           <PlayerTHBadge userId={m.userId} />
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+        )}
+
         {/* BATTLE PHASE */}
         {['battle_started', 'verification', 'rewards'].includes(status) && (
           <div className="space-y-8 mt-12">
@@ -709,22 +912,242 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
           </div>
         )}
 
-        {/* GLOBAL CHAT FAB */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] bg-blue-600 hover:bg-blue-700 glow-primary z-50">
-              <MessageCircle className="w-6 h-6" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
-            <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10">
-              <SheetTitle className="font-black uppercase flex items-center gap-2 text-blue-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Global Chat</SheetTitle>
-            </SheetHeader>
-            <div className="flex-1 overflow-hidden relative">
-               <TournamentChat tournamentId={id} isActive={true} onUnreadCountChange={() => {}} />
+        {/* COMPLETED PHASE */}
+        {status === 'completed' && (
+          <div className="space-y-16 mt-12 animate-in fade-in zoom-in duration-700 pb-20">
+            {/* Victory Header */}
+            <div className="text-center space-y-6 relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-500/20 blur-[120px] -z-10 rounded-full"></div>
+              <Trophy className="w-24 h-24 text-yellow-500 mx-auto drop-shadow-[0_0_30px_rgba(234,179,8,0.8)]" />
+              <h2 className="text-5xl md:text-7xl font-headline font-black uppercase italic tracking-widest text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">
+                VICTORY
+              </h2>
+              <div className="inline-flex items-center gap-2 bg-yellow-500/10 px-6 py-3 rounded-full border border-yellow-500/30 backdrop-blur-md">
+                <Crown className="w-5 h-5 text-yellow-500" />
+                <p className="text-sm font-black uppercase tracking-widest text-yellow-400">
+                  {t?.winningTeamId === 'teamA' ? 'TEAM A' : 'TEAM B'} WINS THE CHAMPIONSHIP
+                </p>
+              </div>
             </div>
-          </SheetContent>
-        </Sheet>
+
+            {/* Podium (Top 3) */}
+            <div className="max-w-4xl mx-auto pt-12">
+              <h3 className="text-2xl font-black uppercase text-center mb-4 text-white/80 tracking-widest relative z-30">HALL OF FAME</h3>
+              <div className="flex flex-col md:flex-row justify-center items-end gap-6 h-auto md:h-64 mt-16">
+                {/* Top 2 */}
+                {t?.top2UserId && (
+                  <div className="w-full md:w-1/3 flex flex-col items-center order-2 md:order-1 relative group">
+                     <div className="bg-slate-300/10 border border-slate-300/30 w-full rounded-t-2xl p-6 text-center shadow-[0_0_30px_rgba(203,213,225,0.1)] relative z-10">
+                       <p className="font-black uppercase text-xl text-slate-200 truncate">{allRegistrations?.find((r:any) => r.id === t.top2UserId)?.username || 'Unknown'}</p>
+                       <div className="flex items-center justify-center gap-2 mt-1">
+                         <PlayerTHBadge userId={t.top2UserId} />
+                         <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest border-l border-white/20 pl-2">ID: {allRegistrations?.find((r:any) => r.id === t.top2UserId)?.tag || 'N/A'}</span>
+                       </div>
+                       <Badge className="mt-2 bg-slate-400 text-slate-900 font-black">2ND PLACE</Badge>
+                       {t?.top2RewardCoins > 0 && <p className="mt-3 text-xs font-bold text-slate-300">Prize: {t.top2RewardCoins} Coins</p>}
+                       {t?.top2RewardItem && <p className="mt-3 text-xs font-bold text-slate-300">Prize: {t.top2RewardItem}</p>}
+                     </div>
+                     <div className="h-16 md:h-24 w-full bg-slate-400/20 border-x border-slate-400/20"></div>
+                  </div>
+                )}
+                
+                {/* Top 1 MVP */}
+                {t?.top1UserId && (
+                  <div className="w-full md:w-1/3 flex flex-col items-center order-1 md:order-2 relative group -mt-10 md:-mt-20 z-20">
+                     <div className="bg-yellow-500/20 border-2 border-yellow-500/50 w-full rounded-t-3xl p-8 text-center shadow-[0_0_50px_rgba(234,179,8,0.3)] relative z-10 backdrop-blur-md">
+                       <Crown className="w-8 h-8 text-yellow-400 mx-auto mb-2 drop-shadow-md" />
+                       <p className="font-black uppercase text-3xl text-yellow-400 truncate">{allRegistrations?.find((r:any) => r.id === t.top1UserId)?.username || 'Unknown'}</p>
+                       <div className="flex items-center justify-center gap-2 mt-1 mb-2">
+                         <PlayerTHBadge userId={t.top1UserId} />
+                         <span className="text-[10px] uppercase text-yellow-200/50 font-bold tracking-widest border-l border-yellow-500/30 pl-2">ID: {allRegistrations?.find((r:any) => r.id === t.top1UserId)?.tag || 'N/A'}</span>
+                       </div>
+                       <Badge className="mt-2 bg-yellow-500 text-yellow-950 font-black">1ST PLACE</Badge>
+                       {t?.top1RewardCoins > 0 && <p className="mt-3 text-xs font-bold text-yellow-200">Prize: {t.top1RewardCoins} Coins</p>}
+                       {t?.top1RewardItem && <p className="mt-3 text-xs font-bold text-yellow-200">Prize: {t.top1RewardItem}</p>}
+                     </div>
+                     <div className="h-20 md:h-32 w-full bg-yellow-500/20 border-x border-yellow-500/30"></div>
+                  </div>
+                )}
+
+                {/* Top 3 */}
+                {t?.top3UserId && (
+                  <div className="w-full md:w-1/3 flex flex-col items-center order-3 md:order-3 relative group">
+                     <div className="bg-orange-700/10 border border-orange-700/30 w-full rounded-t-2xl p-6 text-center shadow-[0_0_30px_rgba(194,65,12,0.1)] relative z-10">
+                       <p className="font-black uppercase text-xl text-orange-300 truncate">{allRegistrations?.find((r:any) => r.id === t.top3UserId)?.username || 'Unknown'}</p>
+                       <div className="flex items-center justify-center gap-2 mt-1">
+                         <PlayerTHBadge userId={t.top3UserId} />
+                         <span className="text-[10px] uppercase text-orange-200/50 font-bold tracking-widest border-l border-orange-500/30 pl-2">ID: {allRegistrations?.find((r:any) => r.id === t.top3UserId)?.tag || 'N/A'}</span>
+                       </div>
+                       <Badge className="mt-2 bg-orange-700 text-orange-100 font-black">3RD PLACE</Badge>
+                       {t?.top3RewardCoins > 0 && <p className="mt-3 text-xs font-bold text-orange-200">Prize: {t.top3RewardCoins} Coins</p>}
+                       {t?.top3RewardItem && <p className="mt-3 text-xs font-bold text-orange-200">Prize: {t.top3RewardItem}</p>}
+                     </div>
+                     <div className="h-12 md:h-16 w-full bg-orange-700/20 border-x border-orange-700/20"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Winning Team Members & Refunds */}
+            <div className="max-w-4xl mx-auto bg-white/5 border border-white/10 rounded-3xl p-8">
+              <h3 className="text-xl font-black uppercase text-center mb-6 text-primary tracking-widest">
+                 {t?.winningTeamId === 'teamA' ? 'TEAM A' : 'TEAM B'} SURVIVORS
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 {(t?.winningTeamId === 'teamA' ? teamA : teamB)?.members?.map((m:any) => (
+                   <div key={m.userId} className="bg-black/40 border border-white/10 rounded-xl p-4 text-center flex flex-col items-center gap-2">
+                     <PlayerTHBadge userId={m.userId} />
+                     <span className="font-bold text-xs uppercase truncate w-full">{m.username}</span>
+                     <Badge variant="outline" className="text-[10px] bg-green-900/30 text-green-400 border-green-500/30">REFUND ISSUED</Badge>
+                   </div>
+                 ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="max-w-md mx-auto space-y-4">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full h-14 font-black uppercase tracking-widest border-white/10 hover:bg-white/5">
+                    VIEW BATTLE LOGS
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-7xl h-[90vh] bg-zinc-950 border-white/10 text-white flex flex-col p-0">
+                  <DialogHeader className="p-6 border-b border-white/10 bg-black/40 shrink-0">
+                    <DialogTitle className="font-black uppercase tracking-widest text-primary text-2xl flex items-center gap-3">
+                      <Swords className="w-8 h-8 text-yellow-500" /> OFFICIAL BATTLE LOGS
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="flex-1 p-6">
+                    <div className="flex justify-center items-center gap-12 font-black text-3xl mb-12 bg-white/5 p-8 rounded-3xl border border-white/10 mx-auto max-w-4xl shadow-lg">
+                      <div className="text-blue-500 flex flex-col items-center"><span className="text-[10px] uppercase tracking-widest mb-2 text-muted-foreground">TEAM A</span><span>{teamA?.members?.reduce((a:any,b:any)=>a+b.stars,0) || 0} ⭐</span><span className="text-sm">{((teamA?.members?.reduce((a:any,b:any)=>a+b.destruction,0) || 0) / (teamA?.members?.length || 1)).toFixed(1)}%</span></div>
+                      <div className="text-4xl text-white/20 font-headline italic">VS</div>
+                      <div className="text-red-500 flex flex-col items-center"><span className="text-[10px] uppercase tracking-widest mb-2 text-muted-foreground">TEAM B</span><span>{teamB?.members?.reduce((a:any,b:any)=>a+b.stars,0) || 0} ⭐</span><span className="text-sm">{((teamB?.members?.reduce((a:any,b:any)=>a+b.destruction,0) || 0) / (teamB?.members?.length || 1)).toFixed(1)}%</span></div>
+                    </div>
+                    <div className="space-y-4 max-w-4xl mx-auto pb-12">
+                      {mirrorMatchups.map((match: any, i: number) => (
+                        <div key={i} className="flex items-stretch bg-white/5 border border-white/10 rounded-2xl overflow-hidden relative">
+                           <div className="flex-1 p-4 bg-blue-600/5 flex justify-between items-center border-r border-white/5">
+                             <div className="space-y-1">
+                               <p className="font-bold text-sm uppercase text-blue-400">{match.a?.username || 'No Player'}</p>
+                               <p className="text-[10px] font-black text-muted-foreground">TH {match.a?.townHall || '-'}</p>
+                             </div>
+                             {match.a && (
+                               <div className="text-right">
+                                 <div className="flex gap-1 text-yellow-500 justify-end">{Array.from({length: match.a.stars}).map((_, idx)=><Star key={idx} className="w-4 h-4 fill-current"/>)}</div>
+                                 <p className="text-xs font-black text-white/70 mt-1">{match.a.destruction}%</p>
+                               </div>
+                             )}
+                           </div>
+                           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-black border border-white/10 rounded-full flex items-center justify-center font-black text-[10px] italic z-10 text-white/50">VS</div>
+                           <div className="flex-1 p-4 bg-red-600/5 flex justify-between items-center border-l border-white/5">
+                             {match.b && (
+                               <div className="text-left">
+                                 <div className="flex gap-1 text-yellow-500 justify-start">{Array.from({length: match.b.stars}).map((_, idx)=><Star key={idx} className="w-4 h-4 fill-current"/>)}</div>
+                                 <p className="text-xs font-black text-white/70 mt-1 text-left">{match.b.destruction}%</p>
+                               </div>
+                             )}
+                             <div className="space-y-1 text-right">
+                               <p className="font-bold text-sm uppercase text-red-400">{match.b?.username || 'No Player'}</p>
+                               <p className="text-[10px] font-black text-muted-foreground">TH {match.b?.townHall || '-'}</p>
+                             </div>
+                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+
+              {/* CHAMPION'S LOUNGE ACCESS */}
+              {(() => {
+                const isAdmin = profile?.isAdmin || profile?.isSuperAdmin || user?.publicMetadata?.role === 'admin' || user?.publicMetadata?.role === 'superadmin' || user?.id === "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
+                const hasItem1 = !!t?.top1RewardItem;
+                const hasItem2 = !!t?.top2RewardItem;
+                const hasItem3 = !!t?.top3RewardItem;
+                const isTop1ItemWinner = user?.id === t?.top1UserId && hasItem1;
+                const isTop2ItemWinner = user?.id === t?.top2UserId && hasItem2;
+                const isTop3ItemWinner = user?.id === t?.top3UserId && hasItem3;
+                const canEnter = (isAdmin && (hasItem1 || hasItem2 || hasItem3)) || isTop1ItemWinner || isTop2ItemWinner || isTop3ItemWinner;
+                
+                if (canEnter && !t?.loungeClosed) {
+                  return (
+                    <Button onClick={() => router.push(`/arena/championship/${id}/lounge`)} className="w-full h-16 font-black uppercase tracking-widest bg-yellow-600 hover:bg-yellow-500 text-black shadow-[0_0_30px_rgba(234,179,8,0.5)] hover:scale-105 transition-all duration-300">
+                      <Crown className="w-6 h-6 mr-2" /> ENTER CHAMPION'S LOUNGE
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* CHAT FAB(S) */}
+        {(() => {
+          const isTeamsLocked = ['teams_locked', 'clan_assigned', 'battle_started', 'verification', 'finished'].includes(status);
+          const myTeam = registration?.draftedTeam;
+          
+          if (!isTeamsLocked) {
+             return (
+               <Sheet>
+                 <SheetTrigger asChild>
+                   <Button className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] bg-blue-600 hover:bg-blue-700 glow-primary z-50">
+                     <MessageCircle className="w-6 h-6" />
+                   </Button>
+                 </SheetTrigger>
+                 <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
+                   <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10">
+                     <SheetTitle className="font-black uppercase flex items-center gap-2 text-blue-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Global Chat</SheetTitle>
+                   </SheetHeader>
+                   <div className="flex-1 overflow-hidden relative">
+                      <TournamentChat tournamentId={id} isActive={true} onUnreadCountChange={() => {}} />
+                   </div>
+                 </SheetContent>
+               </Sheet>
+             );
+          }
+
+          // If teams are locked, show team chats
+          return (
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4">
+               {(!myTeam || myTeam === 'teamB') && (
+                 <Sheet>
+                   <SheetTrigger asChild>
+                     <Button className="w-14 h-14 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)] bg-red-600 hover:bg-red-700 z-50">
+                       <MessageCircle className="w-6 h-6" />
+                     </Button>
+                   </SheetTrigger>
+                   <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
+                     <SheetHeader className="p-4 border-b border-white/10 bg-red-900/10">
+                       <SheetTitle className="font-black uppercase flex items-center gap-2 text-red-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Team B Chat</SheetTitle>
+                     </SheetHeader>
+                     <div className="flex-1 overflow-hidden relative">
+                        <TournamentChat tournamentId={id} teamId="teamB" isActive={true} onUnreadCountChange={() => {}} />
+                     </div>
+                   </SheetContent>
+                 </Sheet>
+               )}
+               {(!myTeam || myTeam === 'teamA') && (
+                 <Sheet>
+                   <SheetTrigger asChild>
+                     <Button className="w-14 h-14 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] bg-blue-600 hover:bg-blue-700 z-50">
+                       <MessageCircle className="w-6 h-6" />
+                     </Button>
+                   </SheetTrigger>
+                   <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
+                     <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10">
+                       <SheetTitle className="font-black uppercase flex items-center gap-2 text-blue-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Team A Chat</SheetTitle>
+                     </SheetHeader>
+                     <div className="flex-1 overflow-hidden relative">
+                        <TournamentChat tournamentId={id} teamId="teamA" isActive={true} onUnreadCountChange={() => {}} />
+                     </div>
+                   </SheetContent>
+                 </Sheet>
+               )}
+            </div>
+          );
+        })()}
       </div>
     </PageWrapper>
   );

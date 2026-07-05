@@ -257,6 +257,11 @@ function ChampionshipCard({ t, now }: { t: any, now: Date }) {
               <span className="text-[10px] font-black uppercase tracking-widest">{t.entryFee === 0 ? 'FREE' : `${t.entryFee} COINS`}</span>
             </div>
           </div>
+          {t.status === 'finished' && t.top1UserId && (
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-black text-yellow-500 uppercase italic bg-black/60 w-fit px-3 py-1 rounded-lg border border-yellow-500/20">
+              <Trophy className="w-3.5 h-3.5" /> WINNER: {t.winnerName || 'MVP'}
+            </div>
+          )}
         </div>
       </div>
 

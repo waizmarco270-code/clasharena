@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { amount, userId, paymentType } = await request.json();
+    const { amount, coins, userId, paymentType } = await request.json();
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
         notes: {
           userId: userId,
           amount: amount.toString(),
+          coins: coins ? coins.toString() : amount.toString(),
           paymentType: paymentType || 'recharge'
         }
       })

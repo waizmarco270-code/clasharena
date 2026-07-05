@@ -57,7 +57,7 @@ export default function UserManagementPage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || myProfile?.isSuperAdmin;
 
-  const [limitCount, setLimitCount] = useState(50);
+  const [limitCount, setLimitCount] = useState(100);
   // Retrieve all users (Active Player Cache)
   const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(limitCount)), [db, limitCount]);
   const { data: allUsers, loading } = useCollection(allUsersQuery);
@@ -68,6 +68,7 @@ export default function UserManagementPage() {
   const [selectedRelay, setSelectedRelay] = useState<string>('all');
   const [selectedWinsRange, setSelectedWinsRange] = useState<string>('all');
   const [selectedCoinRange, setSelectedCoinRange] = useState<string>('all');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
 
   // Confirmation Alert Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -125,9 +126,16 @@ export default function UserManagementPage() {
         if (selectedCoinRange === '1000+' && balance < 1000) return false;
       }
 
+      // 7. Role Filter (Admins)
+      if (selectedRole !== 'all') {
+        const adminStatus = u.isAdmin === true || u.role === 'admin';
+        if (selectedRole === 'admin' && !adminStatus) return false;
+        if (selectedRole === 'user' && adminStatus) return false;
+      }
+
       return true;
     });
-  }, [allUsers, userSearch, selectedTH, selectedRelay, selectedWinsRange, selectedCoinRange]);
+  }, [allUsers, userSearch, selectedTH, selectedRelay, selectedWinsRange, selectedCoinRange, selectedRole]);
 
   const top5Matches = useMemo(() => {
     if (!userSearch || userSearch.length < 1 || !allUsers) return [];
@@ -312,6 +320,21 @@ export default function UserManagementPage() {
                     <SelectItem value="100-500">100 - 500 Coins</SelectItem>
                     <SelectItem value="500-1000">500 - 1000 Coins</SelectItem>
                     <SelectItem value="1000+">1000+ Coins</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Role Filter */}
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Role</label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger className="bg-white/5 border-white/10 h-12 font-bold text-xs rounded-xl text-white">
+                    <SelectValue placeholder="All Roles" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-950 border-white/10 text-white z-50">
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="admin">Admins Only</SelectItem>
+                    <SelectItem value="user">Users Only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

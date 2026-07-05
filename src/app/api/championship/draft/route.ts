@@ -37,7 +37,8 @@ export async function POST(req: Request) {
       const allRegs = regsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       
       // Target could be a partyId OR a single player's ID if they are solo.
-      const targetUser = allRegs.find(r => r.id === targetPartyId);
+      let targetUser = allRegs.find(r => r.id === targetPartyId);
+      if (!targetUser) targetUser = allRegs.find(r => r.partyId === targetPartyId);
       if (!targetUser) throw new Error("Target player not found in registrations");
 
       let playersToDraft: any[] = [];

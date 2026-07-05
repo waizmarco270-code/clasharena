@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tournamentId } = body;
+    const { tournamentId, teamId } = body;
 
     if (!tournamentId) {
       return new NextResponse("Tournament ID required", { status: 400 });
@@ -42,10 +42,32 @@ export async function POST(req: Request) {
       if (!regDoc.exists) {
         return new NextResponse("Forbidden - Not registered in this tournament", { status: 403 });
       }
+      
+      // If teamId is requested, verify the user belongs to that team
+      if (teamId) {
+        if (teamId.startsWith('lounge_top')) {
+          const tDoc = await adminDb.collection('tournaments').doc(tournamentId).get();
+          const t = tDoc.data();
+          if (teamId === 'lounge_top1' && t?.top1UserId !== userId) {
+            return new NextResponse("Forbidden - Not Top 1", { status: 403 });
+          }
+          if (teamId === 'lounge_top2' && t?.top2UserId !== userId) {
+            return new NextResponse("Forbidden - Not Top 2", { status: 403 });
+          }
+          if (teamId === 'lounge_top3' && t?.top3UserId !== userId) {
+            return new NextResponse("Forbidden - Not Top 3", { status: 403 });
+          }
+        } else {
+          const teamData = regDoc.data()?.draftedTeam;
+          if (teamData !== teamId) {
+             return new NextResponse("Forbidden - Not in this team", { status: 403 });
+          }
+        }
+      }
     }
 
     const serverClient = StreamChat.getInstance(apiKey, apiSecret);
-    const role = isSuperAdmin ? 'admin' : (isStandardAdmin ? 'admin' : 'user');
+    const role = 'user'; // Force user role to prevent missing chat input issues with custom roles
 
     // Upsert User securely
     await serverClient.upsertUser({
@@ -56,9 +78,16 @@ export async function POST(req: Request) {
     });
 
     // Create or retrieve the channel, and add the user as a member
-    const safeChannelId = `tournament_${tournamentId.toLowerCase()}`;
+    const safeChannelId = teamId 
+      ? `tournament_${tournamentId.toLowerCase()}_${teamId.toLowerCase()}` 
+      : `tournament_${tournamentId.toLowerCase()}`;
+      
+    const channelName = teamId 
+      ? (teamId.startsWith('lounge_') ? `Champion's Lounge (${teamId.split('_')[1].toUpperCase()})` : `Team ${teamId.toUpperCase()} Chat`) 
+      : `Global Chat`;
+
     const channel = serverClient.channel('gaming', safeChannelId, {
-      name: `Tournament Chat`,
+      name: channelName,
       created_by_id: userId // Fallback for initialization
     });
     

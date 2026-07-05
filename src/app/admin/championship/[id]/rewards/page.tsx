@@ -32,8 +32,11 @@ export default function ChampionshipRewardsPage({ params }: { params: Promise<{ 
   const [top3UserId, setTop3UserId] = useState('');
 
   const [top1RewardItem, setTop1RewardItem] = useState('');
+  const [top1RewardCoins, setTop1RewardCoins] = useState('');
   const [top2RewardCoins, setTop2RewardCoins] = useState('');
+  const [top2RewardItem, setTop2RewardItem] = useState('');
   const [top3RewardCoins, setTop3RewardCoins] = useState('');
+  const [top3RewardItem, setTop3RewardItem] = useState('');
   const [winnerRefundAmount, setWinnerRefundAmount] = useState<string>('');
 
   const [processing, setProcessing] = useState(false);
@@ -64,7 +67,10 @@ export default function ChampionshipRewardsPage({ params }: { params: Promise<{ 
           top2UserId,
           top3UserId,
           top1RewardItem,
+          top1RewardCoins: Number(top1RewardCoins) || 0,
+          top2RewardItem,
           top2RewardCoins: Number(top2RewardCoins) || 0,
+          top3RewardItem,
           top3RewardCoins: Number(top3RewardCoins) || 0,
           winnerRefundAmount: winnerRefundAmount !== '' ? Number(winnerRefundAmount) : (t?.entryFee || 0)
         })
@@ -154,6 +160,10 @@ export default function ChampionshipRewardsPage({ params }: { params: Promise<{ 
                       <label className="text-[10px] font-black uppercase text-muted-foreground">In-Game Reward Item (Text)</label>
                       <Input placeholder="e.g. 1000 Gems + Hero Book" value={top1RewardItem} onChange={e => setTop1RewardItem(e.target.value)} className="bg-black/50 font-bold" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground">OR Coin Reward Amount</label>
+                      <Input type="number" placeholder="0" value={top1RewardCoins} onChange={e => setTop1RewardCoins(e.target.value)} className="bg-black/50 font-bold" />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -174,6 +184,10 @@ export default function ChampionshipRewardsPage({ params }: { params: Promise<{ 
                       <label className="text-[10px] font-black uppercase text-muted-foreground">Coin Reward Amount</label>
                       <Input type="number" placeholder="0" value={top2RewardCoins} onChange={e => setTop2RewardCoins(e.target.value)} className="bg-black/50 font-bold" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground">OR In-Game Reward Item (Text)</label>
+                      <Input placeholder="e.g. 500 Gems" value={top2RewardItem} onChange={e => setTop2RewardItem(e.target.value)} className="bg-black/50 font-bold" />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -193,6 +207,10 @@ export default function ChampionshipRewardsPage({ params }: { params: Promise<{ 
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-muted-foreground">Coin Reward Amount</label>
                       <Input type="number" placeholder="0" value={top3RewardCoins} onChange={e => setTop3RewardCoins(e.target.value)} className="bg-black/50 font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground">OR In-Game Reward Item (Text)</label>
+                      <Input placeholder="e.g. Gold Pass" value={top3RewardItem} onChange={e => setTop3RewardItem(e.target.value)} className="bg-black/50 font-bold" />
                     </div>
                   </CardContent>
                 </Card>

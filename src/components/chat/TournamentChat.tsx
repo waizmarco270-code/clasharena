@@ -22,11 +22,13 @@ const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;
 export default function TournamentChat({ 
   tournamentId, 
   isActive, 
-  onUnreadCountChange 
+  onUnreadCountChange,
+  teamId
 }: { 
   tournamentId: string;
   isActive: boolean;
   onUnreadCountChange: (count: number) => void;
+  teamId?: string;
 }) {
   const { user } = useUser();
   const [chatClient, setChatClient] = useState<StreamChat | null>(null);
@@ -49,7 +51,7 @@ export default function TournamentChat({
         const response = await fetch('/api/stream/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tournamentId })
+          body: JSON.stringify({ tournamentId, teamId })
         });
 
         if (!response.ok) {
@@ -60,16 +62,24 @@ export default function TournamentChat({
 
         client = StreamChat.getInstance(apiKey);
         
-        await client.connectUser(
-          {
-            id: user.id,
-            name: user.username || user.firstName || 'Warrior',
-            image: user.imageUrl || '',
-          },
-          token
-        );
+        // Only connect if not already connected as this user
+        if (client.userID !== user.id) {
+          if (client.userID) {
+            await client.disconnectUser();
+          }
+          await client.connectUser(
+            {
+              id: user.id,
+              name: user.username || user.firstName || 'Warrior',
+              image: user.imageUrl || '',
+            },
+            token
+          );
+        }
 
-        const safeChannelId = `tournament_${tournamentId.toLowerCase()}`;
+        const safeChannelId = teamId 
+          ? `tournament_${tournamentId.toLowerCase()}_${teamId.toLowerCase()}` 
+          : `tournament_${tournamentId.toLowerCase()}`;
         const chatChannel = client.channel('gaming', safeChannelId);
         await chatChannel.watch();
         
@@ -79,29 +89,36 @@ export default function TournamentChat({
         // Notify parent of unread counts
         onUnreadCountChangeRef.current(chatChannel.countUnread());
 
-        client.on('message.new', () => {
+        const handleNewMessage = () => {
           onUnreadCountChangeRef.current(chatChannel.countUnread());
-        });
-        
-        client.on('notification.mark_read', () => {
-          onUnreadCountChangeRef.current(chatChannel.countUnread());
-        });
+        };
 
+        client.on('message.new', handleNewMessage);
+        client.on('notification.mark_read', handleNewMessage);
+
+        return () => {
+          client.off('message.new', handleNewMessage);
+          client.off('notification.mark_read', handleNewMessage);
+          // Do not disconnect the singleton client here to prevent React 18 Strict Mode errors
+        };
       } catch (err: any) {
         console.error('Failed to initialize stream chat:', err);
         setError(err.message || 'Failed to connect to chat');
       }
     };
 
-    initChat();
+    let cleanupFn: any;
+    initChat().then((cleanup) => {
+       cleanupFn = cleanup;
+    });
 
     return () => {
-      if (client) {
-        client.disconnectUser();
-        setChatClient(null);
+      if (cleanupFn) {
+         cleanupFn();
       }
+      setChatClient(null);
     };
-  }, [user, tournamentId]);
+  }, [user, tournamentId, teamId]);
 
   if (error) {
     if (!isActive) return null;

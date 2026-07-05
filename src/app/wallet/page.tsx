@@ -74,13 +74,20 @@ function WalletPageContent() {
   const walletBg = bgData?.wallet;
 
   const [amount, setAmount] = useState<number>(50);
+  const [coins, setCoins] = useState<number>(50);
   const [methodDialogOpen, setMethodDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const templates = [10, 20, 50, 100];
+  const templates = [
+    { id: 't1', payAmount: 20, coins: 20, label: '🪙 20' },
+    { id: 't2', payAmount: 50, coins: 50, label: '🪙 50' },
+    { id: 't3', payAmount: 100, coins: 150, label: '100 + 50 Bonus' },
+    { id: 't4', payAmount: 129, coins: 200, label: '150 + 50 Bonus', badge: 'VALUE FOR MONEY' }
+  ];
 
   const handleAdjust = (delta: number) => {
     setAmount(prev => Math.max(1, prev + delta));
+    setCoins(prev => Math.max(1, prev + delta));
   };
 
   // Detect payment status query parameters on page load/redirect
@@ -114,8 +121,14 @@ function WalletPageContent() {
   }, [searchParams, toast]);
 
   const proceedToPay = async (method: 'manual' | 'auto') => {
+    if (amount < 10) {
+      toast({ variant: "destructive", title: "Minimum Purchase is 10 coins", description: "You must buy at least 10 coins." });
+      setMethodDialogOpen(false);
+      return;
+    }
+
     if (method === 'manual') {
-      router.push(`/wallet/manual-pay?amount=${amount}`);
+      router.push(`/wallet/manual-pay?amount=${amount}&coins=${coins}`);
       setMethodDialogOpen(false);
       return;
     }
@@ -134,11 +147,10 @@ function WalletPageContent() {
     }
 
     try {
-      // 1. Create order on Next.js server route
       const res = await fetch('/api/recharge/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, userId: user.id })
+        body: JSON.stringify({ amount, coins, userId: user.id })
       });
       
       const data = await res.json();
@@ -253,22 +265,31 @@ function WalletPageContent() {
             <CardContent className="space-y-8">
               {/* Templates */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {templates.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setAmount(t)}
-                    className={`relative p-4 rounded-2xl border-2 transition-all font-black text-lg ${
-                      amount === t 
-                        ? 'bg-primary/20 border-primary text-primary glow-primary' 
-                        : 'bg-muted/40 border-border/20 text-muted-foreground hover:border-border/50'
-                    }`}
-                  >
-                    🪙 {t}
-                    {t === 50 && (
-                      <Badge className="absolute -top-2 -right-2 bg-purple-600 text-[8px] font-black uppercase text-white">RECOMMENDED</Badge>
-                    )}
-                  </button>
-                ))}
+                {templates.map((t) => {
+                  const isSelected = amount === t.payAmount && coins === t.coins;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => { setAmount(t.payAmount); setCoins(t.coins); }}
+                      className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all font-black ${
+                        isSelected
+                          ? 'bg-primary/20 border-primary text-primary glow-primary overflow-hidden'
+                          : 'bg-muted/40 border-border/20 text-muted-foreground hover:border-border/50'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer" />
+                      )}
+                      <span className="text-[13px] md:text-[15px] z-10">{t.label}</span>
+                      {t.payAmount !== t.coins && (
+                        <span className="text-[10px] text-white z-10">Pay ₹{t.payAmount}</span>
+                      )}
+                      {t.badge && (
+                        <Badge className="absolute -top-2 -right-2 bg-purple-600 text-[8px] font-black uppercase text-white shadow-md z-20 px-1 py-0">{t.badge}</Badge>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Custom Input */}
@@ -286,7 +307,11 @@ function WalletPageContent() {
                   <Input 
                     type="number"
                     value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setAmount(val);
+                      setCoins(val);
+                    }}
                     className="h-20 w-40 text-center text-3xl font-black bg-muted/10 border-border/50 rounded-2xl focus:ring-primary focus:border-primary"
                   />
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2 text-[10px] font-black text-primary uppercase tracking-widest opacity-0 group-focus-within:opacity-100 transition-opacity">

@@ -42,6 +42,7 @@ function ManualPayContent() {
   const { data: settings, loading: settingsLoading } = useDoc(settingsRef);
 
   const amount = Number(searchParams.get('amount')) || 0;
+  const coins = Number(searchParams.get('coins')) || amount;
   const [screenshotUrl, setScreenshotUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +90,7 @@ function ManualPayContent() {
       userId: user.id, // Using Clerk User ID
       username: profile?.username || user.fullName || user.firstName || 'Warrior',
       amount: amount,
+      coins: coins,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
       status: 'pending',
