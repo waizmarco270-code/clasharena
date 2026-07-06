@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const serverClient = StreamChat.getInstance(apiKey, apiSecret);
+    const serverClient = StreamChat.getInstance(apiKey, apiSecret, { timeout: 15000 });
     const role = 'user'; // Force user role to prevent missing chat input issues with custom roles
 
     // Upsert User securely

@@ -60,7 +60,7 @@ export default function TournamentChat({
 
         const { token } = await response.json();
 
-        client = StreamChat.getInstance(apiKey);
+        client = StreamChat.getInstance(apiKey, { timeout: 15000 });
         
         // Only connect if not already connected as this user
         if (client.userID !== user.id) {
