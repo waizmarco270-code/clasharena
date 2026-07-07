@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   TrendingUp, 
@@ -20,8 +21,8 @@ import {
   Loader2, 
   CreditCard 
 } from 'lucide-react';
-import { useCollection, useFirestore, useDoc } from '@/firebase';
-import { collection, query, where, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useDoc, useProfile } from '@/firebase';
+import { collection, query, where, doc, updateDoc, increment, setDoc, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { default as NextLink } from 'next/link';
 import { format } from 'date-fns';
 import { useUser, useAuth } from "@clerk/nextjs";
@@ -33,8 +34,17 @@ export default function WalletAnalyticsPage() {
   const { userId } = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
+  const { profile } = useProfile();
 
   const [payingCost, setPayingCost] = useState(false);
+  const [payoutForm, setPayoutForm] = useState<{ category: string, amount: string, recipient: string } | null>(null);
+  const [recordingPayout, setRecordingPayout] = useState(false);
+
+  const payoutsQuery = useMemo(() => query(
+    collection(db, 'revenue-payouts'),
+    orderBy('createdAt', 'desc')
+  ), [db]);
+  const { data: payouts } = useCollection(payoutsQuery);
 
   // Load all APPROVED recharge requests to calculate revenue
   const rechargeQuery = useMemo(() => query(
@@ -56,6 +66,9 @@ export default function WalletAnalyticsPage() {
   }, [approvedRequests]);
 
   const paidWebsiteCost = analyticsSettings?.paidWebsiteCost || 0;
+  const paidWinnersPool = analyticsSettings?.paidWinnersPool || 0;
+  const paidNadozaidShare = analyticsSettings?.paidNadozaidShare || 0;
+  const paidClashersShare = analyticsSettings?.paidClashersShare || 0;
 
   // Revenue Splits: 60% Winners, 15% Nadozaid, 15% clashers, 10% Website
   const splits = useMemo(() => {
@@ -63,16 +76,23 @@ export default function WalletAnalyticsPage() {
     const nadozaidProfit = totalRevenue * 0.15;
     const clashersProfit = totalRevenue * 0.15;
     const websiteCostAccumulated = totalRevenue * 0.10;
+    
     const unpaidWebsiteCost = Math.max(0, websiteCostAccumulated - paidWebsiteCost);
+    const unpaidWinnersPool = Math.max(0, winnersPool - paidWinnersPool);
+    const unpaidNadozaidProfit = Math.max(0, nadozaidProfit - paidNadozaidShare);
+    const unpaidClashersProfit = Math.max(0, clashersProfit - paidClashersShare);
 
     return {
       winnersPool,
       nadozaidProfit,
       clashersProfit,
       websiteCostAccumulated,
-      unpaidWebsiteCost
+      unpaidWebsiteCost,
+      unpaidWinnersPool,
+      unpaidNadozaidProfit,
+      unpaidClashersProfit
     };
-  }, [totalRevenue, paidWebsiteCost]);
+  }, [totalRevenue, paidWebsiteCost, paidWinnersPool, paidNadozaidShare, paidClashersShare]);
 
   // Groupings: Daily, Weekly, Monthly
   const dailyEarnings = useMemo(() => {
@@ -216,6 +236,45 @@ export default function WalletAnalyticsPage() {
     }
   };
 
+  const handleRecordPayout = async () => {
+    if (!payoutForm || !userId) return;
+    const amount = Number(payoutForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return toast({ variant: 'destructive', title: 'Error', description: 'Invalid amount' });
+    }
+    
+    setRecordingPayout(true);
+    try {
+      // 1. Add record to revenue-payouts
+      await addDoc(collection(db, 'revenue-payouts'), {
+        amount,
+        category: payoutForm.category,
+        recipientName: payoutForm.recipient,
+        paidBy: userId,
+        createdAt: serverTimestamp()
+      });
+
+      // 2. Increment the specific tracking field
+      let fieldToIncrement = '';
+      if (payoutForm.category === 'winners_pool') fieldToIncrement = 'paidWinnersPool';
+      if (payoutForm.category === 'nadozaid_share') fieldToIncrement = 'paidNadozaidShare';
+      if (payoutForm.category === 'clashers_share') fieldToIncrement = 'paidClashersShare';
+
+      if (fieldToIncrement) {
+        await setDoc(analyticsDocRef, {
+          [fieldToIncrement]: increment(amount)
+        }, { merge: true });
+      }
+
+      toast({ title: 'PAYOUT RECORDED', description: `Successfully recorded payout of ₹${amount}.` });
+      setPayoutForm(null);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
+    } finally {
+      setRecordingPayout(false);
+    }
+  };
+
   return (
     <PageWrapper>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
@@ -258,15 +317,33 @@ export default function WalletAnalyticsPage() {
 
               <Card className="glass border-white/5 bg-black/40 overflow-hidden relative group">
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40" />
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Winners Rewards Pool (60%)</p>
-                    <p className="text-2xl font-headline font-black text-white">₹ {splits.winnersPool.toFixed(2)}</p>
-                    <p className="text-[9px] text-amber-500 uppercase font-bold mt-1">Reserved for payouts</p>
+                <CardContent className="p-6 flex flex-col justify-between h-full gap-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Winners Rewards Pool (60%)</p>
+                      <p className="text-2xl font-headline font-black text-white">₹ {splits.winnersPool.toFixed(2)}</p>
+                      <p className="text-[9px] text-amber-500 uppercase font-bold mt-1">Paid: ₹{paidWinnersPool} • Unpaid: ₹{splits.unpaidWinnersPool.toFixed(2)}</p>
+                    </div>
+                    <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                      <Coins className="w-6 h-6 text-amber-400" />
+                    </div>
                   </div>
-                  <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                    <Coins className="w-6 h-6 text-amber-400" />
-                  </div>
+                  {profile?.isSuperAdmin && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      {payoutForm?.category === 'winners_pool' ? (
+                        <div className="space-y-2">
+                          <Input className="h-8 text-xs bg-black/50" placeholder="Recipient Name (e.g. Aryan)" value={payoutForm.recipient} onChange={e => setPayoutForm({...payoutForm, recipient: e.target.value})} />
+                          <Input type="number" className="h-8 text-xs bg-black/50" placeholder="Amount (e.g. 500)" value={payoutForm.amount} onChange={e => setPayoutForm({...payoutForm, amount: e.target.value})} />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleRecordPayout} disabled={recordingPayout} className="flex-1 h-8 text-[10px] bg-amber-600 hover:bg-amber-700 font-black uppercase">Confirm</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setPayoutForm(null)} className="h-8 text-[10px] uppercase font-black">Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button size="sm" onClick={() => setPayoutForm({ category: 'winners_pool', amount: '', recipient: '' })} className="w-full h-8 text-[10px] font-black uppercase bg-amber-600/20 hover:bg-amber-600/40 text-amber-500 border border-amber-500/30">Record Winner Payout</Button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -324,20 +401,50 @@ export default function WalletAnalyticsPage() {
                   <CardDescription>Profit distribution between administrators.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
-                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5">
-                    <div>
-                      <p className="text-sm font-black uppercase text-white">Nadozaid</p>
-                      <p className="text-[10px] text-emerald-400 uppercase font-black mt-0.5">15% Distribution Share</p>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-black uppercase text-white">Nadozaid</p>
+                        <p className="text-[10px] text-emerald-400 uppercase font-black mt-0.5">Paid: ₹{paidNadozaidShare} • Unpaid: ₹{splits.unpaidNadozaidProfit.toFixed(2)}</p>
+                      </div>
+                      <span className="text-lg font-headline font-black text-white">₹ {splits.nadozaidProfit.toFixed(2)}</span>
                     </div>
-                    <span className="text-lg font-headline font-black text-white">₹ {splits.nadozaidProfit.toFixed(2)}</span>
+                    {profile?.isSuperAdmin && (
+                      <div className="border-t border-white/5 pt-3">
+                        {payoutForm?.category === 'nadozaid_share' ? (
+                          <div className="flex gap-2">
+                            <Input type="number" className="h-8 text-xs bg-black/50" placeholder="Amount" value={payoutForm.amount} onChange={e => setPayoutForm({...payoutForm, amount: e.target.value})} />
+                            <Button size="sm" onClick={handleRecordPayout} disabled={recordingPayout} className="h-8 text-[10px] bg-emerald-600 hover:bg-emerald-700 font-black uppercase">Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setPayoutForm(null)} className="h-8 text-[10px] uppercase font-black">X</Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" onClick={() => setPayoutForm({ category: 'nadozaid_share', amount: '', recipient: 'Nadozaid' })} className="w-full h-8 text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/40">Pay Nadozaid</Button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5">
-                    <div>
-                      <p className="text-sm font-black uppercase text-white">clashers</p>
-                      <p className="text-[10px] text-emerald-400 uppercase font-black mt-0.5">15% Distribution Share</p>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-black uppercase text-white">Clashers</p>
+                        <p className="text-[10px] text-emerald-400 uppercase font-black mt-0.5">Paid: ₹{paidClashersShare} • Unpaid: ₹{splits.unpaidClashersProfit.toFixed(2)}</p>
+                      </div>
+                      <span className="text-lg font-headline font-black text-white">₹ {splits.clashersProfit.toFixed(2)}</span>
                     </div>
-                    <span className="text-lg font-headline font-black text-white">₹ {splits.clashersProfit.toFixed(2)}</span>
+                    {profile?.isSuperAdmin && (
+                      <div className="border-t border-white/5 pt-3">
+                        {payoutForm?.category === 'clashers_share' ? (
+                          <div className="flex gap-2">
+                            <Input type="number" className="h-8 text-xs bg-black/50" placeholder="Amount" value={payoutForm.amount} onChange={e => setPayoutForm({...payoutForm, amount: e.target.value})} />
+                            <Button size="sm" onClick={handleRecordPayout} disabled={recordingPayout} className="h-8 text-[10px] bg-emerald-600 hover:bg-emerald-700 font-black uppercase">Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setPayoutForm(null)} className="h-8 text-[10px] uppercase font-black">X</Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" onClick={() => setPayoutForm({ category: 'clashers_share', amount: '', recipient: 'Clashers' })} className="w-full h-8 text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/40">Pay Clashers</Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -492,6 +599,51 @@ export default function WalletAnalyticsPage() {
                 </Tabs>
               </CardContent>
             </Card>
+
+            {/* 📜 PAYOUT HISTORY (SUPER ADMIN ONLY) */}
+            {profile?.isSuperAdmin && (
+              <Card className="glass border-white/5 bg-black/40">
+                <CardHeader className="bg-white/5 border-b border-white/5">
+                  <CardTitle className="font-headline text-base flex items-center gap-2 uppercase tracking-wide">
+                    <CheckCircle2 className="text-primary w-4 h-4" /> PAYOUT HISTORY LOG
+                  </CardTitle>
+                  <CardDescription>Record of all manual payouts processed by administrators.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/5 hover:bg-transparent">
+                          <TableHead className="text-[10px] font-black uppercase tracking-wider">Date</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-wider">Recipient Name</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-wider">Category</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase tracking-wider text-right">Amount Paid</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payouts?.map((payout: any) => (
+                          <TableRow key={payout.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                            <TableCell className="text-xs text-muted-foreground">
+                              {payout.createdAt ? format(new Date(payout.createdAt.toDate ? payout.createdAt.toDate() : payout.createdAt), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                            </TableCell>
+                            <TableCell className="font-bold text-xs text-white uppercase">{payout.recipientName}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground uppercase">
+                              {payout.category === 'winners_pool' && <span className="text-amber-500">Winners Pool</span>}
+                              {payout.category === 'nadozaid_share' && <span className="text-emerald-500">Nadozaid Share</span>}
+                              {payout.category === 'clashers_share' && <span className="text-emerald-500">Clashers Share</span>}
+                            </TableCell>
+                            <TableCell className="text-right font-headline font-black text-white">₹ {payout.amount}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(!payouts || payouts.length === 0) && (
+                          <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground uppercase text-[10px] font-black">No payout records found.</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>
