@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminMessaging } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { StreamChat } from 'stream-chat';
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +22,14 @@ export async function POST(request: Request) {
     // 2. Subscribe token to the 'broadcast' topic for global alerts
     await adminMessaging.subscribeToTopic([token], 'broadcast');
 
-    console.log(`Token registered & subscribed to topic for user: ${userId}`);
+    // 3. Register device with Stream Chat for push notifications
+    const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;
+    const apiSecret = process.env.STREAM_SECRET_KEY;
+    if (apiKey && apiSecret) {
+      const serverClient = StreamChat.getInstance(apiKey, apiSecret, { timeout: 15000 });
+      await serverClient.addDevice(token, 'firebase', userId);
+      console.log(`Token registered with Stream Chat for user: ${userId}`);
+    }
 
     return NextResponse.json({ success: true, message: "Token registered and subscribed to broadcast topic." });
   } catch (err: any) {

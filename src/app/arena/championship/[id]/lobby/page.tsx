@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlayerTHBadge } from '@/components/PlayerTHBadge';
 import { useSearchParams } from 'next/navigation';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -82,6 +84,40 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
   const [joinPartyId, setJoinPartyId] = useState('');
   const [createPartyName, setCreatePartyName] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  // Admin Alerts
+  const [alertTemplate, setAlertTemplate] = useState('custom');
+  const [customAlertMsg, setCustomAlertMsg] = useState('');
+  const [sendingAlert, setSendingAlert] = useState(false);
+
+  const handleSendAdminAlert = async () => {
+    setSendingAlert(true);
+    let msg = customAlertMsg;
+    if (alertTemplate === 'join_fast') {
+      const maxP = t?.maxPlayers || 30;
+      const joinedP = allRegistrations?.length || 0;
+      msg = `${joinedP}/${maxP} players joined! Only ${maxP - joinedP} slots left, JOIN FAST!!!`;
+    } else if (alertTemplate !== 'custom') {
+      msg = `Dear Championship players, ${alertTemplate.replace(/_/g, ' ').toUpperCase()} phase is going to start, be ready!`;
+    }
+    
+    if (!msg.trim()) { setSendingAlert(false); return; }
+
+    try {
+      const res = await fetch('/api/championship/admin-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ championshipId: id, message: msg })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast({ title: 'ALERT SENT', description: 'Global notification dispatched.' });
+      setCustomAlertMsg('');
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setSendingAlert(false);
+    }
+  };
 
   const handleJoinClan = async (teamId: string, link: string) => {
     window.open(link, '_blank');
@@ -371,7 +407,66 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
             <h1 className="text-2xl font-headline font-black uppercase italic tracking-wider flex items-center justify-center md:justify-start gap-3">
               <Swords className="w-6 h-6 text-blue-500" /> {t.name} LOBBY
             </h1>
-            <p className="text-xs text-blue-400 font-bold uppercase mt-1">CURRENT PHASE: {status.replace('_', ' ')}</p>
+            <div className="flex items-center gap-3 justify-center md:justify-start mt-2">
+              <p className="text-xs text-blue-400 font-bold uppercase">CURRENT PHASE: {status.replace('_', ' ')}</p>
+              
+              {(profile?.isAdmin || profile?.isSuperAdmin) && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-6 bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/40 text-[10px] font-black uppercase tracking-widest gap-1">
+                      <ShieldAlert className="w-3 h-3" /> PHASE ALERTS
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="glass bg-black border-red-500/20 sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2 text-red-400">
+                        <ShieldAlert className="w-4 h-4" /> DISPATCH ADMIN ALERT
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <p className="text-xs text-muted-foreground font-medium">Send a global push notification to all players in this championship.</p>
+                      
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-white/50 tracking-widest">Select Template</label>
+                        <Select value={alertTemplate} onValueChange={setAlertTemplate}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-xs font-bold uppercase h-10">
+                            <SelectValue placeholder="Select Template" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-950 border-white/10">
+                            <SelectItem value="join_fast" className="text-xs font-bold uppercase">Join Fast ({allRegistrations?.length || 0}/{t?.maxPlayers || 30})</SelectItem>
+                            <SelectItem value="party_phase" className="text-xs font-bold uppercase">Party Phase Start</SelectItem>
+                            <SelectItem value="leader_selection" className="text-xs font-bold uppercase">Leader Selection Start</SelectItem>
+                            <SelectItem value="draft_phase" className="text-xs font-bold uppercase">Draft Phase Start</SelectItem>
+                            <SelectItem value="battle_started" className="text-xs font-bold uppercase">Battle Started</SelectItem>
+                            <SelectItem value="custom" className="text-xs font-bold uppercase text-blue-400">Custom Notification</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {alertTemplate === 'custom' && (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-white/50 tracking-widest">Custom Message</label>
+                          <Textarea 
+                            placeholder="Type your message here..." 
+                            value={customAlertMsg}
+                            onChange={(e) => setCustomAlertMsg(e.target.value)}
+                            className="bg-white/5 border-white/10 min-h-[100px] text-xs font-medium"
+                          />
+                        </div>
+                      )}
+
+                      <Button 
+                        onClick={handleSendAdminAlert} 
+                        disabled={sendingAlert || (alertTemplate === 'custom' && !customAlertMsg.trim())}
+                        className="w-full h-12 bg-red-600 hover:bg-red-500 font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.6)]"
+                      >
+                        {sendingAlert ? <Loader2 className="w-5 h-5 animate-spin" /> : 'DISPATCH ALERT'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
           <Badge className="bg-blue-600 text-lg px-4 py-2 font-black uppercase shadow-[0_0_20px_rgba(37,99,235,0.5)]">
             {status.replace('_', ' ')}

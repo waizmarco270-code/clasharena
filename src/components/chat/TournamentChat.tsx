@@ -5,17 +5,113 @@ import { StreamChat, Channel as StreamChannel } from 'stream-chat';
 import {
   Chat,
   Channel,
-  ChannelHeader,
   MessageList,
   MessageComposer,
   Thread,
   Window,
   LoadingIndicator,
+  useChannelStateContext,
+  useChatContext
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/index.css';
 import { useUser } from '@clerk/nextjs';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Users, Pin } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { format } from 'date-fns';
+
+const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
+  const { channel } = useChannelStateContext();
+  const { client } = useChatContext();
+  
+  const members = Object.values(channel.state.members || {});
+  const onlineMembers = members.filter(m => m.user?.online);
+  const pinnedMessages = channel.state.pinnedMessages || [];
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 bg-black/40 border-b border-white/5 h-16">
+      <div className="flex flex-col">
+        <h3 className="font-black text-sm uppercase text-white tracking-widest">{channelName}</h3>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase">{members.length} MEMBERS</p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {/* ONLINE USERS */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-md hover:bg-green-500/20 transition-colors">
+               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+               <span className="text-[10px] font-black text-green-400 uppercase">{onlineMembers.length} Online</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="glass bg-black border-white/10 sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                <Users className="w-4 h-4 text-green-400" /> ONLINE PLAYERS ({onlineMembers.length})
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2 mt-4 custom-scrollbar pr-2">
+              {onlineMembers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No players online right now.</p>}
+              {onlineMembers.map(m => (
+                <div key={m.user_id} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5">
+                  <Avatar className="w-8 h-8 border border-white/10">
+                    <AvatarImage src={m.user?.image} />
+                    <AvatarFallback className="bg-zinc-800 text-[10px]">{m.user?.name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-white uppercase">{m.user?.name}</span>
+                    <span className="text-[9px] text-green-400 font-black uppercase">Online Now</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* PINNED MESSAGES */}
+        <Dialog>
+          <DialogTrigger asChild>
+             <button className="flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md hover:bg-blue-500/20 transition-colors relative">
+               <Pin className="w-3 h-3 text-blue-400" />
+               <span className="text-[10px] font-black text-blue-400 uppercase">Pins</span>
+               {pinnedMessages.length > 0 && (
+                 <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full text-[8px] font-black text-white flex items-center justify-center">
+                   {pinnedMessages.length}
+                 </span>
+               )}
+             </button>
+          </DialogTrigger>
+          <DialogContent className="glass bg-black border-white/10 sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                <Pin className="w-4 h-4 text-blue-400" /> PINNED MESSAGES
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto space-y-3 mt-4 custom-scrollbar pr-2">
+              {pinnedMessages.length === 0 && <p className="text-xs text-muted-foreground text-center py-4 uppercase font-black tracking-widest">No pinned messages yet.</p>}
+              {pinnedMessages.map((msg: any) => (
+                <div key={msg.id} className="flex gap-3 p-3 bg-blue-900/10 rounded-xl border border-blue-500/20 relative group">
+                  <Avatar className="w-8 h-8 border border-white/10 shrink-0">
+                    <AvatarImage src={msg.user?.image} />
+                    <AvatarFallback className="bg-zinc-800 text-[10px]">{msg.user?.name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-1 w-full">
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[10px] font-black text-blue-300 uppercase">{msg.user?.name}</span>
+                      <span className="text-[8px] text-muted-foreground uppercase">{msg.created_at ? format(new Date(msg.created_at), 'MMM dd HH:mm') : ''}</span>
+                    </div>
+                    <p className="text-xs text-white/90 whitespace-pre-wrap">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+};
 
 const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;
 
@@ -150,7 +246,7 @@ export default function TournamentChat({
       <Chat client={chatClient} theme="str-chat__theme-dark">
         <Channel channel={channel}>
           <Window>
-            <ChannelHeader title="Tournament Chat" />
+            <CustomChannelHeader channelName={teamId ? "Tournament Chat" : "Global Chat"} />
             <MessageList />
             <MessageComposer />
           </Window>
