@@ -255,7 +255,7 @@ export default function TournamentChat({
   if (!chatClient || !channel) {
     if (!isActive) return null;
     return (
-      <div className="flex h-[80vh] items-center justify-center mt-4 glass border-white/5 bg-[#0a0a0a] rounded-[2.5rem]">
+      <div className="flex h-full w-full items-center justify-center bg-[#0a0a0a]">
         <div className="flex flex-col items-center gap-4">
           <LoadingIndicator size={30} />
           <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground animate-pulse">Establishing Secure Connection...</p>
@@ -265,7 +265,7 @@ export default function TournamentChat({
   }
 
   return (
-    <div className={`h-[80vh] mt-4 w-full bg-[#0a0a0a] rounded-[2.5rem] overflow-hidden border border-white/5 str-chat-custom-container ${isActive ? 'block' : 'hidden'}`}>
+    <div className={`h-full w-full bg-[#0a0a0a] overflow-hidden str-chat-custom-container ${isActive ? 'flex flex-col' : 'hidden'}`}>
       <Chat client={chatClient} theme="str-chat__theme-dark">
         <Channel channel={channel}>
           <Window>

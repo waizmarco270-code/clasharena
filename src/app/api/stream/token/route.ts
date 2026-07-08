@@ -67,7 +67,8 @@ export async function POST(req: Request) {
     }
 
     const serverClient = StreamChat.getInstance(apiKey, apiSecret, { timeout: 15000 });
-    const role = 'user'; // Force user role to prevent missing chat input issues with custom roles
+    const isAdmin = userDoc.exists && (userDoc.data()?.isAdmin || userDoc.data()?.isSuperAdmin);
+    const role = isAdmin ? 'admin' : 'user';
 
     // Upsert User securely
     await serverClient.upsertUser({
