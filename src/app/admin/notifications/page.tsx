@@ -27,13 +27,14 @@ import { collection, query, orderBy, limit, getDocs, writeBatch } from 'firebase
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { UserSearchSelect } from '@/components/ui/user-search-select';
 
 export default function AdminNotificationsPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
   const [audience, setAudience] = useState<'broadcast' | 'admins' | 'user'>('broadcast');
-  const [specificUserId, setSpecificUserId] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<{id: string, username: string, cocTag: string, photoURL: string}[]>([]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [redirectUrl, setRedirectUrl] = useState('');
@@ -80,11 +81,11 @@ export default function AdminNotificationsPage() {
       return;
     }
 
-    if (audience === 'user' && !specificUserId.trim()) {
+    if (audience === 'user' && selectedUsers.length === 0) {
       toast({
         variant: "destructive",
-        title: "User Required",
-        description: "Please specify a target User ID."
+        title: "Users Required",
+        description: "Please select at least one target user."
       });
       return;
     }
@@ -98,7 +99,7 @@ export default function AdminNotificationsPage() {
           audience,
           title: title.trim(),
           body: body.trim(),
-          userId: audience === 'user' ? specificUserId.trim() : undefined,
+          userIds: audience === 'user' ? selectedUsers.map(u => u.id) : undefined,
           imageUrl: imageUrl || undefined,
           redirectUrl: redirectUrl.trim() || undefined
         })
@@ -120,7 +121,7 @@ export default function AdminNotificationsPage() {
       setBody('');
       setRedirectUrl('');
       setImageUrl('');
-      setSpecificUserId('');
+      setSelectedUsers([]);
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -179,13 +180,11 @@ export default function AdminNotificationsPage() {
 
               {/* Specific user ID input */}
               {audience === 'user' && (
-                <div className="space-y-2 animate-fadeIn">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Target Clerk User ID</label>
-                  <Input
-                    placeholder="user_..."
-                    value={specificUserId}
-                    onChange={(e) => setSpecificUserId(e.target.value)}
-                    className="bg-black/40 border-white/10 rounded-xl text-white text-xs"
+                <div className="space-y-2 animate-fadeIn overflow-visible z-50 relative">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Target Users</label>
+                  <UserSearchSelect 
+                    selectedUsers={selectedUsers} 
+                    onChange={setSelectedUsers} 
                   />
                 </div>
               )}

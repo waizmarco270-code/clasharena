@@ -23,7 +23,7 @@ export async function POST(request: Request) {
                           callerData?.isAdmin === true || 
                           callerData?.isSuperAdmin === true;
 
-    const { audience, title, body, userId, data, imageUrl, redirectUrl } = await request.json();
+    const { audience, title, body, userId, userIds, data, imageUrl, redirectUrl } = await request.json();
 
     if (!audience || !title || !body) {
       return NextResponse.json({ error: "Missing required parameters: audience, title, body" }, { status: 400 });
@@ -136,40 +136,50 @@ export async function POST(request: Request) {
       loggedAudience = "Admins & Moderators";
 
     } else if (audience === 'user') {
-      if (!userId) {
-        return NextResponse.json({ error: "userId is required for user audience" }, { status: 400 });
+      const targetIds = userIds || (userId ? [userId] : []);
+      if (!targetIds.length) {
+        return NextResponse.json({ error: "userId or userIds array is required for user audience" }, { status: 400 });
       }
 
-      // Fetch user tokens
-      const userDoc = await adminDb.collection('users').doc(userId).get();
-      if (!userDoc.exists) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
-      }
+      let allUserTokens: string[] = [];
 
-      let userTokens: string[] = userDoc.data()?.fcmTokens || [];
-      userTokens = (Array.isArray(userTokens) ? userTokens : []).filter(Boolean);
-
-      if (userTokens.length > 0) {
-        const payload: any = {
-          tokens: userTokens,
-          notification: { title, body },
-          data: finalDataPayload
-        };
-        if (imageUrl) {
-          payload.notification.image = imageUrl;
-        }
-
-        const response = await adminMessaging.sendEachForMulticast(payload);
-        successCount = response.successCount;
-        failureCount = response.failureCount;
-
-        response.responses.forEach((res: any) => {
-          if (!res.success && res.error) {
-            errorsList.push(res.error.message || res.error.code);
-          }
+      // Fetch user tokens in batches of 30
+      for (let i = 0; i < targetIds.length; i += 30) {
+        const batchIds = targetIds.slice(i, i + 30);
+        const usersSnap = await adminDb.collection('users').where(FieldValue.documentId(), 'in', batchIds).get();
+        
+        usersSnap.forEach((docSnap: any) => {
+          const tokens = docSnap.data().fcmTokens;
+          if (Array.isArray(tokens)) allUserTokens.push(...tokens);
         });
       }
-      loggedAudience = `User: ${userDoc.data()?.username || userId}`;
+
+      allUserTokens = Array.from(new Set(allUserTokens)).filter(Boolean);
+
+      if (allUserTokens.length > 0) {
+        for (let i = 0; i < allUserTokens.length; i += 500) {
+          const batchTokens = allUserTokens.slice(i, i + 500);
+          const payload: any = {
+            tokens: batchTokens,
+            notification: { title, body },
+            data: finalDataPayload
+          };
+          if (imageUrl) {
+            payload.notification.image = imageUrl;
+          }
+
+          const response = await adminMessaging.sendEachForMulticast(payload);
+          successCount += response.successCount;
+          failureCount += response.failureCount;
+
+          response.responses.forEach((res: any) => {
+            if (!res.success && res.error) {
+              errorsList.push(res.error.message || res.error.code);
+            }
+          });
+        }
+      }
+      loggedAudience = `Users (${targetIds.length} targets)`;
 
     } else if (audience === 'tournament_players') {
       const tournamentId = data?.tournamentId;
