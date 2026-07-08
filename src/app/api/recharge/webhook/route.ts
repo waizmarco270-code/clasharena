@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { processReferralReward } from '@/lib/referral-utils';
 
 export async function POST(request: Request) {
   try {
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
         method: 'Automatic',
         createdAt: FieldValue.serverTimestamp()
       });
+
+      // Process Squad Builder Referral Reward
+      await processReferralReward(userId, amount, transaction);
     });
 
     console.log(`Successfully credited ${amount} coins to ${userId} via Webhook transaction ${paymentId}.`);

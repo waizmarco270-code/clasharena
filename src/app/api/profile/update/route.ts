@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
 
     const body = await req.json();
-    const { username, tag: rawTag, townHall, isSetup, upiId, upiQrUrl, avatarUrl } = body;
+    const { username, tag: rawTag, townHall, isSetup, upiId, upiQrUrl, avatarUrl, referredByCode } = body;
 
     if (!username || !rawTag || !townHall) {
       return NextResponse.json({ error: 'Missing required fields (Username, Tag, Town Hall)' }, { status: 400 });
@@ -64,8 +64,29 @@ export async function POST(req: NextRequest) {
         rank: existingData.rank || 'ROOKIE',
         isAdmin: existingData.isAdmin || false,
         isSuperAdmin: existingData.isSuperAdmin || false,
-        updatedAt: now.toISOString()
+        updatedAt: now.toISOString(),
+        referralCode: existingData.referralCode || Math.random().toString(36).substring(2, 8).toUpperCase()
       };
+
+      // Handle referral link if provided during setup
+      if (referredByCode && !existingData.referredBy) {
+        const referrerQuery = await usersRef.where('referralCode', '==', referredByCode.toUpperCase()).limit(1).get();
+        if (!referrerQuery.empty) {
+          const referrerId = referrerQuery.docs[0].id;
+          if (referrerId !== userId) {
+            newProfile.referredBy = referrerId;
+            newProfile.hasClaimedReferral = false;
+            
+            // Add a pending entry in the referrer's referrals subcollection
+            await usersRef.doc(referrerId).collection('referrals').doc(userId).set({
+              userId,
+              username,
+              status: 'Pending',
+              joinedAt: now.toISOString()
+            });
+          }
+        }
+      }
       
       await userRef.set(newProfile, { merge: true });
     } else {

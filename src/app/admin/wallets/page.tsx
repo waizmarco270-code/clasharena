@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch, getDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch, getDoc, getDocs, where, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -101,11 +101,46 @@ export default function WalletLogsPage() {
     if (processingId) return;
     setProcessingId(req.id);
     try {
-      const batch = writeBatch(db);
       const targetUserRef = doc(db, 'users', req.userId);
+      const userSnap = await getDoc(targetUserRef);
+      
+      const batch = writeBatch(db);
       const coinsToCredit = req.coins !== undefined ? req.coins : req.amount;
       batch.update(targetUserRef, { balance: increment(coinsToCredit) });
       batch.update(doc(db, 'recharge-requests', req.id), { status: 'approved' });
+
+      // SQUAD BUILDER REFERRAL LOGIC
+      if (userSnap.exists() && coinsToCredit >= 30) {
+        const userData = userSnap.data();
+        if (userData?.referredBy && userData?.hasClaimedReferral === false) {
+          const referrerId = userData.referredBy;
+          const referrerRef = doc(db, 'users', referrerId);
+          
+          batch.update(referrerRef, { balance: increment(10) });
+          batch.update(targetUserRef, { hasClaimedReferral: true });
+          
+          const referralDocRef = doc(db, 'users', referrerId, 'referrals', req.userId);
+          batch.update(referralDocRef, {
+            status: 'Completed',
+            reward: 10,
+            completedAt: serverTimestamp()
+          });
+
+          const logRef = doc(collection(db, 'recharge-requests'));
+          batch.set(logRef, {
+            userId: referrerId,
+            username: 'SYSTEM',
+            amount: 0,
+            coins: 10,
+            status: 'approved',
+            method: 'Referral Bonus',
+            type: 'REFERRAL_BONUS',
+            referredUser: req.userId,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+
       await batch.commit();
       toast({ title: "FUNDS CREDITED" });
     } finally {

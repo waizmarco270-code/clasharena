@@ -10,6 +10,8 @@ import { NotificationHandler } from "@/components/notification-handler";
 import { Analytics } from '@vercel/analytics/react';
 import { PwaInstaller } from '@/components/pwa-installer';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { ReferralTracker } from '@/components/referral-tracker';
+import { Suspense } from 'react';
 import fs from 'fs';
 import path from 'path';
 import { adminDb } from '@/lib/firebase-admin';
@@ -147,6 +149,9 @@ export default function RootLayout({
           >
             <FirebaseClientProvider>
               <ErrorBoundary>
+                <Suspense fallback={null}>
+                  <ReferralTracker />
+                </Suspense>
                 {children}
               </ErrorBoundary>
               <Toaster />

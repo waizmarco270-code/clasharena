@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { processReferralReward } from '@/lib/referral-utils';
 
 export async function POST(request: Request) {
   try {
@@ -85,6 +86,9 @@ export async function POST(request: Request) {
         method: 'Automatic',
         createdAt: FieldValue.serverTimestamp()
       });
+
+      // 5.5 Process Squad Builder Referral Reward
+      await processReferralReward(userId, coins, transaction);
     });
 
     // 6. Redirect back to wallet with success triggers

@@ -1128,7 +1128,8 @@ export default function Dashboard() {
           upiId: formData.upiId,
           upiQrUrl: formData.upiQrUrl,
           avatarUrl: user.imageUrl,
-          isSetup: true
+          isSetup: true,
+          referredByCode: typeof window !== 'undefined' ? localStorage.getItem('clash_arena_ref') : undefined
         })
       });
 

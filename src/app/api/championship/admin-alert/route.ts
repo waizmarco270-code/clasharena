@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { StreamChat } from 'stream-chat';
 import { adminDb, adminMessaging } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, FieldPath } from 'firebase-admin/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         for (let i = 0; i < registeredUserIds.length; i += 30) {
           const batchIds = registeredUserIds.slice(i, i + 30);
           const usersSnap = await adminDb.collection('users')
-            .where(FieldValue.documentId(), 'in', batchIds)
+            .where(FieldPath.documentId(), 'in', batchIds)
             .get();
             
           usersSnap.forEach((docSnap: any) => {
