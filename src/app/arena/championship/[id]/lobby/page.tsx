@@ -1192,7 +1192,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
                    </Button>
                  </SheetTrigger>
                  <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
-                   <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10">
+                   <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10 sr-only">
                      <SheetTitle className="font-black uppercase flex items-center gap-2 text-blue-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Global Chat</SheetTitle>
                    </SheetHeader>
                    <div className="flex-1 overflow-hidden relative">
@@ -1214,7 +1214,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
                      </Button>
                    </SheetTrigger>
                    <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
-                     <SheetHeader className="p-4 border-b border-white/10 bg-red-900/10">
+                     <SheetHeader className="p-4 border-b border-white/10 bg-red-900/10 sr-only">
                        <SheetTitle className="font-black uppercase flex items-center gap-2 text-red-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Team B Chat</SheetTitle>
                      </SheetHeader>
                      <div className="flex-1 overflow-hidden relative">
@@ -1231,7 +1231,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
                      </Button>
                    </SheetTrigger>
                    <SheetContent side="right" className="w-full sm:max-w-md p-0 border-l border-white/10 bg-zinc-950 flex flex-col">
-                     <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10">
+                     <SheetHeader className="p-4 border-b border-white/10 bg-blue-900/10 sr-only">
                        <SheetTitle className="font-black uppercase flex items-center gap-2 text-blue-400 tracking-wider text-sm"><MessageCircle className="w-4 h-4"/> Team A Chat</SheetTitle>
                      </SheetHeader>
                      <div className="flex-1 overflow-hidden relative">

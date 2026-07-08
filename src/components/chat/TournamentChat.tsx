@@ -25,15 +25,38 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
   const { channel } = useChannelStateContext();
   const { client } = useChatContext();
   
-  const members = Object.values(channel.state.members || {});
-  const onlineMembers = members.filter(m => m.user?.online);
-  const pinnedMessages = channel.state.pinnedMessages || [];
+  const [pinnedMessages, setPinnedMessages] = useState<any[]>(channel.state.pinnedMessages || []);
+  const [onlineMembers, setOnlineMembers] = useState<any[]>([]);
+  const [totalMembers, setTotalMembers] = useState(0);
+
+  useEffect(() => {
+    const updateState = () => {
+      setPinnedMessages([...(channel.state.pinnedMessages || [])]);
+      const members = Object.values(channel.state.members || {});
+      setTotalMembers(members.length);
+      setOnlineMembers(members.filter(m => m.user?.online));
+    };
+
+    updateState(); // initial load
+
+    const handleEvent = () => updateState();
+    
+    client.on('message.updated', handleEvent);
+    client.on('message.deleted', handleEvent);
+    client.on('user.presence.changed', handleEvent);
+    
+    return () => {
+      client.off('message.updated', handleEvent);
+      client.off('message.deleted', handleEvent);
+      client.off('user.presence.changed', handleEvent);
+    };
+  }, [channel, client]);
 
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-black/40 border-b border-white/5 h-16">
       <div className="flex flex-col">
         <h3 className="font-black text-sm uppercase text-white tracking-widest">{channelName}</h3>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase">{members.length} MEMBERS</p>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase">{totalMembers} MEMBERS</p>
       </div>
 
       <div className="flex items-center gap-3">
