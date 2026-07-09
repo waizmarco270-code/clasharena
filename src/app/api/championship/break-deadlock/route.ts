@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin';
+import { adminDb as db } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +27,10 @@ export async function POST(req: Request) {
     const batch = db.batch();
     
     allRegs.docs.forEach(doc => {
-      batch.update(doc.ref, { partyId: null });
+      const data = doc.data();
+      if (!data.draftedTeam) {
+        batch.update(doc.ref, { partyId: null });
+      }
     });
 
     const partiesRef = tRef.collection('parties');
