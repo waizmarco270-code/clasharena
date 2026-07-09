@@ -1182,6 +1182,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
         {(() => {
           const isTeamsLocked = ['teams_locked', 'clan_assigned', 'battle_started', 'verification', 'finished'].includes(status);
           const myTeam = registration?.draftedTeam;
+          const isAdmin = profile?.isAdmin || profile?.isSuperAdmin;
           
           if (!isTeamsLocked) {
              return (
@@ -1206,7 +1207,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
           // If teams are locked, show team chats
           return (
             <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4">
-               {(!myTeam || myTeam === 'teamB') && (
+               {(isAdmin || !myTeam || myTeam === 'teamB') && (
                  <Sheet>
                    <SheetTrigger asChild>
                      <Button className="w-14 h-14 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)] bg-red-600 hover:bg-red-700 z-50">
@@ -1223,7 +1224,7 @@ export default function ChampionshipLobbyPage({ params }: { params: Promise<{ id
                    </SheetContent>
                  </Sheet>
                )}
-               {(!myTeam || myTeam === 'teamA') && (
+               {(isAdmin || !myTeam || myTeam === 'teamA') && (
                  <Sheet>
                    <SheetTrigger asChild>
                      <Button className="w-14 h-14 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] bg-blue-600 hover:bg-blue-700 z-50">
