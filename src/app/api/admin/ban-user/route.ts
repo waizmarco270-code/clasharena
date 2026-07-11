@@ -101,6 +101,43 @@ export async function POST(req: Request) {
           };
           await adminMessaging.sendEachForMulticast(payload);
         }
+
+        // GLOBAL PUBLIC SHAMING BROADCAST
+        if (updates.banned) {
+          try {
+            const usersSnap = await adminDb.collection('users').where('hasFcmToken', '==', true).get();
+            let allTokens: string[] = [];
+            usersSnap.forEach((docSnap: any) => {
+              // Exclude the banned user themselves from the public broadcast
+              if (docSnap.id !== userId) {
+                const tokens = docSnap.data().fcmTokens;
+                if (Array.isArray(tokens)) {
+                  allTokens.push(...tokens);
+                }
+              }
+            });
+            
+            allTokens = Array.from(new Set(allTokens)).filter(Boolean);
+
+            if (allTokens.length > 0) {
+              const broadcastTitle = `☠️ PUBLIC SHAME: ${userData.username || 'A Player'} Banned!`;
+              const broadcastBody = `Crime: ${updates.banReason || 'Rules Violation'}. Tap to view Wall of Shame.`;
+              
+              for (let i = 0; i < allTokens.length; i += 500) {
+                const batchTokens = allTokens.slice(i, i + 500);
+                const broadcastPayload = {
+                  tokens: batchTokens,
+                  notification: { title: broadcastTitle, body: broadcastBody },
+                  data: { url: '/wall-of-shame' }
+                };
+                await adminMessaging.sendEachForMulticast(broadcastPayload);
+              }
+            }
+          } catch (broadcastErr) {
+            console.error('Failed to broadcast ban:', broadcastErr);
+          }
+        }
+
       } catch (e) {
         console.error('Failed to send ban notification:', e);
       }
