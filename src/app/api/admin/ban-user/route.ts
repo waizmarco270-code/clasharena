@@ -3,7 +3,7 @@ import { adminDb, adminMessaging } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   try {
-    const { userId, actionType, strikeLevel, banType, days, banReason, decision } = await req.json();
+    const { userId, actionType, strikeLevel, banType, days, banReason, decision, publicShame } = await req.json();
 
     if (!userId || !actionType) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
         }
 
         // GLOBAL PUBLIC SHAMING BROADCAST
-        if (updates.banned) {
+        if (updates.banned && publicShame) {
           try {
             const usersSnap = await adminDb.collection('users').where('hasFcmToken', '==', true).get();
             let allTokens: string[] = [];

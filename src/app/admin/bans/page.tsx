@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -48,6 +49,7 @@ export default function AdminBansPage() {
   const [banDurationDays, setBanDurationDays] = useState('1');
   const [banType, setBanType] = useState('temporary');
   const [processing, setProcessing] = useState(false);
+  const [publicShame, setPublicShame] = useState(false);
 
   useEffect(() => {
     fetchAppeals();
@@ -329,17 +331,23 @@ export default function AdminBansPage() {
 
                       {/* Strike Escalation System */}
                       <div className="space-y-3">
-                        <h3 className="text-[10px] font-black uppercase text-white/50 tracking-widest flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-orange-500" /> Strike Escalation</h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[10px] font-black uppercase text-white/50 tracking-widest flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-orange-500" /> Strike Escalation</h3>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold uppercase text-muted-foreground tracking-widest">Public Shame Broadcast</span>
+                            <Switch checked={publicShame} onCheckedChange={setPublicShame} className="scale-75 data-[state=checked]:bg-red-600" />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 1 })} disabled={processing} variant="outline" className="h-14 flex-col border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 1, publicShame })} disabled={processing} variant="outline" className="h-14 flex-col border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
                             <span className="font-black text-xs">STRIKE 1</span>
                             <span className="text-[8px]">24H BAN</span>
                           </Button>
-                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 2 })} disabled={processing} variant="outline" className="h-14 flex-col border-red-500/30 text-red-400 hover:bg-red-500/10">
+                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 2, publicShame })} disabled={processing} variant="outline" className="h-14 flex-col border-red-500/30 text-red-400 hover:bg-red-500/10">
                             <span className="font-black text-xs">STRIKE 2</span>
                             <span className="text-[8px]">7 DAY BAN</span>
                           </Button>
-                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 3 })} disabled={processing} variant="outline" className="h-14 flex-col border-red-900/50 text-red-500 hover:bg-red-900/20 bg-red-900/10">
+                          <Button onClick={() => executeBanAction('strike', { strikeLevel: 3, publicShame })} disabled={processing} variant="outline" className="h-14 flex-col border-red-900/50 text-red-500 hover:bg-red-900/20 bg-red-900/10">
                             <span className="font-black text-xs">STRIKE 3</span>
                             <span className="text-[8px]">PERMANENT BAN</span>
                           </Button>
@@ -378,7 +386,7 @@ export default function AdminBansPage() {
                         </div>
 
                         <div className="flex gap-3 pt-2">
-                          <Button onClick={() => executeBanAction('custom_ban', { banType, banReason, days: parseInt(banDurationDays) })} disabled={processing || !banReason.trim()} className="flex-1 h-10 bg-red-600 hover:bg-red-700 font-black uppercase tracking-widest text-[10px]">
+                          <Button onClick={() => executeBanAction('custom_ban', { banType, banReason, days: parseInt(banDurationDays), publicShame })} disabled={processing || !banReason.trim()} className="flex-1 h-10 bg-red-600 hover:bg-red-700 font-black uppercase tracking-widest text-[10px]">
                             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'ISSUE BAN'}
                           </Button>
                           
