@@ -19,7 +19,8 @@ import {
   Bell,
   Activity,
   CreditCard,
-  Gift
+  Gift,
+  Skull
 } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc, collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -111,6 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'controls', label: 'Controls', icon: Terminal, href: '/admin/controls' },
     { id: 'users', label: 'User Management', icon: UserCog, href: '/admin/users', superOnly: true },
     { id: 'gateway', label: 'Gateway', icon: Settings, href: '/admin/gateway', superOnly: true },
+    { id: 'bans', label: 'Judgment Day', icon: Skull, href: '/admin/bans' },
     { id: 'backgrounds', label: 'Backgrounds', icon: Monitor, href: '/admin/backgrounds' },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/admin/maintenance' },
   ];

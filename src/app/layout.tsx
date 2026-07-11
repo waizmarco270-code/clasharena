@@ -12,6 +12,7 @@ import { PwaInstaller } from '@/components/pwa-installer';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ReferralTracker } from '@/components/referral-tracker';
 import { Suspense } from 'react';
+import { BanGuardian } from '@/components/auth/ban-guardian';
 import fs from 'fs';
 import path from 'path';
 import { adminDb } from '@/lib/firebase-admin';
@@ -152,7 +153,9 @@ export default function RootLayout({
                 <Suspense fallback={null}>
                   <ReferralTracker />
                 </Suspense>
-                {children}
+                <BanGuardian>
+                  {children}
+                </BanGuardian>
               </ErrorBoundary>
               <Toaster />
               <NotificationHandler />

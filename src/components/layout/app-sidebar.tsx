@@ -32,7 +32,8 @@ import {
   Users,
   Headset,
   LifeBuoy,
-  BookOpen
+  BookOpen,
+  Skull
 } from 'lucide-react';
 import { useBackgrounds, useProfile, useAdminStatus } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
@@ -57,6 +58,7 @@ export function AppSidebar() {
     { name: 'Coin Vault', href: '/wallet', icon: Wallet, color: 'text-emerald-500' },
     { name: 'Transaction Logs', href: '/wallet/history', icon: History, color: 'text-amber-500' },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy, color: 'text-purple-500' },
+    { name: 'Wall of Shame', href: '/wall-of-shame', icon: Skull, color: 'text-red-600' },
     { name: 'Battle Guide', href: '/guide', icon: BookOpen, color: 'text-pink-500' },
   ];
 
