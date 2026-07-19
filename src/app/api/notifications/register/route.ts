@@ -19,8 +19,14 @@ export async function POST(request: Request) {
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
-    // 2. Subscribe token to the 'broadcast' topic for global alerts
+    // 2. Fetch user to check town hall and subscribe token to the 'broadcast' topic and TH topic
+    const userDoc = await userRef.get();
+    const townHall = userDoc.data()?.townHall;
+    
     await adminMessaging.subscribeToTopic([token], 'broadcast');
+    if (townHall) {
+      await adminMessaging.subscribeToTopic([token], `th_${townHall}_alerts`);
+    }
 
     // 3. Register device with Stream Chat for push notifications
     const apiKey = process.env.NEXT_PUBLIC_STREAM_KEY;

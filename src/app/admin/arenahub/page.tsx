@@ -2,7 +2,7 @@
 
 import { default as NextLink } from 'next/link';
 
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,8 @@ import {
   Camera,
   X,
   Wallet,
-  EyeOff
+  EyeOff,
+  Gavel
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,16 +43,23 @@ export default function ArenaHubPage() {
   const { toast } = useToast();
 
   const [limitCount, setLimitCount] = useState(5);
+  const [vsLimitCount, setVsLimitCount] = useState(10);
   const [activeTab, setActiveTab] = useState('latest');
   
   // Use limit() to keep reads optimized
   const tournamentsQuery = useMemo(() => query(collection(db, 'tournaments'), orderBy('startTime', 'desc'), limit(limitCount)), [db, limitCount]);
   const { data: tournaments } = useCollection(tournamentsQuery);
 
+  const vsQuery = useMemo(() => query(collection(db, 'vs-challenges'), orderBy('createdAt', 'desc'), limit(vsLimitCount)), [db, vsLimitCount]);
+  const { data: vsChallenges } = useCollection(vsQuery);
+
   const [tOpen, setTOpen] = useState(false);
   const [tLoading, setTLoading] = useState(false);
   const [editTId, setEditTId] = useState<string | null>(null);
   const [deleteTId, setDeleteTId] = useState<string | null>(null);
+  const [deleteVsId, setDeleteVsId] = useState<string | null>(null);
+  const [vsSettlementMode, setVsSettlementMode] = useState<'auto' | 'manual'>('auto');
+  const [vsSettingsLoading, setVsSettingsLoading] = useState(false);
   
   const latestTournaments = useMemo(() => tournaments?.filter((t: any) => t.status !== 'completed') || [], [tournaments]);
   const pastTournaments = useMemo(() => tournaments?.filter((t: any) => t.status === 'completed') || [], [tournaments]);
@@ -63,7 +71,7 @@ export default function ArenaHubPage() {
   
   const [tForm, setTForm] = useState({
     name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8, entryFee: 0,
-    rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardImageUrl: '',
+    rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardImageUrl: '', rewardTicketType: 'bronze',
     prizePool: '', rules: [] as string[], imageUrl: '', townHall: 0,
     registrationStartTime: '', registrationEndTime: '', startTime: '',
     totalPlayers: 30, thDistribution: {} as Record<number, number>, reservePlayers: 2,
@@ -76,7 +84,7 @@ export default function ArenaHubPage() {
   const resetTForm = () => {
     setTForm({
       name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
-      entryFee: 0, rewardType: 'coin', rewardValue: '', rewardItemName: '',
+      entryFee: 0, rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardTicketType: 'bronze',
       rewardImageUrl: '', prizePool: '', rules: [], imageUrl: '', townHall: 0,
       registrationStartTime: '', registrationEndTime: '', startTime: '',
       totalPlayers: 30, thDistribution: {}, reservePlayers: 2,
@@ -85,6 +93,37 @@ export default function ArenaHubPage() {
     });
     setEditTId(null);
     setNewRule('');
+  };
+
+  useEffect(() => {
+     if (activeTab === 'vs-matches') {
+        const fetchVsSettings = async () => {
+           try {
+              const res = await fetch('/api/admin/vs-settings');
+              const data = await res.json();
+              if (data.settlementMode) setVsSettlementMode(data.settlementMode);
+           } catch (e) {}
+        };
+        fetchVsSettings();
+     }
+  }, [activeTab]);
+
+  const toggleVsSettlementMode = async () => {
+     const newMode = vsSettlementMode === 'auto' ? 'manual' : 'auto';
+     setVsSettingsLoading(true);
+     try {
+        const res = await fetch('/api/admin/vs-settings', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ settlementMode: newMode })
+        });
+        if (res.ok) setVsSettlementMode(newMode);
+        toast({ title: 'Setting Updated', description: `Settlement mode is now ${newMode.toUpperCase()}` });
+     } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Update Failed' });
+     } finally {
+        setVsSettingsLoading(false);
+     }
   };
 
   const handleTournamentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,6 +172,7 @@ export default function ArenaHubPage() {
     let poolSummary = '';
     if (tForm.rewardType === 'money') poolSummary = `₹ ${tForm.rewardValue}`;
     else if (tForm.rewardType === 'coin') poolSummary = `🪙 ${tForm.rewardValue}`;
+    else if (tForm.rewardType === 'ticket') poolSummary = `🎫 ${tForm.rewardValue} ${tForm.rewardTicketType} Ticket${parseInt(tForm.rewardValue) > 1 ? 's' : ''}`;
     else poolSummary = `${tForm.rewardItemName}`;
 
     const tournamentData = {
@@ -237,7 +277,12 @@ export default function ArenaHubPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <NextLink href="/admin/arenahub/th-rules">
+           <Button variant="outline" className="font-black gap-2 h-12 px-6 border-white/10 text-white bg-black/50 hover:bg-white/5 transition-all">
+             <Gavel className="w-5 h-5" /> MANAGE TH RULES
+           </Button>
+        </NextLink>
         <Button onClick={() => { resetTForm(); setTOpen(true); }} className="bg-primary font-black gap-2 h-12 px-6 glow-primary">
           <Plus className="w-5 h-5" /> CREATE TOURNAMENT
         </Button>
@@ -247,6 +292,7 @@ export default function ArenaHubPage() {
         <TabsList className="bg-black/40 border border-white/5 h-12 w-full justify-start rounded-xl p-1 mb-6">
           <TabsTrigger value="latest" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">LATEST ARENA</TabsTrigger>
           <TabsTrigger value="past" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">PAST ARENA</TabsTrigger>
+          <TabsTrigger value="vs-matches" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">VS MATCHES</TabsTrigger>
         </TabsList>
         
         <TabsContent value="latest">
@@ -309,6 +355,68 @@ export default function ArenaHubPage() {
             <Button variant="outline" onClick={() => setLimitCount(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
           </div>
         </TabsContent>
+
+        <TabsContent value="vs-matches" className="space-y-6">
+          <Card className="glass border-primary/20 bg-primary/5">
+             <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                   <h3 className="font-black uppercase text-white flex items-center gap-2"><Gavel className="w-4 h-4 text-primary" /> Global VS Settlement Mode</h3>
+                   <p className="text-[10px] text-muted-foreground mt-1">If Manual is ON, admins must manually inspect and force-win matches after 2 wins.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                   <Label className="text-xs font-bold uppercase">{vsSettlementMode}</Label>
+                   <Switch checked={vsSettlementMode === 'manual'} onCheckedChange={toggleVsSettlementMode} disabled={vsSettingsLoading} />
+                </div>
+             </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {vsChallenges?.map((c: any) => (
+                <Card key={c.id} className="glass border-white/5 relative overflow-hidden">
+                   <div className={`absolute top-0 inset-x-0 h-1 ${c.status === 'disputed' ? 'bg-red-500' : c.status === 'completed' ? 'bg-green-500' : c.status === 'active' ? 'bg-yellow-500' : 'bg-primary'}`} />
+                   <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-4">
+                        <Badge variant="outline" className={`font-black uppercase tracking-widest text-[9px] ${c.status === 'disputed' ? 'text-red-500 border-red-500/30' : c.status === 'completed' ? 'text-green-500 border-green-500/30' : 'text-primary border-primary/30'}`}>
+                           {c.status}
+                        </Badge>
+                        <p className="text-xl font-black text-green-500">⚡ {c.pool}</p>
+                      </div>
+                      
+                      <div className="flex justify-between items-center bg-black/40 rounded-xl p-3 border border-white/5">
+                         <div className="text-center w-[40%]">
+                           <p className="text-[10px] font-black uppercase text-white truncate">{c.creatorName}</p>
+                           {c.creatorSubmission && <p className="text-[9px] text-green-400 mt-1 uppercase font-bold">{c.creatorSubmission.result}</p>}
+                         </div>
+                         <div className="text-[10px] font-black text-red-500 italic">VS</div>
+                         <div className="text-center w-[40%]">
+                           <p className="text-[10px] font-black uppercase text-white truncate">{c.acceptorName || 'WAITING'}</p>
+                           {c.acceptorSubmission && <p className="text-[9px] text-green-400 mt-1 uppercase font-bold">{c.acceptorSubmission.result}</p>}
+                         </div>
+                      </div>
+                      
+                      <NextLink href={`/vs-arena/battle/${c.id}`} className="block mt-4">
+                        <Button className="w-full h-10 font-black uppercase tracking-widest text-[10px]" variant="secondary">
+                           Inspect Room
+                        </Button>
+                      </NextLink>
+                   </CardContent>
+                   <div className="absolute top-2 right-2 flex gap-1 z-10">
+                     <Button size="icon" variant="destructive" className="h-8 w-8 bg-black/60" onClick={(e) => { e.preventDefault(); setDeleteVsId(c.id); }}>
+                       <Trash2 className="w-4 h-4" />
+                     </Button>
+                   </div>
+                </Card>
+             ))}
+          </div>
+          {vsChallenges?.length === 0 && (
+             <div className="text-center p-12 text-white/50 font-black uppercase tracking-widest text-[10px]">No VS Matches</div>
+          )}
+          {vsChallenges && vsChallenges.length >= vsLimitCount && (
+            <div className="flex justify-center mt-8">
+              <Button variant="outline" onClick={() => setVsLimitCount(prev => prev + 10)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       <Dialog open={!!deleteTId} onOpenChange={(open) => !open && setDeleteTId(null)}>
@@ -328,6 +436,30 @@ export default function ArenaHubPage() {
                   deleteDoc(doc(db, 'tournaments', deleteTId));
                   toast({ title: "ARENA DELETED" });
                   setDeleteTId(null);
+                }
+              }}>DELETE</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteVsId} onOpenChange={(open) => !open && setDeleteVsId(null)}>
+        <DialogContent className="glass border-red-500/20 max-w-sm p-6 rounded-3xl bg-black/90">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
+            <div>
+              <h3 className="font-headline text-xl font-black uppercase italic text-red-500">Delete Match?</h3>
+              <p className="text-xs font-bold text-muted-foreground uppercase mt-2">This action cannot be undone. Make sure you have refunded players if necessary.</p>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <Button variant="outline" className="flex-1 rounded-xl h-10 font-bold" onClick={() => setDeleteVsId(null)}>CANCEL</Button>
+              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl h-10 font-black uppercase" onClick={() => {
+                if (deleteVsId) {
+                  deleteDoc(doc(db, 'vs-challenges', deleteVsId));
+                  toast({ title: "MATCH DELETED" });
+                  setDeleteVsId(null);
                 }
               }}>DELETE</Button>
             </div>
@@ -431,7 +563,7 @@ export default function ArenaHubPage() {
                     <Label className="text-[10px] font-black uppercase">Reward Type</Label>
                     <Select value={tForm.rewardType} onValueChange={val => setTForm({...tForm, rewardType: val as any})}>
                       <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="money">REAL MONEY (INR)</SelectItem><SelectItem value="coin">ARENA COINS</SelectItem><SelectItem value="item">SPECIAL ITEM / GIFT</SelectItem></SelectContent>
+                      <SelectContent><SelectItem value="money">REAL MONEY (INR)</SelectItem><SelectItem value="coin">ARENA COINS</SelectItem><SelectItem value="ticket">TICKETS</SelectItem><SelectItem value="item">SPECIAL ITEM / GIFT</SelectItem></SelectContent>
                     </Select>
                   </div>
 
@@ -439,6 +571,18 @@ export default function ArenaHubPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase">Item Name</Label>
                       <Input value={tForm.rewardItemName} onChange={e => setTForm({...tForm, rewardItemName: e.target.value})} placeholder="e.g. Gold Pass / Discord Nitro" className="bg-white/5" />
+                    </div>
+                  ) : tForm.rewardType === 'ticket' ? (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Ticket Type</Label>
+                      <Select value={tForm.rewardTicketType} onValueChange={val => setTForm({...tForm, rewardTicketType: val})}>
+                        <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bronze">BRONZE TICKET</SelectItem>
+                          <SelectItem value="silver">SILVER TICKET</SelectItem>
+                          <SelectItem value="golden">GOLDEN TICKET</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   ) : (
                     <div className="space-y-2">

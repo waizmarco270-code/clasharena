@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Super Admin only.' }, { status: 403 });
     }
 
-    const { code, amount, maxUses, expireDays, expireHours, expireMins } = await request.json();
+    const { code, amount, maxUses, expireDays, expireHours, expireMins, rewardType = 'coins' } = await request.json();
 
     if (!code || !amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid parameters. Code and positive amount are required.' }, { status: 400 });
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     await codeRef.set({
       code: normalizedCode,
       amount: Number(amount),
+      rewardType,
       maxUses: Number(maxUses) || 0, // 0 = unlimited
       currentUses: 0,
       expiresAt: expiresAt,

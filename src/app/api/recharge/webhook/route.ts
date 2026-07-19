@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     const orderId = payment.order_id;
     const userId = payment.notes?.userId;
     const amount = Number(payment.notes?.amount || (payment.amount / 100));
+    const coins = Number(payment.notes?.coins || amount);
     const paymentType = payment.notes?.paymentType || 'recharge';
+    const ticketType = payment.notes?.ticketType || 'none';
+    const currency = payment.notes?.currency || 'coins';
 
     if (!userId || isNaN(amount) || amount <= 0) {
       console.warn("Razorpay Webhook missing notes or valid metadata:", paymentId);
@@ -91,34 +94,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, processed: true });
     }
 
+    let isTicketFallback = false;
+
     // 4. Atomic balance increment and recharge log creation in transaction
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(userId);
       const userSnap = await transaction.get(userRef);
       const username = userSnap.exists ? (userSnap.data()?.username || 'Warrior') : 'Warrior';
 
-      // Increment balance in users collection
-      transaction.update(userRef, {
-        balance: FieldValue.increment(amount)
-      });
+      if (paymentType === 'ticket_purchase' && ticketType !== 'none') {
+        const ticketRef = adminDb.collection('tickets').doc(ticketType);
+        const ticketSnap = await transaction.get(ticketRef);
+        const ticketData = ticketSnap.exists ? ticketSnap.data() : null;
+
+        if (!ticketData || ticketData.stock <= 0 || !ticketData.isActive) {
+          // OUT OF STOCK FALLBACK: Credit coins equivalent to the amount paid
+          isTicketFallback = true;
+          transaction.update(userRef, {
+            balance: FieldValue.increment(coins || amount),
+            totalCoinsEarned: FieldValue.increment(coins || amount)
+          });
+        } else {
+          // VALID TICKET PURCHASE
+          transaction.update(ticketRef, { 
+            stock: FieldValue.increment(-1),
+            totalSold: FieldValue.increment(1)
+          });
+          
+          const buyerRef = ticketRef.collection('buyers').doc(paymentId);
+          transaction.set(buyerRef, {
+            userId,
+            username,
+            amount,
+            purchasedAt: FieldValue.serverTimestamp()
+          });
+
+          transaction.update(userRef, {
+            [`inventory.${ticketType}Tickets`]: FieldValue.increment(1),
+            [`inventory.total${ticketType.charAt(0).toUpperCase() + ticketType.slice(1)}TicketsEarned`]: FieldValue.increment(1)
+          });
+        }
+      } else {
+        // STANDARD RECHARGE
+        if (currency === 'vcash') {
+          transaction.update(userRef, {
+            vCashBalance: FieldValue.increment(coins),
+            unplayedBalance: FieldValue.increment(coins)
+          });
+        } else {
+          transaction.update(userRef, {
+            balance: FieldValue.increment(coins),
+            totalCoinsEarned: FieldValue.increment(coins)
+          });
+        }
+      }
 
       // Write recharge record log in recharge-requests collection
       transaction.set(requestRef, {
         userId,
         username,
         amount,
+        coins,
+        currency,
+        paymentType,
+        ticketType,
         transactionId: paymentId,
         orderId: orderId || '',
         status: 'approved',
-        method: 'Automatic',
+        method: 'Automatic', // This acts as the source of truth
         createdAt: FieldValue.serverTimestamp()
       });
 
       // Process Squad Builder Referral Reward
-      await processReferralReward(userId, amount, transaction);
+      await processReferralReward(userId, coins, transaction);
     });
 
-    console.log(`Successfully credited ${amount} coins to ${userId} via Webhook transaction ${paymentId}.`);
+    console.log(`Successfully processed Webhook transaction ${paymentId}.`);
     return NextResponse.json({ success: true, processed: true });
 
   } catch (err: any) {

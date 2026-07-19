@@ -6,9 +6,9 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Swords, Users, Trophy, ChevronLeft, ShieldCheck, Zap, Info, ArrowRight, Loader2, PlayCircle } from 'lucide-react';
-import { useDoc, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { ArrowRight, ChevronLeft, Loader2, PlayCircle, Shield, Swords, Trophy, Users, Zap, Ticket, Crown } from 'lucide-react';
+import { useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { isBefore, isAfter } from 'date-fns';
@@ -16,7 +16,7 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 export default function TournamentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { user } = useUser();
@@ -36,6 +36,8 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
   const [registering, setRegistering] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [countdown, setCountdown] = useState<string>('');
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<string>('bronze');
 
   const isSuperAdmin = user?.id === "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16" || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
@@ -80,14 +82,14 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
     return `${h}h ${m}m ${s}s`;
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (ticketType: string = 'none') => {
     if (!user || !profile || !t) return;
     if (registration) return;
     if (t.townHall > 0 && profile.townHall !== t.townHall) {
       toast({ variant: "destructive", title: "LEVEL MISMATCH", description: `TH ${t.townHall} only.` });
       return;
     }
-    if (profile.balance < t.entryFee) {
+    if (ticketType === 'none' && profile.balance < t.entryFee) {
       toast({ variant: "destructive", title: "INSUFFICIENT COINS" });
       router.push('/wallet');
       return;
@@ -99,7 +101,7 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
       const res = await fetch('/api/tournament/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: id })
+        body: JSON.stringify({ tournamentId: id, ticketType })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
@@ -109,6 +111,7 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
       } else {
         toast({ title: "BATTLE JOINED", description: "Registration successful!" });
       }
+      setTicketModalOpen(false);
     } catch (e: any) {
       toast({ variant: "destructive", title: "REGISTRATION ERROR", description: e.message });
     } finally {
@@ -205,17 +208,41 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                     </Button>
                   </Link>
                 ) : (
-                  <Button 
-                    onClick={handleRegister}
-                    disabled={status !== 'OPEN' || registering}
-                    className="w-full h-16 bg-primary font-black uppercase text-xl glow-primary rounded-2xl shadow-2xl transition-all group"
-                  >
-                    {registering ? <Loader2 className="animate-spin" /> : (
-                      <>
-                        JOIN ARENA <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
-                      </>
+                  <div className="space-y-2">
+                    <Button 
+                      onClick={() => handleRegister('none')}
+                      disabled={status !== 'OPEN' || registering}
+                      className="w-full h-16 bg-primary font-black uppercase text-xl glow-primary rounded-2xl shadow-2xl transition-all group"
+                    >
+                      {registering ? <Loader2 className="animate-spin" /> : (
+                        <>
+                          PAY 🪙 {t.entryFee} <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                        </>
+                      )}
+                    </Button>
+                    
+                    {status === 'OPEN' && (
+                        <div className="pt-2 space-y-2">
+                          {((profile?.inventory?.bronzeTickets || 0) > 0 && t.entryFee <= 80) ||
+                           ((profile?.inventory?.silverTickets || 0) > 0 && t.entryFee <= 199) ||
+                           ((profile?.inventory?.goldenTickets || 0) > 0) ? (
+                            <Button 
+                              onClick={() => {
+                                // Auto-select highest valid ticket by default or let user choose
+                                if (profile?.inventory?.bronzeTickets > 0 && t.entryFee <= 80) setSelectedTicket('bronze');
+                                else if (profile?.inventory?.silverTickets > 0 && t.entryFee <= 199) setSelectedTicket('silver');
+                                else if (profile?.inventory?.goldenTickets > 0) setSelectedTicket('golden');
+                                setTicketModalOpen(true);
+                              }}
+                              disabled={registering} 
+                              className="w-full h-12 bg-white hover:bg-gray-200 text-black font-black uppercase rounded-xl"
+                            >
+                              <Ticket className="w-4 h-4 mr-2" /> USE TICKET FOR ENTRY
+                            </Button>
+                          ) : null}
+                        </div>
                     )}
-                  </Button>
+                  </div>
                 )}
                 
                 {!registration && !isAdmin && (
@@ -230,6 +257,88 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+
+      {/* Ticket Selection Modal */}
+      <Dialog open={ticketModalOpen} onOpenChange={setTicketModalOpen}>
+        <DialogContent className="bg-zinc-950 border-white/10 sm:max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="font-headline font-black uppercase text-xl text-primary italic flex items-center gap-2">
+              <Ticket className="w-5 h-5" /> Select Entry Ticket
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm font-bold text-muted-foreground mb-4">Choose which ticket to consume for entry. Make sure you select the correct one.</p>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {(profile?.inventory?.bronzeTickets || 0) > 0 && t?.entryFee <= 80 && (
+                <div 
+                  onClick={() => setSelectedTicket('bronze')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between",
+                    selectedTicket === 'bronze' ? "border-amber-600 bg-amber-600/10" : "border-white/5 bg-white/5 hover:bg-white/10"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-amber-600/20 p-2 rounded-lg"><Ticket className="w-5 h-5 text-amber-600" /></div>
+                    <div>
+                      <p className="font-black uppercase text-amber-500">Bronze Ticket</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Valid up to 80 Coins</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-amber-600/30 text-amber-500">{profile?.inventory?.bronzeTickets || 0} Owned</Badge>
+                </div>
+              )}
+              
+              {(profile?.inventory?.silverTickets || 0) > 0 && t?.entryFee <= 199 && (
+                <div 
+                  onClick={() => setSelectedTicket('silver')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between",
+                    selectedTicket === 'silver' ? "border-slate-400 bg-slate-400/10" : "border-white/5 bg-white/5 hover:bg-white/10"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-slate-400/20 p-2 rounded-lg"><Ticket className="w-5 h-5 text-slate-400" /></div>
+                    <div>
+                      <p className="font-black uppercase text-slate-300">Silver Ticket</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Valid up to 199 Coins</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-slate-400/30 text-slate-400">{profile?.inventory?.silverTickets || 0} Owned</Badge>
+                </div>
+              )}
+
+              {(profile?.inventory?.goldenTickets || 0) > 0 && (
+                <div 
+                  onClick={() => setSelectedTicket('golden')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between relative overflow-hidden",
+                    selectedTicket === 'golden' ? "border-yellow-500 bg-yellow-500/10" : "border-white/5 bg-white/5 hover:bg-white/10"
+                  )}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/0 via-yellow-500/5 to-yellow-500/0 w-full animate-shimmer" />
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div className="bg-yellow-500/20 p-2 rounded-lg"><Crown className="w-5 h-5 text-yellow-500" /></div>
+                    <div>
+                      <p className="font-black uppercase text-yellow-500">Golden Ticket</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Valid for ANY Arena</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 relative z-10">{profile?.inventory?.goldenTickets || 0} Owned</Badge>
+                </div>
+              )}
+            </div>
+
+            <Button 
+              onClick={() => handleRegister(selectedTicket)}
+              disabled={registering || !selectedTicket}
+              className="w-full h-14 bg-primary hover:bg-primary/90 text-black font-black uppercase text-lg mt-6 glow-primary"
+            >
+              {registering ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `CONFIRM & USE ${selectedTicket} TICKET`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

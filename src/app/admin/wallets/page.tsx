@@ -6,22 +6,38 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, increment, limit, writeBatch, getDoc, getDocs, where, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { useCollection, useFirestore, useDoc } from '@/firebase';
+import { collection, query, orderBy, doc, updateDoc, setDoc, limit, writeBatch, getDoc, getDocs, where, deleteDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Eye, TrendingUp, Search, X, Loader2, Calendar } from 'lucide-react';
+import { Eye, TrendingUp, Search, X, Loader2, Calendar, Settings as SettingsIcon } from 'lucide-react';
 import { default as NextLink } from 'next/link';
 import { PlayerTHBadge } from '@/components/PlayerTHBadge';
 import { useUser } from '@clerk/nextjs';
 import { Trash2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function WalletLogsPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [limitCount, setLimitCount] = useState(30);
   const [selectedDate, setSelectedDate] = useState<string>('');
+
+  const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
+  const { data: paymentSettings } = useDoc(settingsRef);
+  const hideManual = paymentSettings?.hideManual === true;
+  const hideAuto = paymentSettings?.hideAuto === true;
+
+  const toggleSetting = async (field: string, currentVal: boolean) => {
+    try {
+      await setDoc(doc(db, 'app-settings', 'payment'), { [field]: !currentVal }, { merge: true });
+      toast({ title: "Settings Updated", description: `${field} is now ${!currentVal ? 'Hidden' : 'Visible'}` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Failed to update setting", description: e.message });
+    }
+  };
   
   const rechargeQuery = useMemo(() => {
     let q = query(collection(db, 'recharge-requests'), orderBy('createdAt', 'desc'));
@@ -106,7 +122,16 @@ export default function WalletLogsPage() {
       
       const batch = writeBatch(db);
       const coinsToCredit = req.coins !== undefined ? req.coins : req.amount;
-      batch.update(targetUserRef, { balance: increment(coinsToCredit) });
+      const currency = req.currency || 'coins';
+      
+      if (currency === 'vcash') {
+        batch.update(targetUserRef, { 
+          vCashBalance: increment(coinsToCredit),
+          unplayedBalance: increment(coinsToCredit)
+        });
+      } else {
+        batch.update(targetUserRef, { balance: increment(coinsToCredit) });
+      }
       batch.update(doc(db, 'recharge-requests', req.id), { status: 'approved' });
 
       // SQUAD BUILDER REFERRAL LOGIC
@@ -230,8 +255,9 @@ export default function WalletLogsPage() {
                   {req.username || req.userId || 'Unknown'}
                   <PlayerTHBadge userId={req.userId} />
                 </TableCell>
-                <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : 'text-primary'}`}>
-                  🪙 {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.coins !== undefined ? req.coins : req.amount}
+                <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : req.currency === 'vcash' ? 'text-green-500' : 'text-primary'}`}>
+                  {req.currency === 'vcash' ? '⚡ ' : '🪙 '} 
+                  {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.coins !== undefined ? req.coins : req.amount}
                   {req.coins !== undefined && req.coins !== req.amount && (
                     <span className="block text-[9px] text-muted-foreground mt-0.5 uppercase tracking-widest">PAID ₹{req.amount}</span>
                   )}
@@ -317,11 +343,41 @@ export default function WalletLogsPage() {
           </div>
         </div>
 
-        <NextLink href="/admin/wallets/analytics">
-          <Button className="bg-primary hover:bg-primary/95 text-white font-black text-xs uppercase rounded-xl flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" /> REVENUE
-          </Button>
-        </NextLink>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-white/10 bg-black/40 hover:bg-white/5 text-xs font-black uppercase rounded-xl">
+                <SettingsIcon className="w-4 h-4 mr-2" /> Gateway Settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-black/90 border border-white/10 backdrop-blur-xl">
+              <DropdownMenuLabel className="text-xs uppercase font-black text-muted-foreground tracking-widest">Payment Gateways</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <div className="p-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black text-white">Manual Payment</p>
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Show / Hide Option</p>
+                  </div>
+                  <Switch checked={!hideManual} onCheckedChange={() => toggleSetting('hideManual', hideManual)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black text-white">Auto Payment</p>
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Show / Hide Option</p>
+                  </div>
+                  <Switch checked={!hideAuto} onCheckedChange={() => toggleSetting('hideAuto', hideAuto)} />
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <NextLink href="/admin/wallets/analytics">
+            <Button className="bg-primary hover:bg-primary/95 text-white font-black text-xs uppercase rounded-xl flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" /> REVENUE
+            </Button>
+          </NextLink>
+        </div>
       </div>
 
       <Tabs defaultValue="recharges" className="w-full" onValueChange={setActiveTab}>

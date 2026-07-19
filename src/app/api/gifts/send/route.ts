@@ -19,7 +19,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Super Admin only.' }, { status: 403 });
     }
 
-    const { target, targetUserId, amount, message, action, limit, expireHours } = await request.json();
+    const body = await request.json();
+    const { target, targetUserId, amount, message, action, limit, expireDays, expireHours, expireMins, rewardType = 'coins' } = body;
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
@@ -31,11 +32,18 @@ export async function POST(request: Request) {
       }
       
       const targetUserRef = adminDb.collection('users').doc(targetUserId);
-      await targetUserRef.update({
-        balance: FieldValue.increment(-amount)
-      });
+      const updateData: any = {};
+      
+      if (rewardType === 'coins') {
+        updateData.balance = FieldValue.increment(-amount);
+      } else {
+        updateData[`inventory.${rewardType}Tickets`] = FieldValue.increment(-amount);
+      }
+      
+      await targetUserRef.update(updateData);
 
-      return NextResponse.json({ success: true, message: `Deducted ${amount} coins` });
+      const messageType = rewardType === 'coins' ? 'coins' : `${rewardType} tickets`;
+      return NextResponse.json({ success: true, message: `Deducted ${amount} ${messageType}` });
     }
 
     if (action === 'gift') {
@@ -45,15 +53,16 @@ export async function POST(request: Request) {
       const giftData = {
         id: giftId,
         amount,
+        rewardType,
         message: message || 'You have received a Gift from Clash Arena!',
         createdAt: new Date().toISOString(), // Use ISO string to make arrayRemove easier later
       };
 
       if (target === 'global') {
         const expiresAt = new Date();
-        const days = Number(requestData.expireDays) || 0;
-        const hours = Number(requestData.expireHours) || 0;
-        const mins = Number(requestData.expireMins) || 0;
+        const days = Number(expireDays) || 0;
+        const hours = Number(expireHours) || 0;
+        const mins = Number(expireMins) || 0;
 
         if (days > 0 || hours > 0 || mins > 0) {
           expiresAt.setDate(expiresAt.getDate() + days);
@@ -81,7 +90,7 @@ export async function POST(request: Request) {
               topic: 'broadcast',
               notification: {
                 title: '🎁 Global Gift Received!',
-                body: `Clash Arena just sent everyone ${amount} coins! Open the app to claim now.`
+                body: `Clash Arena just sent everyone ${amount} ${rewardType === 'coins' ? 'coins' : rewardType + ' tickets'}! Open the app to claim now.`
               },
               data: { type: 'global_gift' }
             });
@@ -110,6 +119,7 @@ export async function POST(request: Request) {
           targetUserId,
           targetUsername: userData?.username || 'Warrior',
           amount,
+          rewardType,
           message: giftData.message,
           status: 'pending',
           sentAt: serverTime,
@@ -123,7 +133,7 @@ export async function POST(request: Request) {
               tokens: fcmTokens,
               notification: {
                 title: '🎁 You received a Gift!',
-                body: `You have received ${amount} coins. Open the app to claim it.`
+                body: `You have received ${amount} ${rewardType === 'coins' ? 'coins' : rewardType + ' tickets'}. Open the app to claim it.`
               },
               data: { type: 'individual_gift' }
             });

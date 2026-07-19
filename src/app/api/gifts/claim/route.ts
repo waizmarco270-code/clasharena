@@ -59,22 +59,42 @@ export async function POST(request: Request) {
 
         transaction.update(giftRef, updates);
 
-        transaction.update(userRef, {
-          balance: FieldValue.increment(giftData.amount),
+        const rewardType = giftData.rewardType || 'coins';
+        const userUpdates: any = {
           claimedGlobalGifts: FieldValue.arrayUnion(giftId)
-        });
+        };
+        
+        if (rewardType === 'coins') {
+          userUpdates.balance = FieldValue.increment(giftData.amount);
+          userUpdates.totalCoinsEarned = FieldValue.increment(giftData.amount);
+        } else {
+          userUpdates[`inventory.${rewardType}Tickets`] = FieldValue.increment(giftData.amount);
+          userUpdates[`inventory.total${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)}TicketsEarned`] = FieldValue.increment(giftData.amount);
+        }
 
-        return { amount: giftData.amount };
+        transaction.update(userRef, userUpdates);
+
+        return { amount: giftData.amount, rewardType };
       } else if (type === 'individual') {
         const pendingGifts = userData.pendingGifts || [];
         const gift = pendingGifts.find((g: any) => g.id === giftId);
         
         if (!gift) throw new Error('Gift not found or already claimed');
 
-        transaction.update(userRef, {
-          balance: FieldValue.increment(gift.amount),
+        const rewardType = gift.rewardType || 'coins';
+        const userUpdates: any = {
           pendingGifts: FieldValue.arrayRemove(gift) // Requires exact object match
-        });
+        };
+
+        if (rewardType === 'coins') {
+          userUpdates.balance = FieldValue.increment(gift.amount);
+          userUpdates.totalCoinsEarned = FieldValue.increment(gift.amount);
+        } else {
+          userUpdates[`inventory.${rewardType}Tickets`] = FieldValue.increment(gift.amount);
+          userUpdates[`inventory.total${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)}TicketsEarned`] = FieldValue.increment(gift.amount);
+        }
+
+        transaction.update(userRef, userUpdates);
 
         // Log transaction (gift-logs analytics update instead of wallet recharge-requests)
         const giftLogRef = adminDb.collection('gift-logs').doc(giftId);
@@ -83,13 +103,18 @@ export async function POST(request: Request) {
           claimedAt: FieldValue.serverTimestamp()
         });
 
-        return { amount: gift.amount };
+        return { amount: gift.amount, rewardType };
       }
 
       throw new Error('Invalid gift type');
     });
 
-    return NextResponse.json({ success: true, amount: result.amount, message: `Successfully claimed ${result.amount} coins!` });
+    return NextResponse.json({ 
+      success: true, 
+      amount: result.amount, 
+      rewardType: result.rewardType,
+      message: `Successfully claimed ${result.amount} ${result.rewardType === 'coins' ? 'coins' : result.rewardType + ' tickets'}!` 
+    });
 
   } catch (error: any) {
     console.error("Gift Claim API Error:", error);

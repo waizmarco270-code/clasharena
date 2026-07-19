@@ -20,7 +20,8 @@ export async function processReferralReward(
     
     // Reward 10 coins to referrer
     transaction.update(referrerRef, {
-      balance: FieldValue.increment(10)
+      balance: FieldValue.increment(10),
+      totalCoinsEarned: FieldValue.increment(10)
     });
 
     // Mark referral as claimed for this user

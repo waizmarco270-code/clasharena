@@ -77,17 +77,27 @@ export async function POST(request: Request) {
       transaction.update(codeRef, codeUpdates);
 
       // Write 3: Update User Balance
-      transaction.update(userRef, {
-        balance: FieldValue.increment(codeData.amount)
-      });
+      const rewardType = codeData.rewardType || 'coins';
+      const userUpdates: any = {};
+      
+      if (rewardType === 'coins') {
+        userUpdates.balance = FieldValue.increment(codeData.amount);
+        userUpdates.totalCoinsEarned = FieldValue.increment(codeData.amount);
+      } else {
+        userUpdates[`inventory.${rewardType}Tickets`] = FieldValue.increment(codeData.amount);
+        userUpdates[`inventory.total${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)}TicketsEarned`] = FieldValue.increment(codeData.amount);
+      }
 
-      return { amount: codeData.amount };
+      transaction.update(userRef, userUpdates);
+
+      return { amount: codeData.amount, rewardType };
     });
 
     return NextResponse.json({ 
       success: true, 
       amount: result.amount,
-      message: `Code Redeemed! Added ${result.amount} coins to your Vault.` 
+      rewardType: result.rewardType,
+      message: `Code Redeemed! Added ${result.amount} ${result.rewardType === 'coins' ? 'coins' : result.rewardType + ' tickets'} to your Vault.` 
     });
 
   } catch (error: any) {

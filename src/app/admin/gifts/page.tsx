@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, limit, getDocs, getDoc, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2 } from 'lucide-react';
+import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2, Ticket, Crown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function AdminGiftsPage() {
   const db = useFirestore();
@@ -41,11 +42,13 @@ export default function AdminGiftsPage() {
   }, [allUsers, searchTerm]);
 
   // Form State
+  const [rewardType, setRewardType] = useState<string>('coins');
   const [amount, setAmount] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Global Form State
+  const [globalRewardType, setGlobalRewardType] = useState<string>('coins');
   const [globalAmount, setGlobalAmount] = useState<string>('');
   const [globalMessage, setGlobalMessage] = useState<string>('');
   const [globalLimit, setGlobalLimit] = useState<string>('');
@@ -156,7 +159,8 @@ export default function AdminGiftsPage() {
           targetUserId: selectedUser.id,
           amount: Number(amount),
           message,
-          action
+          action,
+          rewardType
         })
       });
 
@@ -168,10 +172,24 @@ export default function AdminGiftsPage() {
       setMessage('');
       
       // Update local state temporarily for UX
-      setSelectedUser((prev: any) => ({
-        ...prev,
-        balance: action === 'gift' ? prev.balance : prev.balance - Number(amount)
-      }));
+      setSelectedUser((prev: any) => {
+        const amt = Number(amount);
+        const isGift = action === 'gift';
+        
+        if (rewardType === 'coins') {
+          return { ...prev, balance: isGift ? (prev.balance || 0) + amt : (prev.balance || 0) - amt };
+        } else {
+          const tType = rewardType + 'Tickets';
+          const currentT = prev.inventory?.[tType] || 0;
+          return {
+            ...prev,
+            inventory: {
+              ...prev.inventory,
+              [tType]: isGift ? currentT + amt : Math.max(0, currentT - amt)
+            }
+          };
+        }
+      });
 
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Action Failed', description: err.message });
@@ -198,6 +216,7 @@ export default function AdminGiftsPage() {
           amount: Number(globalAmount),
           message: globalMessage,
           action: 'gift',
+          rewardType: globalRewardType,
           limit: Number(globalLimit) || 0,
           expireDays: Number(globalExpireDays) || 0,
           expireHours: Number(globalExpiry) || 0,
@@ -314,8 +333,13 @@ export default function AdminGiftsPage() {
                           <p className="text-sm font-black uppercase leading-none">{u.username || 'Warrior'}</p>
                           <p className="text-[9px] text-muted-foreground font-mono mt-1">{u.id}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black text-primary">🪙 {u.balance || 0}</p>
+                        <div className="text-right flex items-center gap-3">
+                          <div className="hidden sm:flex gap-2">
+                            <Badge variant="outline" className="border-amber-600/30 text-amber-500 bg-amber-600/5 px-1.5"><Ticket className="w-3 h-3 mr-1"/> {u.inventory?.bronzeTickets || 0}</Badge>
+                            <Badge variant="outline" className="border-slate-400/30 text-slate-400 bg-slate-400/5 px-1.5"><Ticket className="w-3 h-3 mr-1"/> {u.inventory?.silverTickets || 0}</Badge>
+                            <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 bg-yellow-500/5 px-1.5"><Crown className="w-3 h-3 mr-1"/> {u.inventory?.goldenTickets || 0}</Badge>
+                          </div>
+                          <p className="text-xs font-black text-primary ml-2">🪙 {u.balance || 0}</p>
                         </div>
                       </div>
                     ))
@@ -325,7 +349,7 @@ export default function AdminGiftsPage() {
 
               {selectedUser && (
                 <div className="animate-in slide-in-from-right-4 duration-300">
-                  <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-xl mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-xl mb-6 gap-4">
                     <div className="flex items-center gap-4">
                       <Avatar className="w-12 h-12 border-2 border-primary/50"><AvatarImage src={selectedUser.avatarUrl} /><AvatarFallback>{selectedUser.username?.charAt(0)}</AvatarFallback></Avatar>
                       <div>
@@ -333,24 +357,47 @@ export default function AdminGiftsPage() {
                         <p className="text-[10px] text-muted-foreground font-mono">{selectedUser.id}</p>
                       </div>
                     </div>
-                    <div className="text-right bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
-                      <p className="text-[9px] text-muted-foreground uppercase font-black mb-0.5">Current Balance</p>
-                      <p className="font-headline font-black text-primary text-lg leading-none">🪙 {selectedUser.balance || 0}</p>
+                    <div className="flex items-center gap-4 flex-wrap sm:justify-end">
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="border-amber-600/30 text-amber-500 bg-amber-600/5 px-2 py-1"><Ticket className="w-3 h-3 mr-1.5"/> {selectedUser.inventory?.bronzeTickets || 0}</Badge>
+                        <Badge variant="outline" className="border-slate-400/30 text-slate-400 bg-slate-400/5 px-2 py-1"><Ticket className="w-3 h-3 mr-1.5"/> {selectedUser.inventory?.silverTickets || 0}</Badge>
+                        <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 bg-yellow-500/5 px-2 py-1"><Crown className="w-3 h-3 mr-1.5"/> {selectedUser.inventory?.goldenTickets || 0}</Badge>
+                      </div>
+                      <div className="text-right bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
+                        <p className="text-[9px] text-muted-foreground uppercase font-black mb-0.5">Current Balance</p>
+                        <p className="font-headline font-black text-primary text-lg leading-none">🪙 {selectedUser.balance || 0}</p>
+                      </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Coin Amount</label>
-                      <div className="relative mt-1">
-                        <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                        <input
-                          type="number"
-                          placeholder="e.g. 50"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          className="w-full pl-10 py-3 bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Reward Type</label>
+                        <Select value={rewardType} onValueChange={setRewardType}>
+                          <SelectTrigger className="w-full mt-1 h-[46px] bg-black/40 border-white/10 rounded-xl text-xs font-bold text-white focus:ring-0 focus:border-primary/50">
+                            <SelectValue placeholder="Select Reward" />
+                          </SelectTrigger>
+                          <SelectContent className="border-white/10 glass text-xs font-bold text-white">
+                            <SelectItem value="coins">🪙 Coins</SelectItem>
+                            <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
+                            <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
+                            <SelectItem value="golden">👑 Golden Ticket</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount</label>
+                        <div className="relative mt-1">
+                          {rewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : rewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${rewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
+                          <input
+                            type="number"
+                            placeholder="e.g. 5"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="w-full pl-10 h-[46px] bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -410,17 +457,33 @@ export default function AdminGiftsPage() {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Coin Amount Per User</label>
-                  <div className="relative mt-1">
-                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                    <input
-                      type="number"
-                      placeholder="e.g. 50"
-                      value={globalAmount}
-                      onChange={(e) => setGlobalAmount(e.target.value)}
-                      className="w-full pl-10 py-3 bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Reward Type</label>
+                    <Select value={globalRewardType} onValueChange={setGlobalRewardType}>
+                      <SelectTrigger className="w-full mt-1 h-[46px] bg-black/40 border-white/10 rounded-xl text-xs font-bold text-white focus:ring-0 focus:border-primary/50">
+                        <SelectValue placeholder="Select Reward" />
+                      </SelectTrigger>
+                      <SelectContent className="border-white/10 glass text-xs font-bold text-white">
+                        <SelectItem value="coins">🪙 Coins</SelectItem>
+                        <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
+                        <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
+                        <SelectItem value="golden">👑 Golden Ticket</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount Per User</label>
+                    <div className="relative mt-1">
+                      {globalRewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : globalRewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${globalRewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
+                      <input
+                        type="number"
+                        placeholder="e.g. 10"
+                        value={globalAmount}
+                        onChange={(e) => setGlobalAmount(e.target.value)}
+                        className="w-full pl-10 h-[46px] bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -532,8 +595,12 @@ export default function AdminGiftsPage() {
                             <p className="text-[9px] text-muted-foreground font-mono">{gift.targetUserId}</p>
                           </TableCell>
                           <TableCell>
-                            <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
-                            <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[150px]" title={gift.message}>{gift.message}</p>
+                            <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
+                              {gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                              {gift.amount}
+                              {gift.rewardType && gift.rewardType !== 'coins' && <span className="text-[9px] uppercase ml-1 font-bold">{gift.rewardType}</span>}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[150px] mt-1" title={gift.message}>{gift.message}</p>
                           </TableCell>
                           <TableCell>
                             {gift.status === 'claimed' ? (
@@ -597,8 +664,12 @@ export default function AdminGiftsPage() {
                         return (
                           <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
                             <TableCell className="pl-6">
-                              <p className="font-black text-primary text-sm flex items-center gap-1"><Coins className="w-3 h-3" /> {gift.amount}</p>
-                              <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px]" title={gift.message}>{gift.message}</p>
+                              <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
+                                {gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                                {gift.amount}
+                                {gift.rewardType && gift.rewardType !== 'coins' && <span className="text-[9px] uppercase ml-1 font-bold">{gift.rewardType}</span>}
+                              </p>
+                              <p className="text-[9px] text-muted-foreground font-medium truncate max-w-[200px] mt-1" title={gift.message}>{gift.message}</p>
                             </TableCell>
                             <TableCell>
                               {gift.status === 'closed' ? (

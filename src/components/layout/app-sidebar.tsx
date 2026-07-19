@@ -33,7 +33,11 @@ import {
   Headset,
   LifeBuoy,
   BookOpen,
-  Skull
+  Skull,
+  Ticket,
+  Gift,
+  Crown,
+  Zap
 } from 'lucide-react';
 import { useBackgrounds, useProfile, useAdminStatus } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
@@ -55,9 +59,12 @@ export function AppSidebar() {
   const mainNav = [
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
     { name: 'Tournament Arena', href: '/arena', icon: Swords, color: 'text-red-500' },
+    { name: 'VS Arena ⚡', href: '/vs-arena', icon: Zap, color: 'text-orange-500' },
     { name: 'Coin Vault', href: '/wallet', icon: Wallet, color: 'text-emerald-500' },
+    { name: 'Ticket Vault', href: '/tickets', icon: Ticket, color: 'text-purple-500' },
     { name: 'Transaction Logs', href: '/wallet/history', icon: History, color: 'text-amber-500' },
     { name: 'Hall of Champions', href: '/hall-of-champions', icon: Trophy, color: 'text-purple-500' },
+    { name: 'Rich Leaderboard', href: '/leaderboard', icon: Crown, color: 'text-yellow-500' },
     { name: 'Wall of Shame', href: '/wall-of-shame', icon: Skull, color: 'text-red-600' },
     { name: 'Battle Guide', href: '/guide', icon: BookOpen, color: 'text-pink-500' },
   ];
@@ -69,7 +76,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
+    <Sidebar collapsible="offcanvas" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
       <SidebarHeader className="h-20 flex flex-col justify-center px-4 border-b border-white/5">
         <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0 shadow-xl">

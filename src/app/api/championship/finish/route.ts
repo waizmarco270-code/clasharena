@@ -89,23 +89,41 @@ export async function POST(req: Request) {
         }
       }
 
+      const ticketIncrements: Record<string, number> = {};
+
       // 2. Give specific rewards to Top 1, 2 and 3
       const processReward = (userId: string, amount: number, rank: string) => {
         if (!userId || !amount || amount <= 0) return;
         
-        balanceIncrements[userId] = (balanceIncrements[userId] || 0) + amount;
-        
-        const historyRef = adminDb.collection('recharge-requests').doc();
-        transaction.set(historyRef, {
-          userId: userId,
-          username: `Rank ${rank} Winner`, 
-          amount: amount,
-          type: 'TOURNAMENT_WIN_REWARD',
-          method: 'refund',
-          description: `${rank} Reward for Championship: ${t.name}`,
-          createdAt: serverTime,
-          status: 'approved'
-        });
+        if (t.rewardType === 'ticket') {
+          ticketIncrements[userId] = (ticketIncrements[userId] || 0) + amount;
+          
+          const historyRef = adminDb.collection('recharge-requests').doc();
+          transaction.set(historyRef, {
+            userId: userId,
+            username: `Rank ${rank} Winner`, 
+            amount: 0,
+            type: 'TOURNAMENT_WIN_REWARD',
+            method: 'ticket_reward',
+            description: `${rank} Reward: ${amount} ${t.rewardTicketType || 'bronze'} Ticket(s) for Championship: ${t.name}`,
+            createdAt: serverTime,
+            status: 'approved'
+          });
+        } else {
+          balanceIncrements[userId] = (balanceIncrements[userId] || 0) + amount;
+          
+          const historyRef = adminDb.collection('recharge-requests').doc();
+          transaction.set(historyRef, {
+            userId: userId,
+            username: `Rank ${rank} Winner`, 
+            amount: amount,
+            type: 'TOURNAMENT_WIN_REWARD',
+            method: 'refund',
+            description: `${rank} Reward for Championship: ${t.name}`,
+            createdAt: serverTime,
+            status: 'approved'
+          });
+        }
       };
 
       if (top1UserId && top1RewardCoins) processReward(top1UserId, Number(top1RewardCoins), 'Top 1');
@@ -113,10 +131,22 @@ export async function POST(req: Request) {
       if (top3UserId && top3RewardCoins) processReward(top3UserId, Number(top3RewardCoins), 'Top 3');
       
       const topWinners = new Set([top1UserId, top2UserId, top3UserId].filter(Boolean));
-      const allUserIds = new Set([ ...allMembers.map((m:any)=>m.userId), ...Object.keys(balanceIncrements) ]);
+      const allUserIdsArray = Array.from(new Set([ ...allMembers.map((m:any)=>m.userId), ...Object.keys(balanceIncrements), ...Object.keys(ticketIncrements) ]));
 
-      // 3. Batch apply Profile Updates (Stats + Balances)
-      for (const uid of Array.from(allUserIds)) {
+      // Fetch registrations to check for Golden Ticket usage
+      const regRefs = allUserIdsArray.map(uid => tRef.collection('registrations').doc(uid as string));
+      let goldenTicketUsers = new Set();
+      if (regRefs.length > 0) {
+        const regSnaps = await transaction.getAll(...regRefs);
+        regSnaps.forEach(snap => {
+          if (snap.exists && snap.data()?.ticketUsed === 'golden') {
+            goldenTicketUsers.add(snap.id);
+          }
+        });
+      }
+
+      // 3. Batch apply Profile Updates (Stats + Balances + Ticket Refunds)
+      for (const uid of allUserIdsArray) {
          if (!uid) continue;
          const userRef = adminDb.collection('users').doc(uid as string);
          const updateObj: any = {};
@@ -131,6 +161,28 @@ export async function POST(req: Request) {
 
          if (balanceIncrements[uid as string]) {
            updateObj.balance = FieldValue.increment(balanceIncrements[uid as string]);
+           updateObj.totalCoinsEarned = FieldValue.increment(balanceIncrements[uid as string]);
+         }
+
+         if (ticketIncrements[uid as string]) {
+           const tType = t.rewardTicketType || 'bronze';
+           updateObj[`inventory.${tType}Tickets`] = FieldValue.increment(ticketIncrements[uid as string]);
+         }
+
+         if (goldenTicketUsers.has(uid)) {
+           updateObj['inventory.goldenTickets'] = FieldValue.increment(1);
+           
+           // Log the refund
+           const historyRef = adminDb.collection('recharge-requests').doc();
+           transaction.set(historyRef, {
+             userId: uid,
+             username: 'Warrior',
+             amount: 0,
+             type: 'TICKET_REFUND',
+             description: `100% Golden Ticket Refund (Reached Semifinals/Finals)`,
+             createdAt: serverTime,
+             status: 'approved'
+           });
          }
 
          if (Object.keys(updateObj).length > 0) {

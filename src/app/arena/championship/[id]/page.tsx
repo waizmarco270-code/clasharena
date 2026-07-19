@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ChampionshipGuideContent } from '@/components/championship/ChampionshipGuideContent';
-import { Swords, Users, Trophy, ChevronLeft, ShieldCheck, Zap, Info, Loader2 } from 'lucide-react';
+import { Swords, Users, Trophy, ChevronLeft, ShieldCheck, Zap, Info, Loader2, Ticket, Crown } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Image from 'next/image';
@@ -81,7 +81,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
     return `${h}h ${m}m ${s}s`;
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (ticketType: string = 'none') => {
     if (!user || !profile || !t) return;
     if (registration) return;
     
@@ -97,7 +97,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
       return;
     }
 
-    if (profile.balance < t.entryFee) {
+    if (ticketType === 'none' && profile.balance < t.entryFee) {
       toast({ variant: "destructive", title: "INSUFFICIENT COINS" });
       router.push('/wallet');
       return;
@@ -108,7 +108,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
       const res = await fetch('/api/championship/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ championshipId: id })
+        body: JSON.stringify({ championshipId: id, ticketType })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -207,17 +207,37 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
               <CardContent className="p-6">
                 {!registration ? (
                   <div className="space-y-3">
-                    <Button 
-                      className={cn("w-full h-14 rounded-xl font-black uppercase text-lg", status === 'OPEN' && isAllowedTh && !isMyThFull ? "bg-blue-600 hover:bg-blue-700 glow-primary" : "bg-white/10 text-white/40 cursor-not-allowed")}
-                      disabled={status !== 'OPEN' || !isAllowedTh || isMyThFull || registering}
-                      onClick={handleRegister}
-                    >
-                      {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : 
-                       !isAllowedTh ? `TH ${myTh} NOT ALLOWED` :
-                       isMyThFull ? `TH ${myTh} FULL` :
-                       status === 'OPEN' ? 'REGISTER NOW' : 
-                       status === 'REGISTRATION_SOON' ? 'WAITING' : 'CLOSED'}
-                    </Button>
+                      <Button 
+                        className={cn("w-full h-14 rounded-xl font-black uppercase text-lg", status === 'OPEN' && isAllowedTh && !isMyThFull ? "bg-blue-600 hover:bg-blue-700 glow-primary" : "bg-white/10 text-white/40 cursor-not-allowed")}
+                        disabled={status !== 'OPEN' || !isAllowedTh || isMyThFull || registering}
+                        onClick={() => handleRegister('none')}
+                      >
+                        {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                         !isAllowedTh ? `TH ${myTh} NOT ALLOWED` :
+                         isMyThFull ? `TH ${myTh} FULL` :
+                         status === 'OPEN' ? `PAY 🪙 ${t.entryFee || 0}` : 
+                         status === 'REGISTRATION_SOON' ? 'WAITING' : 'CLOSED'}
+                      </Button>
+
+                      {status === 'OPEN' && isAllowedTh && !isMyThFull && (
+                        <div className="pt-2 space-y-2">
+                          {(profile?.inventory?.bronzeTickets || 0) > 0 && t.entryFee <= 80 && (
+                             <Button onClick={() => handleRegister('bronze')} disabled={registering} className="w-full h-12 bg-amber-600 hover:bg-amber-700 font-black uppercase rounded-xl border border-amber-500/50">
+                               <Ticket className="w-4 h-4 mr-2" /> USE BRONZE TICKET ({profile.inventory.bronzeTickets})
+                             </Button>
+                          )}
+                          {(profile?.inventory?.silverTickets || 0) > 0 && t.entryFee <= 199 && (
+                             <Button onClick={() => handleRegister('silver')} disabled={registering} className="w-full h-12 bg-slate-600 hover:bg-slate-700 font-black uppercase rounded-xl border border-slate-500/50">
+                               <Ticket className="w-4 h-4 mr-2" /> USE SILVER TICKET ({profile.inventory.silverTickets})
+                             </Button>
+                          )}
+                          {(profile?.inventory?.goldenTickets || 0) > 0 && (
+                             <Button onClick={() => handleRegister('golden')} disabled={registering} className="w-full h-12 bg-yellow-600 hover:bg-yellow-700 font-black uppercase rounded-xl border border-yellow-500/50 glow-yellow text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                               <Crown className="w-4 h-4 mr-2" /> USE GOLDEN TICKET ({profile.inventory.goldenTickets})
+                             </Button>
+                          )}
+                        </div>
+                      )}
                     
                     {isAdmin && (
                       <Button 

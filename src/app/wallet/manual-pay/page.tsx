@@ -43,6 +43,7 @@ function ManualPayContent() {
 
   const amount = Number(searchParams.get('amount')) || 0;
   const coins = Number(searchParams.get('coins')) || amount;
+  const currency = searchParams.get('currency') || 'coins';
   const [screenshotUrl, setScreenshotUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -91,6 +92,7 @@ function ManualPayContent() {
       username: profile?.username || user.fullName || user.firstName || 'Warrior',
       amount: amount,
       coins: coins,
+      currency: currency,
       transactionId: txId,
       screenshotUrl: screenshotUrl,
       status: 'pending',
@@ -142,7 +144,9 @@ function ManualPayContent() {
         </div>
         <div className="space-y-4">
           <h2 className="font-headline text-4xl font-black italic uppercase">REQUEST <span className="text-primary">COMMANDED</span></h2>
-          <p className="text-muted-foreground font-medium px-8">Your payment for <span className="text-white font-bold">🪙 {amount} Coins</span> has been received.</p>
+          <p className="text-muted-foreground font-medium px-8">
+            Your payment for <span className="text-white font-bold">{currency === 'vcash' ? `⚡ ${amount} V-Cash` : `🪙 ${amount} Coins`}</span> has been received.
+          </p>
         </div>
         <Card className="glass border-white/5 bg-white/5 p-6 mx-8 flex items-center gap-4 text-left">
           <Clock className="w-8 h-8 text-yellow-500 shrink-0" />

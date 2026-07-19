@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Key, Gift, X, Loader2, Coins, Activity, Timer, Users, RefreshCw, PowerOff, Trash2 } from 'lucide-react';
+import { Key, Gift, X, Loader2, Coins, Activity, Timer, Users, RefreshCw, PowerOff, Trash2, Ticket, Crown } from 'lucide-react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function GiftCodesPage() {
   const db = useFirestore();
@@ -26,6 +27,7 @@ export default function GiftCodesPage() {
   // Generator State
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customCode, setCustomCode] = useState('');
+  const [rewardType, setRewardType] = useState('coins');
   const [amount, setAmount] = useState('');
   const [maxUses, setMaxUses] = useState('');
   const [expireHours, setExpireHours] = useState('');
@@ -75,6 +77,7 @@ export default function GiftCodesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: codeToCreate,
+          rewardType,
           amount: Number(amount),
           maxUses: Number(maxUses) || 0,
           expireDays: Number(expireDays) || 0,
@@ -185,17 +188,33 @@ export default function GiftCodesPage() {
                   </div>
                 )}
 
-                <div>
-                  <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Coin Amount Per User (Required)</label>
-                  <div className="relative mt-1">
-                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                    <input
-                      type="number"
-                      placeholder="e.g. 500"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full pl-10 py-3 bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Reward Type</label>
+                    <Select value={rewardType} onValueChange={setRewardType}>
+                      <SelectTrigger className="w-full mt-1 h-[46px] bg-black/40 border-white/10 rounded-xl text-xs font-bold text-white focus:ring-0 focus:border-primary/50">
+                        <SelectValue placeholder="Select Reward" />
+                      </SelectTrigger>
+                      <SelectContent className="border-white/10 glass text-xs font-bold text-white">
+                        <SelectItem value="coins">🪙 Coins</SelectItem>
+                        <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
+                        <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
+                        <SelectItem value="golden">👑 Golden Ticket</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount Per User (Required)</label>
+                    <div className="relative mt-1">
+                      {rewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : rewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${rewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
+                      <input
+                        type="number"
+                        placeholder="e.g. 500"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full pl-10 h-[46px] bg-black/40 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -320,7 +339,10 @@ export default function GiftCodesPage() {
                         <TableRow key={code.id} className="border-white/5 hover:bg-white/5 transition-colors">
                           <TableCell className="pl-6">
                             <p className="font-mono font-black text-white text-base tracking-wider">{code.code}</p>
-                            <p className="text-[10px] text-muted-foreground font-black uppercase mt-1 flex items-center gap-1"><Coins className="w-3 h-3 text-primary" /> {code.amount} Coins</p>
+                            <p className={`text-[10px] font-black uppercase mt-1 flex items-center gap-1 ${code.rewardType === 'golden' ? 'text-yellow-500/80' : code.rewardType === 'bronze' ? 'text-amber-700/80' : code.rewardType === 'silver' ? 'text-slate-400/80' : 'text-primary/80'}`}>
+                              {code.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : code.rewardType && code.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                              {code.amount} {code.rewardType && code.rewardType !== 'coins' ? `${code.rewardType} Ticket` : 'Coins'}
+                            </p>
                           </TableCell>
                           <TableCell>
                             {statusBadge}

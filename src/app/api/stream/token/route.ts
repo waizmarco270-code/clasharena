@@ -38,29 +38,41 @@ export async function POST(req: Request) {
 
     // Check membership
     if (!isAdmin) {
-      const regDoc = await adminDb.collection(`tournaments/${tournamentId}/registrations`).doc(userId).get();
-      if (!regDoc.exists) {
-        return new NextResponse("Forbidden - Not registered in this tournament", { status: 403 });
-      }
-      
-      // If teamId is requested, verify the user belongs to that team
-      if (teamId) {
-        if (teamId.startsWith('lounge_top')) {
-          const tDoc = await adminDb.collection('tournaments').doc(tournamentId).get();
-          const t = tDoc.data();
-          if (teamId === 'lounge_top1' && t?.top1UserId !== userId) {
-            return new NextResponse("Forbidden - Not Top 1", { status: 403 });
-          }
-          if (teamId === 'lounge_top2' && t?.top2UserId !== userId) {
-            return new NextResponse("Forbidden - Not Top 2", { status: 403 });
-          }
-          if (teamId === 'lounge_top3' && t?.top3UserId !== userId) {
-            return new NextResponse("Forbidden - Not Top 3", { status: 403 });
-          }
-        } else {
-          const teamData = regDoc.data()?.draftedTeam;
-          if (teamData !== teamId) {
-             return new NextResponse("Forbidden - Not in this team", { status: 403 });
+      if (tournamentId.startsWith('vs_')) {
+        const challengeId = tournamentId.replace('vs_', '');
+        const challengeDoc = await adminDb.collection('vs-challenges').doc(challengeId).get();
+        if (!challengeDoc.exists) {
+           return new NextResponse("Forbidden - Challenge not found", { status: 403 });
+        }
+        const challenge = challengeDoc.data();
+        if (challenge?.creatorId !== userId && challenge?.acceptorId !== userId) {
+           return new NextResponse("Forbidden - Not a participant of this battle", { status: 403 });
+        }
+      } else {
+        const regDoc = await adminDb.collection(`tournaments/${tournamentId}/registrations`).doc(userId).get();
+        if (!regDoc.exists) {
+          return new NextResponse("Forbidden - Not registered in this tournament", { status: 403 });
+        }
+        
+        // If teamId is requested, verify the user belongs to that team
+        if (teamId) {
+          if (teamId.startsWith('lounge_top')) {
+            const tDoc = await adminDb.collection('tournaments').doc(tournamentId).get();
+            const t = tDoc.data();
+            if (teamId === 'lounge_top1' && t?.top1UserId !== userId) {
+              return new NextResponse("Forbidden - Not Top 1", { status: 403 });
+            }
+            if (teamId === 'lounge_top2' && t?.top2UserId !== userId) {
+              return new NextResponse("Forbidden - Not Top 2", { status: 403 });
+            }
+            if (teamId === 'lounge_top3' && t?.top3UserId !== userId) {
+              return new NextResponse("Forbidden - Not Top 3", { status: 403 });
+            }
+          } else {
+            const teamData = regDoc.data()?.draftedTeam;
+            if (teamData !== teamId) {
+               return new NextResponse("Forbidden - Not in this team", { status: 403 });
+            }
           }
         }
       }

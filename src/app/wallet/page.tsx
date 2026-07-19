@@ -22,7 +22,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { useProfile, useBackgrounds, useFirestore } from '@/firebase';
+import { useProfile, useBackgrounds, useFirestore, useDoc } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
 import { doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -73,22 +73,41 @@ function WalletPageContent() {
   const { backgrounds: bgData } = useBackgrounds();
   const walletBg = bgData?.wallet;
 
+  const settingsRef = useMemo(() => doc(db, 'app-settings', 'payment'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+  const hideManual = settings?.hideManual === true;
+  const hideAuto = settings?.hideAuto === true;
+
   const [amount, setAmount] = useState<number>(50);
   const [coins, setCoins] = useState<number>(50);
+  const [currency, setCurrency] = useState<'coins' | 'vcash'>('coins');
   const [methodDialogOpen, setMethodDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const templates = [
     { id: 't1', payAmount: 20, coins: 20, label: '🪙 20' },
     { id: 't2', payAmount: 50, coins: 50, label: '🪙 50' },
-    { id: 't3', payAmount: 100, coins: 150, label: '100 + 50 Bonus' },
-    { id: 't4', payAmount: 129, coins: 200, label: '150 + 50 Bonus', badge: 'VALUE FOR MONEY' }
+    { id: 't3', payAmount: 100, coins: 120, label: '100 + 20 Bonus' },
+    { id: 't4', payAmount: 129, coins: 169, label: '129 + 40 Bonus', badge: 'VALUE FOR MONEY' }
   ];
+
+  useEffect(() => {
+    if (currency === 'vcash') {
+      setCoins(amount);
+    }
+  }, [currency, amount]);
 
   const handleAdjust = (delta: number) => {
     setAmount(prev => Math.max(1, prev + delta));
     setCoins(prev => Math.max(1, prev + delta));
   };
+
+  useEffect(() => {
+    const currencyParam = searchParams.get('currency');
+    if (currencyParam === 'vcash' || currencyParam === 'coins') {
+      setCurrency(currencyParam as 'coins' | 'vcash');
+    }
+  }, [searchParams]);
 
   // Detect payment status query parameters on page load/redirect
   useEffect(() => {
@@ -128,7 +147,7 @@ function WalletPageContent() {
     }
 
     if (method === 'manual') {
-      router.push(`/wallet/manual-pay?amount=${amount}&coins=${coins}`);
+      router.push(`/wallet/manual-pay?amount=${amount}&coins=${coins}&currency=${currency}`);
       setMethodDialogOpen(false);
       return;
     }
@@ -150,7 +169,7 @@ function WalletPageContent() {
       const res = await fetch('/api/recharge/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, coins, userId: user.id })
+        body: JSON.stringify({ amount, coins, userId: user.id, currency })
       });
       
       const data = await res.json();
@@ -225,15 +244,24 @@ function WalletPageContent() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <h1 className="font-headline text-4xl font-black mb-2 tracking-tight uppercase italic text-foreground">
-              COIN <span className="text-primary">VAULT</span>
+              {currency === 'coins' ? <>COIN <span className="text-primary">VAULT</span></> : <>V-CASH <span className="text-green-500">VAULT</span></>}
             </h1>
             <p className="text-muted-foreground font-medium">Recharge your balance to enter high-stakes arenas.</p>
           </div>
-          <Link href="/wallet/history">
-            <Button variant="outline" className="border-border/50 glass font-bold gap-2 h-12 rounded-xl">
-              <History className="w-4 h-4 text-primary" /> VIEW HISTORY
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {currency === 'vcash' && (
+              <Link href="/wallet/withdraw">
+                <Button variant="outline" className="border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-400 font-black gap-2 h-12 rounded-xl w-full sm:w-auto">
+                  <Zap className="w-4 h-4 text-green-500" /> WITHDRAW V-CASH
+                </Button>
+              </Link>
+            )}
+            <Link href="/wallet/history">
+              <Button variant="outline" className="border-border/50 glass font-bold gap-2 h-12 rounded-xl w-full sm:w-auto">
+                <History className="w-4 h-4 text-primary" /> VIEW HISTORY
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -246,8 +274,14 @@ function WalletPageContent() {
               <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-headline font-black text-foreground">🪙 {profile?.balance || 0}</span>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl font-headline font-black text-foreground">🪙 {profile?.balance || 0}</span>
+                </div>
+                <div className="flex items-center gap-3 border-t border-white/10 pt-4">
+                  <span className="text-xs font-black uppercase text-muted-foreground w-20">VS Balance</span>
+                  <span className="text-2xl font-headline font-black text-green-500">⚡ {profile?.vCashBalance || 0}</span>
+                </div>
               </div>
               <p className="text-[10px] font-bold text-primary uppercase mt-4 flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" /> Secure Wallet Enabled
@@ -258,11 +292,27 @@ function WalletPageContent() {
           {/* Recharge UI Card */}
           <Card className="md:col-span-2 glass border-border/50 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary" />
-            <CardHeader>
-              <CardTitle className="font-headline text-xl font-bold uppercase tracking-tighter">Quick Top-up</CardTitle>
-              <CardDescription>Select a pack or enter a custom amount (1 Coin = 1 ₹)</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="font-headline text-xl font-bold uppercase tracking-tighter">Quick Top-up</CardTitle>
+                <CardDescription>Select a pack or enter a custom amount (1 Unit = 1 ₹)</CardDescription>
+              </div>
+              <div className="flex bg-black/40 p-1 rounded-xl border border-white/10">
+                <button 
+                  onClick={() => setCurrency('coins')}
+                  className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${currency === 'coins' ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground hover:text-white'}`}
+                >
+                  🪙 Coins
+                </button>
+                <button 
+                  onClick={() => setCurrency('vcash')}
+                  className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${currency === 'vcash' ? 'bg-green-600 text-white shadow-lg' : 'text-muted-foreground hover:text-white'}`}
+                >
+                  ⚡ V-Cash
+                </button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="space-y-8 pt-4">
               {/* Templates */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {templates.map((t) => {
@@ -270,7 +320,7 @@ function WalletPageContent() {
                   return (
                     <button
                       key={t.id}
-                      onClick={() => { setAmount(t.payAmount); setCoins(t.coins); }}
+                      onClick={() => { setAmount(t.payAmount); setCoins(currency === 'vcash' ? t.payAmount : t.coins); }}
                       className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all font-black ${
                         isSelected
                           ? 'bg-primary/20 border-primary text-primary glow-primary overflow-hidden'
@@ -280,8 +330,8 @@ function WalletPageContent() {
                       {isSelected && (
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer" />
                       )}
-                      <span className="text-[13px] md:text-[15px] z-10">{t.label}</span>
-                      {t.payAmount !== t.coins && (
+                      <span className="text-[13px] md:text-[15px] z-10">{currency === 'vcash' ? `⚡ ${t.payAmount}` : t.label}</span>
+                      {t.payAmount !== (currency === 'vcash' ? t.payAmount : t.coins) && (
                         <span className="text-[10px] text-white z-10">Pay ₹{t.payAmount}</span>
                       )}
                       {t.badge && (
@@ -418,37 +468,48 @@ function WalletPageContent() {
           </DialogHeader>
           
           <div className="space-y-4">
-            <button 
-              onClick={() => proceedToPay('manual')}
-              className="w-full p-6 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all text-left flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary rounded-xl text-white shadow-lg">
-                  <CreditCard className="w-6 h-6" />
+            {!hideManual && (
+              <button 
+                onClick={() => proceedToPay('manual')}
+                className="w-full p-6 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all text-left flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary rounded-xl text-white shadow-lg">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-lg leading-none mb-1">MANUAL RECHARGE</h4>
+                    <p className="text-xs text-muted-foreground font-bold">UPI / QR CODE SCREENSHOT</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-black text-lg leading-none mb-1">MANUAL RECHARGE</h4>
-                  <p className="text-xs text-muted-foreground font-bold">UPI / QR CODE SCREENSHOT</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-2 transition-transform" />
-            </button>
+                <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-2 transition-transform" />
+              </button>
+            )}
 
-            <button 
-              onClick={() => proceedToPay('auto')}
-              className="w-full p-6 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all text-left flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary rounded-xl text-white shadow-lg bg-gradient-to-r from-primary to-orange-600 animate-pulse">
-                  <Zap className="w-6 h-6" />
+            {!hideAuto && (
+              <button 
+                onClick={() => proceedToPay('auto')}
+                className="w-full p-6 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all text-left flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary rounded-xl text-white shadow-lg bg-gradient-to-r from-primary to-orange-600 animate-pulse">
+                    <Zap className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-lg leading-none mb-1 text-white">AUTOMATIC GATEWAY</h4>
+                    <p className="text-xs text-muted-foreground font-bold uppercase">INSTANT COIN RECHARGE (RAZORPAY)</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-black text-lg leading-none mb-1 text-white">AUTOMATIC GATEWAY</h4>
-                  <p className="text-xs text-muted-foreground font-bold uppercase">INSTANT COIN RECHARGE (RAZORPAY)</p>
-                </div>
+                <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-2 transition-transform" />
+              </button>
+            )}
+
+            {hideManual && hideAuto && (
+              <div className="p-6 text-center bg-white/5 rounded-2xl border border-white/10">
+                <p className="font-black text-white">RECHARGES ARE CURRENTLY PAUSED</p>
+                <p className="text-xs text-muted-foreground mt-1">Please check back later.</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-2 transition-transform" />
-            </button>
+            )}
           </div>
 
           <DialogFooter className="mt-6">

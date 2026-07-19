@@ -494,6 +494,28 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           earnings: increment(amount)
         });
         claimData.completedAt = serverTimestamp();
+      } else if (t.rewardType === 'ticket') {
+        const amount = parseInt(t.rewardValue) || 1;
+        const tType = t.rewardTicketType || 'bronze'; // Ensure this matches what was saved in admin panel
+        await updateDoc(doc(db, 'users', winnerId), {
+          [`inventory.${tType}Tickets`]: increment(amount)
+        });
+        
+        // Log it to recharge requests for tracking
+        const logRef = doc(collection(db, 'recharge-requests'));
+        await setDoc(logRef, {
+          userId: winnerId,
+          username: winnerName || 'Warrior',
+          amount: 0,
+          type: 'TOURNAMENT_WIN_REWARD',
+          method: 'ticket_reward',
+          description: `Won ${amount} ${tType} Ticket(s) in Arena: ${t.name}`,
+          createdAt: serverTimestamp(),
+          status: 'approved'
+        });
+        
+        claimData.completedAt = serverTimestamp();
+        claimData.status = 'completed';
       }
 
       await setDoc(claimRef, claimData);
@@ -812,14 +834,36 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                 <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {registrations?.map((r: any) => (
-                      <div key={r.userId} className="relative flex flex-col justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-primary/40 transition-all gap-4">
-                        <div className="flex items-center gap-4">
+                      <div key={r.userId} className={cn(
+                        "relative flex flex-col justify-between p-4 rounded-2xl border group hover:border-primary/40 transition-all gap-4 overflow-hidden",
+                        r.ticketUsed === 'golden' ? "bg-yellow-500/5 border-yellow-500/20" :
+                        r.ticketUsed === 'silver' ? "bg-slate-400/5 border-slate-400/20" :
+                        r.ticketUsed === 'bronze' ? "bg-amber-600/5 border-amber-600/20" :
+                        "bg-white/5 border-white/5"
+                      )}>
+                        {r.ticketUsed && r.ticketUsed !== 'none' && (
+                          <div className={cn(
+                            "absolute inset-0 bg-gradient-to-r w-full animate-shimmer pointer-events-none opacity-20",
+                            r.ticketUsed === 'golden' ? "from-yellow-500/0 via-yellow-500/20 to-yellow-500/0" :
+                            r.ticketUsed === 'silver' ? "from-slate-400/0 via-slate-400/20 to-slate-400/0" :
+                            "from-amber-500/0 via-amber-500/20 to-amber-500/0"
+                          )} />
+                        )}
+                        <div className="flex items-center gap-4 relative z-10">
                           <Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20">
                             <AvatarImage src={r.avatarUrl} />
                             <AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback>
                           </Avatar>
-                          <div className="overflow-hidden">
-                            <p className="font-black uppercase text-sm truncate text-white">{r.username}</p>
+                          <div className="overflow-hidden relative z-10">
+                            <p className={cn(
+                              "font-black uppercase text-sm truncate transition-colors",
+                              r.ticketUsed === 'golden' ? "text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" :
+                              r.ticketUsed === 'silver' ? "text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.5)]" :
+                              r.ticketUsed === 'bronze' ? "text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
+                              "text-white"
+                            )}>
+                              {r.username}
+                            </p>
                             <p className="text-[9px] text-primary font-black uppercase tracking-widest">{r.tag}</p>
                           </div>
                         </div>

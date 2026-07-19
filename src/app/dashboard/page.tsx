@@ -37,7 +37,9 @@ import {
   ChevronLeft,
   QrCode,
   IndianRupee,
-  X
+  X,
+  Coins,
+  Ticket
 } from 'lucide-react';
 import { useFirestore, useCollection, useProfile, useBackgrounds, useDoc } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, limit, increment, updateDoc, getDocs } from 'firebase/firestore';
@@ -917,13 +919,15 @@ function GiftClaimCard({ gift, onClaim }: { gift: any, onClaim: (giftId: string,
     setClaiming(false);
   };
 
+  const rewardType = gift.rewardType || 'coins';
+
   return (
     <Card className="glass border-primary/20 bg-primary/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 relative">
       <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent pointer-events-none" />
       <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-primary/20 rounded-full animate-bounce">
-            <Gift className="w-8 h-8 text-primary" />
+            {rewardType === 'coins' ? <Coins className="w-8 h-8 text-primary" /> : rewardType === 'golden' ? <Crown className="w-8 h-8 text-yellow-500" /> : <Ticket className={`w-8 h-8 ${rewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
           </div>
           <div>
             <h3 className="font-headline font-black uppercase text-xl text-white tracking-wider">A Gift For You!</h3>
@@ -932,8 +936,10 @@ function GiftClaimCard({ gift, onClaim }: { gift: any, onClaim: (giftId: string,
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right hidden md:block">
-            <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Amount</p>
-            <p className="font-black text-2xl text-primary leading-none">🪙 {gift.amount}</p>
+            <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Reward</p>
+            <p className="font-black text-2xl text-primary leading-none capitalize">
+              {rewardType === 'coins' ? `🪙 ${gift.amount}` : `${gift.amount} ${rewardType} Ticket${gift.amount > 1 ? 's' : ''}`}
+            </p>
           </div>
           <Button onClick={handleClaim} disabled={claiming} className="bg-primary text-black font-black uppercase tracking-widest px-8 h-12 hover:bg-primary/90 glow-primary">
             {claiming ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Claim Gift'}

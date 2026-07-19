@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tournamentId } = body;
+    const { tournamentId, ticketType } = body;
 
     if (!tournamentId) {
       return NextResponse.json({ error: 'Missing tournamentId' }, { status: 400 });
@@ -51,21 +51,54 @@ export async function POST(req: Request) {
         throw new Error(`Town Hall level mismatch. Requires TH ${t.townHall}`);
       }
       
-      if (profile.balance < (t.entryFee || 0)) {
-        throw new Error('Insufficient coins');
+      let usedTicket = false;
+      const entryFee = t.entryFee || 0;
+
+      if (ticketType && ticketType !== 'none') {
+        const inventory = profile.inventory || {};
+        const ticketCount = inventory[`${ticketType}Tickets`] || 0;
+        
+        if (ticketCount <= 0) {
+          throw new Error(`You do not own any ${ticketType} tickets.`);
+        }
+
+        if (ticketType === 'bronze' && entryFee > 80) {
+          throw new Error('Bronze tickets can only be used for tournaments up to 80 coins.');
+        }
+        if (ticketType === 'silver' && entryFee > 199) {
+          throw new Error('Silver tickets can only be used for tournaments up to 199 coins.');
+        }
+        
+        usedTicket = true;
+      } else {
+        if (profile.balance < entryFee) {
+          throw new Error('Insufficient coins');
+        }
       }
 
       // We use Firestore serverTimestamp to guarantee consistency across devices
       const serverTime = FieldValue.serverTimestamp();
 
       // Atomic Writes
-      if (t.entryFee > 0) {
-        transaction.update(userRef, { balance: FieldValue.increment(-t.entryFee) });
+      if (usedTicket) {
+        transaction.update(userRef, { [`inventory.${ticketType}Tickets`]: FieldValue.increment(-1) });
         
         transaction.set(historyRef, {
           userId,
           username: profile.username || 'Warrior',
-          amount: -t.entryFee,
+          amount: 0,
+          ticketUsed: ticketType,
+          type: 'TICKET_ENTRY',
+          description: `Used ${ticketType} ticket for Arena: ${t.name}`,
+          createdAt: serverTime
+        });
+      } else if (entryFee > 0) {
+        transaction.update(userRef, { balance: FieldValue.increment(-entryFee) });
+        
+        transaction.set(historyRef, {
+          userId,
+          username: profile.username || 'Warrior',
+          amount: -entryFee,
           type: 'TOURNAMENT_ENTRY',
           description: `Entry fee for Arena: ${t.name}`,
           createdAt: serverTime
@@ -81,6 +114,7 @@ export async function POST(req: Request) {
         tag: profile.tag || '',
         assignedClan: '',
         joinCode: '',
+        ticketUsed: usedTicket ? ticketType : 'none',
         registeredAt: serverTime
       });
 
