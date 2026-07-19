@@ -377,27 +377,48 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="divide-y divide-white/5">
-                      {myWinnings.map((w: any) => (
-                        <div key={w.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                              <Trophy className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm text-foreground uppercase">{w.tournamentName || 'Tournament Victory'}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs font-black text-primary">🪙 {w.coinReward}</span>
-                                {w.vcashReward > 0 && <span className="text-xs font-black text-green-500">⚡ {w.vcashReward}</span>}
-                                {w.status === 'pending' && <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/20">Processing</Badge>}
-                                {w.status === 'approved' && <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Paid</Badge>}
+                      {myWinnings.map((w: any) => {
+                        let dateText = 'Just now';
+                        if (w.createdAt) {
+                          try {
+                            if (typeof w.createdAt.toDate === 'function') {
+                              dateText = formatDistanceToNow(w.createdAt.toDate(), { addSuffix: true });
+                            } else if (typeof w.createdAt === 'string' || typeof w.createdAt === 'number') {
+                              dateText = formatDistanceToNow(new Date(w.createdAt), { addSuffix: true });
+                            }
+                          } catch (e) {
+                            dateText = 'Recently';
+                          }
+                        }
+
+                        const rType = w.rewardType || 'coin';
+                        const rValue = w.rewardValue || w.coinReward || 0;
+
+                        return (
+                          <div key={w.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                <Trophy className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-sm text-foreground uppercase">{w.tournamentName || 'Tournament Victory'}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {rType === 'coin' && <span className="text-xs font-black text-primary">🪙 {rValue}</span>}
+                                  {rType === 'v-cash' && <span className="text-xs font-black text-green-500">⚡ {rValue}</span>}
+                                  {rType === 'ticket' && <span className="text-xs font-black text-amber-500">🎫 {rValue} {w.rewardTicketType || ''} Ticket</span>}
+                                  {rType !== 'coin' && rType !== 'v-cash' && rType !== 'ticket' && <span className="text-xs font-black text-primary">🎁 {w.rewardItemName || rValue}</span>}
+                                  
+                                  {w.status === 'pending' && <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/20">Processing</Badge>}
+                                  {w.status === 'completed' && <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Paid</Badge>}
+                                </div>
                               </div>
                             </div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase">
+                              {dateText}
+                            </p>
                           </div>
-                          <p className="text-[10px] font-black text-muted-foreground uppercase">
-                            {w.createdAt ? formatDistanceToNow(w.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>

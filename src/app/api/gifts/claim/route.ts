@@ -67,6 +67,8 @@ export async function POST(request: Request) {
         if (rewardType === 'coins') {
           userUpdates.balance = FieldValue.increment(giftData.amount);
           userUpdates.totalCoinsEarned = FieldValue.increment(giftData.amount);
+        } else if (rewardType === 'v-cash') {
+          userUpdates.vCashBalance = FieldValue.increment(giftData.amount);
         } else {
           userUpdates[`inventory.${rewardType}Tickets`] = FieldValue.increment(giftData.amount);
           userUpdates[`inventory.total${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)}TicketsEarned`] = FieldValue.increment(giftData.amount);
@@ -89,6 +91,8 @@ export async function POST(request: Request) {
         if (rewardType === 'coins') {
           userUpdates.balance = FieldValue.increment(gift.amount);
           userUpdates.totalCoinsEarned = FieldValue.increment(gift.amount);
+        } else if (rewardType === 'v-cash') {
+          userUpdates.vCashBalance = FieldValue.increment(gift.amount);
         } else {
           userUpdates[`inventory.${rewardType}Tickets`] = FieldValue.increment(gift.amount);
           userUpdates[`inventory.total${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)}TicketsEarned`] = FieldValue.increment(gift.amount);

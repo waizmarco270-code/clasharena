@@ -36,13 +36,15 @@ export async function POST(request: Request) {
       
       if (rewardType === 'coins') {
         updateData.balance = FieldValue.increment(-amount);
+      } else if (rewardType === 'v-cash') {
+        updateData.vCashBalance = FieldValue.increment(-amount);
       } else {
         updateData[`inventory.${rewardType}Tickets`] = FieldValue.increment(-amount);
       }
       
       await targetUserRef.update(updateData);
 
-      const messageType = rewardType === 'coins' ? 'coins' : `${rewardType} tickets`;
+      const messageType = rewardType === 'coins' ? 'coins' : rewardType === 'v-cash' ? 'V-Cash' : `${rewardType} tickets`;
       return NextResponse.json({ success: true, message: `Deducted ${amount} ${messageType}` });
     }
 
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
               topic: 'broadcast',
               notification: {
                 title: '🎁 Global Gift Received!',
-                body: `Clash Arena just sent everyone ${amount} ${rewardType === 'coins' ? 'coins' : rewardType + ' tickets'}! Open the app to claim now.`
+                body: `Clash Arena just sent everyone ${amount} ${rewardType === 'coins' ? 'coins' : rewardType === 'v-cash' ? 'V-Cash' : rewardType + ' tickets'}! Open the app to claim now.`
               },
               data: { type: 'global_gift' }
             });
@@ -133,7 +135,7 @@ export async function POST(request: Request) {
               tokens: fcmTokens,
               notification: {
                 title: '🎁 You received a Gift!',
-                body: `You have received ${amount} ${rewardType === 'coins' ? 'coins' : rewardType + ' tickets'}. Open the app to claim it.`
+                body: `You have received ${amount} ${rewardType === 'coins' ? 'coins' : rewardType === 'v-cash' ? 'V-Cash' : rewardType + ' tickets'}. Open the app to claim it.`
               },
               data: { type: 'individual_gift' }
             });

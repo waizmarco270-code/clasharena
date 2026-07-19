@@ -70,7 +70,7 @@ export default function ArenaHubPage() {
   const tRewardInputRef = useRef<HTMLInputElement>(null);
   
   const [tForm, setTForm] = useState({
-    name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8, entryFee: 0,
+    name: '', type: 'paid', subCategory: 'knockout', bracketType: 'single_elimination', maxPlayers: 8, entryFee: 0,
     rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardImageUrl: '', rewardTicketType: 'bronze',
     prizePool: '', rules: [] as string[], imageUrl: '', townHall: 0,
     registrationStartTime: '', registrationEndTime: '', startTime: '',
@@ -83,7 +83,7 @@ export default function ArenaHubPage() {
 
   const resetTForm = () => {
     setTForm({
-      name: '', type: 'paid', subCategory: 'knockout', maxPlayers: 8,
+      name: '', type: 'paid', subCategory: 'knockout', bracketType: 'single_elimination', maxPlayers: 8,
       entryFee: 0, rewardType: 'coin', rewardValue: '', rewardItemName: '', rewardTicketType: 'bronze',
       rewardImageUrl: '', prizePool: '', rules: [], imageUrl: '', townHall: 0,
       registrationStartTime: '', registrationEndTime: '', startTime: '',
@@ -172,6 +172,7 @@ export default function ArenaHubPage() {
     let poolSummary = '';
     if (tForm.rewardType === 'money') poolSummary = `₹ ${tForm.rewardValue}`;
     else if (tForm.rewardType === 'coin') poolSummary = `🪙 ${tForm.rewardValue}`;
+    else if (tForm.rewardType === 'v-cash') poolSummary = `⚡ ${tForm.rewardValue} V-Cash`;
     else if (tForm.rewardType === 'ticket') poolSummary = `🎫 ${tForm.rewardValue} ${tForm.rewardTicketType} Ticket${parseInt(tForm.rewardValue) > 1 ? 's' : ''}`;
     else poolSummary = `${tForm.rewardItemName}`;
 
@@ -497,6 +498,18 @@ export default function ArenaHubPage() {
                     </Select>
                   </div>
                 )}
+                {tForm.type !== 'championship' && tForm.subCategory === 'knockout' && (
+                  <div className="space-y-2 animate-in fade-in zoom-in duration-300">
+                    <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2"><Trophy className="w-3 h-3"/> Bracket Format</Label>
+                    <Select value={tForm.bracketType} onValueChange={val => setTForm({...tForm, bracketType: val})}>
+                      <SelectTrigger className="bg-primary/10 border-primary/30 text-primary font-bold"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                         <SelectItem value="single_elimination" className="font-bold text-[10px]">SINGLE ELIMINATION (SUDDEN DEATH)</SelectItem>
+                         <SelectItem value="double_elimination" className="font-bold text-[10px]">DOUBLE ELIMINATION (REDEMPTION)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {tForm.type !== 'championship' && (
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase">Required Town Hall</Label>
@@ -563,7 +576,13 @@ export default function ArenaHubPage() {
                     <Label className="text-[10px] font-black uppercase">Reward Type</Label>
                     <Select value={tForm.rewardType} onValueChange={val => setTForm({...tForm, rewardType: val as any})}>
                       <SelectTrigger className="bg-white/5"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="money">REAL MONEY (INR)</SelectItem><SelectItem value="coin">ARENA COINS</SelectItem><SelectItem value="ticket">TICKETS</SelectItem><SelectItem value="item">SPECIAL ITEM / GIFT</SelectItem></SelectContent>
+                      <SelectContent>
+                        <SelectItem value="money">REAL MONEY (INR)</SelectItem>
+                        <SelectItem value="coin">ARENA COINS</SelectItem>
+                        <SelectItem value="v-cash">V-CASH (⚡)</SelectItem>
+                        <SelectItem value="ticket">TICKETS</SelectItem>
+                        <SelectItem value="item">SPECIAL ITEM / GIFT</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
 

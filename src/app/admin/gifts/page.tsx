@@ -380,6 +380,7 @@ export default function AdminGiftsPage() {
                           </SelectTrigger>
                           <SelectContent className="border-white/10 glass text-xs font-bold text-white">
                             <SelectItem value="coins">🪙 Coins</SelectItem>
+                            <SelectItem value="v-cash">⚡ V-Cash</SelectItem>
                             <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
                             <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
                             <SelectItem value="golden">👑 Golden Ticket</SelectItem>
@@ -389,7 +390,7 @@ export default function AdminGiftsPage() {
                       <div>
                         <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount</label>
                         <div className="relative mt-1">
-                          {rewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : rewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${rewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
+                          {rewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : rewardType === 'v-cash' ? <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" /> : rewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${rewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
                           <input
                             type="number"
                             placeholder="e.g. 5"
@@ -466,6 +467,7 @@ export default function AdminGiftsPage() {
                       </SelectTrigger>
                       <SelectContent className="border-white/10 glass text-xs font-bold text-white">
                         <SelectItem value="coins">🪙 Coins</SelectItem>
+                        <SelectItem value="v-cash">⚡ V-Cash</SelectItem>
                         <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
                         <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
                         <SelectItem value="golden">👑 Golden Ticket</SelectItem>
@@ -475,7 +477,7 @@ export default function AdminGiftsPage() {
                   <div>
                     <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount Per User</label>
                     <div className="relative mt-1">
-                      {globalRewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : globalRewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${globalRewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
+                      {globalRewardType === 'coins' ? <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" /> : globalRewardType === 'v-cash' ? <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" /> : globalRewardType === 'golden' ? <Crown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-500" /> : <Ticket className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${globalRewardType === 'bronze' ? 'text-amber-700' : 'text-slate-400'}`} />}
                       <input
                         type="number"
                         placeholder="e.g. 10"
@@ -595,8 +597,8 @@ export default function AdminGiftsPage() {
                             <p className="text-[9px] text-muted-foreground font-mono">{gift.targetUserId}</p>
                           </TableCell>
                           <TableCell>
-                            <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
-                              {gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                            <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'v-cash' ? 'text-green-500' : gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
+                              {gift.rewardType === 'v-cash' ? <Zap className="w-3 h-3" /> : gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
                               {gift.amount}
                               {gift.rewardType && gift.rewardType !== 'coins' && <span className="text-[9px] uppercase ml-1 font-bold">{gift.rewardType}</span>}
                             </p>
@@ -664,8 +666,8 @@ export default function AdminGiftsPage() {
                         return (
                           <TableRow key={gift.id} className="border-white/5 hover:bg-white/5 transition-colors">
                             <TableCell className="pl-6">
-                              <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
-                                {gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                              <p className={`font-black text-sm flex items-center gap-1 ${gift.rewardType === 'v-cash' ? 'text-green-500' : gift.rewardType === 'golden' ? 'text-yellow-500' : gift.rewardType === 'bronze' ? 'text-amber-700' : gift.rewardType === 'silver' ? 'text-slate-400' : 'text-primary'}`}>
+                                {gift.rewardType === 'v-cash' ? <Zap className="w-3 h-3" /> : gift.rewardType === 'golden' ? <Crown className="w-3 h-3" /> : gift.rewardType && gift.rewardType !== 'coins' ? <Ticket className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
                                 {gift.amount}
                                 {gift.rewardType && gift.rewardType !== 'coins' && <span className="text-[9px] uppercase ml-1 font-bold">{gift.rewardType}</span>}
                               </p>

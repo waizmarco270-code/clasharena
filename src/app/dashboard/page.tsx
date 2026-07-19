@@ -429,6 +429,101 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
   const isWinner = userId === claim.userId;
   const status = claim.status;
 
+  const handleClaimVCash = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const amount = parseInt(claim.rewardValue) || 0;
+      await updateDoc(doc(db, 'users', claim.userId), {
+        vCashBalance: increment(amount),
+        earnings: increment(amount)
+      });
+      await updateDoc(doc(db, 'reward-claims', claim.id), {
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+      triggerConfetti();
+      toast({ title: "V-CASH CREDITED!", description: `You have successfully claimed ⚡ ${amount} V-Cash!` });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "CLAIM FAILED" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (claim.rewardType === 'v-cash') {
+    return (
+      <Card className="glass border-green-500/40 bg-green-500/5 overflow-hidden animate-in fade-in zoom-in duration-700 relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-green-500 animate-pulse" />
+        <CardHeader className="pb-4">
+          <div className="flex justify-between items-start">
+             <div className="flex items-center gap-3">
+                <div className="p-3 bg-green-500/20 rounded-2xl border border-green-500/30">
+                   <Zap className="w-6 h-6 text-green-500 animate-pulse" />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black text-green-500 uppercase tracking-[0.3em]">Victory Reward Portal</p>
+                   <CardTitle className="font-headline text-2xl font-black uppercase italic tracking-tighter">Congratulations, <span className="text-white">{claim.username}</span></CardTitle>
+                </div>
+             </div>
+             <Badge className="bg-green-500 text-black font-black uppercase">{status}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Arena Mission</p>
+                <p className="text-xs font-bold uppercase truncate">{claim.tournamentName}</p>
+             </div>
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Victory Rank</p>
+                <p className="text-xs font-bold uppercase text-green-500">1st Position (Champion)</p>
+             </div>
+             <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                <p className="text-[8px] font-black text-muted-foreground uppercase">Reward Prize</p>
+                <p className="text-xs font-bold uppercase text-primary">⚡ {claim.rewardValue} V-Cash</p>
+             </div>
+          </div>
+
+          {isWinner && status === 'pending' && (
+            <div className="bg-white/5 p-8 rounded-3xl border border-white/10 text-center space-y-6 animate-in slide-in-from-bottom-4 duration-500 shadow-[0_0_30px_rgba(34,197,94,0.1)]">
+               <div className="mx-auto w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mb-2 shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                 <Zap className="w-12 h-12 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.8)]" />
+               </div>
+               <div className="space-y-2">
+                  <h3 className="text-2xl font-black italic uppercase text-white font-headline tracking-widest">CLAIM YOUR V-CASH!</h3>
+                  <p className="text-sm font-bold text-muted-foreground uppercase max-w-md mx-auto">
+                     You proved your might in the Arena. Claim your V-Cash now and use it to dominate further!
+                  </p>
+               </div>
+
+               <Button 
+                 onClick={handleClaimVCash} 
+                 disabled={loading} 
+                 className="w-full max-w-sm mx-auto h-16 bg-green-600 hover:bg-green-500 font-black uppercase text-xl rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all hover:scale-105"
+               >
+                  {loading ? <Loader2 className="animate-spin" /> : `CLAIM ⚡ ${claim.rewardValue} V-CASH`}
+               </Button>
+            </div>
+          )}
+
+          {status === 'completed' && (
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center space-y-4">
+               <CheckCircle2 className="w-12 h-12 mx-auto text-green-500 opacity-60" />
+               <div>
+                  <h4 className="font-black text-sm uppercase text-green-500">V-CASH CLAIMED SUCCESSFULLY</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase font-black">
+                     This reward has been processed and credited to your wallet.
+                  </p>
+               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (claim.rewardType === 'money') {
     return (
       <Card className="glass border-orange-500/40 bg-orange-500/5 overflow-hidden animate-in fade-in zoom-in duration-700 relative">
