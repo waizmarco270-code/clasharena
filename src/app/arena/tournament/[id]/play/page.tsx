@@ -57,6 +57,7 @@ import Image from 'next/image';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dynamic from 'next/dynamic';
+import { THRuleCard } from '@/components/th-rule-card';
 
 const TournamentChat = dynamic(() => import('@/components/chat/TournamentChat'), { ssr: false });
 
@@ -74,6 +75,9 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
+
+  const thRulesRef = useMemo(() => doc(db, 'app-settings', 'th-rules'), [db]);
+  const { data: allThRules } = useDoc(thRulesRef);
 
   const regQuery = useMemo(() => query(collection(db, 'tournaments', id, 'registrations')), [db, id]);
   const { data: registrations } = useCollection(regQuery);
@@ -1082,12 +1086,14 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                             const activeClanTag = userClan === 'Clan 2' ? (t?.clan2Tag || '#2RGY920RY') : (t?.clan1Tag || '#2J9VCQ99C');
                             const activeClanLink = userClan === 'Clan 2' ? (t?.clan2Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2RGY920RY') : (t?.clan1Link || 'https://link.clashofclans.com/en?action=OpenClanProfile&tag=2J9VCQ99C');
 
+                            const isCodeGenerated = userJoinCode !== 'AWAITING CODE';
+
                             return (
                               <div className="space-y-6">
                                 <div className="flex flex-col items-center gap-1 p-4 rounded-xl border border-white/5 bg-white/[0.01] text-center">
                                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Your Assigned Clan</span>
-                                  <span className="text-xl font-black text-primary italic tracking-tight uppercase">{activeClanName}</span>
-                                  <span className="text-[10px] font-bold text-white/60 tracking-wider font-mono">{activeClanTag}</span>
+                                  <span className="text-xl font-black text-primary italic tracking-tight uppercase">{isCodeGenerated ? activeClanName : 'HIDDEN UNTIL FIXTURES'}</span>
+                                  <span className="text-[10px] font-bold text-white/60 tracking-wider font-mono">{isCodeGenerated ? activeClanTag : 'WAITING FOR WARRIORS...'}</span>
                                 </div>
 
                                 <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-center space-y-2">
@@ -1100,13 +1106,15 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                   </p>
                                 </div>
 
-                                {activeClanLink ? (
+                                {activeClanLink && isCodeGenerated ? (
                                   <Button asChild className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-black uppercase rounded-xl shadow-xl glow-primary">
                                     <a href={activeClanLink} target="_blank">JOIN ARENA <ArrowRight className="ml-2 w-4 h-4" /></a>
                                   </Button>
                                 ) : (
                                   <div className="text-center py-4 bg-white/5 rounded-xl border border-dashed border-white/10">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">Waiting for clan link deployment</p>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">
+                                      {isCodeGenerated ? "Waiting for clan link deployment" : "Link will appear when fixtures generate"}
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -1161,6 +1169,20 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                       ))}
                     </div>
                   </div>
+
+                  {t?.townHall > 0 && allThRules && (
+                    <div className="pt-8 border-t border-white/10 mt-8">
+                      <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter flex items-center gap-3 mb-6">
+                        <Crown className="text-primary" /> TOWN HALL {t.townHall} SPECIFIC RULES
+                      </h3>
+                      <div className="max-w-md mx-auto">
+                        <THRuleCard 
+                          th={t.townHall.toString()} 
+                          rulesList={allThRules[t.townHall.toString()] || []} 
+                        />
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
             </>

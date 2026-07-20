@@ -82,12 +82,15 @@ function TournamentCard({ t, now }: { t: any, now: Date }) {
                 <IndianRupee className="w-3.5 h-3.5 text-primary" />
               ) : t.rewardType === 'coin' ? (
                 <Coins className="w-3.5 h-3.5 text-primary" />
+              ) : t.rewardType === 'v-cash' ? (
+                <Zap className="w-3.5 h-3.5 text-green-500 animate-pulse" />
               ) : (
                 <Gift className="w-3.5 h-3.5 text-primary" />
               )}
-              <span className="text-[11px] font-black text-white uppercase italic tracking-wider">
+              <span className={cn("text-[11px] font-black uppercase italic tracking-wider", t.rewardType === 'v-cash' ? 'text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'text-white')}>
                 {t.rewardType === 'money' ? `₹ ${t.rewardValue}` : 
                  t.rewardType === 'coin' ? `${t.rewardValue} COINS` : 
+                 t.rewardType === 'v-cash' ? `${t.rewardValue} V-CASH` :
                  t.rewardItemName}
               </span>
            </div>

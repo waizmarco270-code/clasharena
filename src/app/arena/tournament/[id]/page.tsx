@@ -12,6 +12,7 @@ import { doc } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { isBefore, isAfter } from 'date-fns';
+import { THRuleCard } from '@/components/th-rule-card';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -29,6 +30,9 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
 
   const userRef = useMemo(() => user ? doc(db, 'users', user.id) : null, [db, user?.id]);
   const { data: profile } = useDoc(userRef);
+
+  const thRulesRef = useMemo(() => doc(db, 'app-settings', 'th-rules'), [db]);
+  const { data: allThRules } = useDoc(thRulesRef);
 
   const registrationRef = useMemo(() => (user && id) ? doc(db, 'tournaments', id, 'registrations', user.id) : null, [db, id, user?.id]);
   const { data: registration } = useDoc(registrationRef);
@@ -256,6 +260,21 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
             </Card>
           </div>
         </div>
+
+        {/* TH Rules Section */}
+        {t?.townHall > 0 && allThRules && (
+          <div className="mt-8">
+            <h3 className="text-xl font-headline font-black italic uppercase mb-4 text-white flex items-center gap-2">
+              <Crown className="w-5 h-5 text-primary" /> Town Hall {t.townHall} Rules
+            </h3>
+            <div className="max-w-md">
+              <THRuleCard 
+                th={t.townHall.toString()} 
+                rulesList={allThRules[t.townHall.toString()] || []} 
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Ticket Selection Modal */}
