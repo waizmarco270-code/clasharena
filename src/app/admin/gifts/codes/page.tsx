@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Key, Gift, X, Loader2, Coins, Activity, Timer, Users, RefreshCw, PowerOff, Trash2, Ticket, Crown } from 'lucide-react';
+import { Key, Gift, X, Loader2, Coins, Activity, Timer, Users, RefreshCw, PowerOff, Trash2, Ticket, Crown, Zap } from 'lucide-react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

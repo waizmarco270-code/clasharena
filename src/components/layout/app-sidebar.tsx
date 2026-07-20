@@ -37,7 +37,8 @@ import {
   Ticket,
   Gift,
   Crown,
-  Zap
+  Zap,
+  ScrollText
 } from 'lucide-react';
 import { useBackgrounds, useProfile, useAdminStatus } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
@@ -72,6 +73,7 @@ export function AppSidebar() {
   const userNav = [
     { name: 'My Profile', href: '/profile', icon: User, color: 'text-orange-500' },
     { name: 'Squad Builder', href: '/squad', icon: Users, color: 'text-orange-500' },
+    { name: 'Rules & Policies', href: '/rules', icon: ScrollText, color: 'text-cyan-500' },
     { name: 'Settings', href: '/settings', icon: Settings, color: 'text-gray-400' },
   ];
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, limit, getDocs, getDoc, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2, Ticket, Crown } from 'lucide-react';
+import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2, Ticket, Crown, Zap } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';

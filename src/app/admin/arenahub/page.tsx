@@ -607,7 +607,7 @@ export default function ArenaHubPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase">Reward Amount</Label>
                       <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2">{tForm.rewardType === 'money' ? <IndianRupee className="w-4 h-4 text-primary" /> : <Wallet className="w-4 h-4 text-primary" />}</div>
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2">{tForm.rewardType === 'money' ? <IndianRupee className="w-4 h-4 text-primary" /> : tForm.rewardType === 'v-cash' ? <Zap className="w-4 h-4 text-green-500" /> : <Wallet className="w-4 h-4 text-primary" />}</div>
                         <Input type="number" value={tForm.rewardValue} onChange={e => setTForm({...tForm, rewardValue: e.target.value})} className="bg-white/5 pl-10" />
                       </div>
                     </div>

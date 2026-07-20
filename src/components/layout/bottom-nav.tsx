@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, Swords, Trophy, User, X, ChevronUp } from 'lucide-react';
+import { LayoutDashboard, Swords, Trophy, User, X, ChevronUp, ScrollText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useUnreadArenasCount } from '@/hooks/use-unread-arenas';
@@ -108,6 +108,15 @@ export function BottomNav() {
       activeBg: 'bg-purple-500/[0.06] border-purple-500/20',
       animationClass: 'animate-nav-float',
       glowColor: 'bg-purple-500/20'
+    },
+    {
+      route: '/rules',
+      label: 'Rules',
+      icon: ScrollText,
+      activeColor: 'text-cyan-400',
+      activeBg: 'bg-cyan-500/[0.06] border-cyan-500/20',
+      animationClass: 'animate-nav-bounce',
+      glowColor: 'bg-cyan-500/20'
     }
   ];
 
