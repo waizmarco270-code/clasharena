@@ -178,6 +178,7 @@ export default function ArenaHubPage() {
 
     const tournamentData = {
       ...tForm,
+      maxPlayers: tForm.subCategory === '1vs1' ? 2 : tForm.maxPlayers,
       prizePool: poolSummary,
       updatedAt: new Date().toISOString()
     };
@@ -520,7 +521,16 @@ export default function ArenaHubPage() {
                   </div>
                 )}
                 {tForm.type !== 'championship' && (
-                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Max Players</Label><Input type="number" value={tForm.maxPlayers} onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} className="bg-white/5" /></div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Max Players</Label>
+                    <Input 
+                      type="number" 
+                      value={tForm.subCategory === '1vs1' ? 2 : tForm.maxPlayers} 
+                      onChange={e => setTForm({...tForm, maxPlayers: parseInt(e.target.value)})} 
+                      disabled={tForm.subCategory === '1vs1'}
+                      className="bg-white/5" 
+                    />
+                  </div>
                 )}
                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Entry Fee (Coins)</Label><Input type="number" value={tForm.entryFee} onChange={e => setTForm({...tForm, entryFee: parseInt(e.target.value)})} className="bg-white/5" /></div>
               </div>

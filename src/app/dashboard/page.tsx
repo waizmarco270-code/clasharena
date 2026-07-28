@@ -1175,7 +1175,7 @@ export default function Dashboard() {
   };
 
   const [setupOpen, setSetupOpen] = useState(false);
-  const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '' });
+  const [formData, setFormData] = useState({ username: '', tag: '', townHall: '', upiId: '', upiQrUrl: '', referralCode: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmSetup, setShowConfirmSetup] = useState(false);
 
@@ -1193,7 +1193,8 @@ export default function Dashboard() {
         tag: profile.tag || '',
         townHall: profile.townHall?.toString() || '',
         upiId: profile.upiId || '',
-        upiQrUrl: profile.upiQrUrl || ''
+        upiQrUrl: profile.upiQrUrl || '',
+        referralCode: ''
       });
     } else if (!profileLoading && !profile && user) {
       setSetupOpen(true);
@@ -1230,7 +1231,7 @@ export default function Dashboard() {
           upiQrUrl: formData.upiQrUrl,
           avatarUrl: user.imageUrl,
           isSetup: true,
-          referredByCode: typeof window !== 'undefined' ? localStorage.getItem('clash_arena_ref') : undefined
+          referredByCode: formData.referralCode.trim() || (typeof window !== 'undefined' ? localStorage.getItem('clash_arena_ref') : undefined)
         })
       });
 
@@ -1465,12 +1466,21 @@ export default function Dashboard() {
             <div className="space-y-6">
                <Card className="glass border-white/5 bg-white/5 p-6 rounded-3xl text-center space-y-4 animate-in fade-in slide-in-from-right-4 duration-700">
                   <div className="relative inline-block">
-                     <div className={cn("p-1.5 rounded-full mx-auto", activeBadgeInfo.className)}>
-                        <Avatar className="h-24 w-24 border-4 border-background/20 p-1 bg-background">
-                           <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
-                           <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                        </Avatar>
-                     </div>
+                     {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
+                       <div className="mx-auto h-28 w-28 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1 animate-[spin_4s_linear_infinite] shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                          <Avatar className="h-full w-full rounded-full border-4 border-black animate-[spin_4s_linear_infinite_reverse]">
+                             <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
+                             <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                          </Avatar>
+                       </div>
+                     ) : (
+                       <div className={cn("p-1.5 rounded-full mx-auto", activeBadgeInfo.className)}>
+                          <Avatar className="h-24 w-24 border-4 border-background/20 p-1 bg-background">
+                             <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
+                             <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                          </Avatar>
+                       </div>
+                     )}
                   </div>
                   <div>
                      <h3 className="font-headline text-2xl font-black uppercase italic tracking-tighter">{profile?.username || 'WARRIOR'}</h3>
@@ -1509,6 +1519,7 @@ export default function Dashboard() {
                 <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Username</Label><Input value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} placeholder="Enter Your Ingame Name" className="bg-muted/10 h-12 font-bold" /></div>
                 <div className="space-y-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Clash Tag</Label><Input value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} placeholder="Enter Clash Tag (e.g. #9Q8YYGG2)" className="bg-muted/10 h-12 font-mono uppercase" /></div>
                 <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Town Hall</Label><Select value={formData.townHall} onValueChange={(val) => setFormData({...formData, townHall: val})}><SelectTrigger className="bg-muted/10 h-12 font-bold"><SelectValue placeholder="Select TH Level" /></SelectTrigger><SelectContent>{[9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((th) => (<SelectItem key={th} value={th.toString()}>Town Hall {th}</SelectItem>))}</SelectContent></Select></div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1 flex items-center justify-between"><span>Referral Code (Optional)</span><Badge className="bg-primary/20 text-primary border-primary/30 text-[9px]">+5 COINS</Badge></Label><Input value={formData.referralCode} onChange={(e) => setFormData({...formData, referralCode: e.target.value})} placeholder="Enter Invite Code if you have one" className="bg-muted/10 h-12 font-mono uppercase" /></div>
               </div>
             </form>
           </ScrollArea>

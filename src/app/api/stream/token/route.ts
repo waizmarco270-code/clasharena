@@ -38,7 +38,12 @@ export async function POST(req: Request) {
 
     // Check membership
     if (!isAdmin) {
-      if (tournamentId.startsWith('vs_')) {
+      if (tournamentId === 'vip_lounge') {
+        const vipPass = userDoc.data()?.vipPass;
+        if (!vipPass || vipPass === 'none') {
+          return new NextResponse("Forbidden - Not a VIP member", { status: 403 });
+        }
+      } else if (tournamentId.startsWith('vs_')) {
         const challengeId = tournamentId.replace('vs_', '');
         const challengeDoc = await adminDb.collection('vs-challenges').doc(challengeId).get();
         if (!challengeDoc.exists) {

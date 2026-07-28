@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,10 +73,15 @@ export async function POST(req: NextRequest) {
       if (referredByCode && !existingData.referredBy) {
         const referrerQuery = await usersRef.where('referralCode', '==', referredByCode.toUpperCase()).limit(1).get();
         if (!referrerQuery.empty) {
-          const referrerId = referrerQuery.docs[0].id;
+          const referrerDoc = referrerQuery.docs[0];
+          const referrerId = referrerDoc.id;
           if (referrerId !== userId) {
             newProfile.referredBy = referrerId;
+            newProfile.referredByName = referrerDoc.data().username || 'Unknown';
             newProfile.hasClaimedReferral = false;
+            
+            // Grant 5 Arena Coins to new user
+            newProfile.balance = (newProfile.balance || 0) + 5;
             
             // Add a pending entry in the referrer's referrals subcollection
             await usersRef.doc(referrerId).collection('referrals').doc(userId).set({
@@ -83,6 +89,19 @@ export async function POST(req: NextRequest) {
               username,
               status: 'Pending',
               joinedAt: now.toISOString()
+            });
+
+            // Log the 5 coin Welcome Bonus for the new user in recharge-requests
+            await adminDb.collection('recharge-requests').doc().set({
+              userId: userId,
+              username: username,
+              amount: 0,
+              coins: 5,
+              status: 'approved',
+              method: 'Welcome Referral Bonus',
+              type: 'REFERRAL_BONUS_NEW_USER',
+              referredBy: referrerId,
+              createdAt: FieldValue.serverTimestamp()
             });
           }
         }

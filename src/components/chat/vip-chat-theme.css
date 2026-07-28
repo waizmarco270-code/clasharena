@@ -1,0 +1,46 @@
+/* WhatsApp Light Theme Overrides for VIP Community Chat */
+.vip-chat-container .str-chat {
+  background-color: #E5DDD5 !important;
+  color: #000 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.vip-chat-container .str-chat__message-simple-text-inner {
+  background-color: #ffffff !important;
+  color: #000 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.1) !important;
+  padding: 8px 12px !important;
+}
+
+.vip-chat-container .str-chat__message-simple--me .str-chat__message-simple-text-inner {
+  background-color: #DCF8C6 !important;
+}
+
+.vip-chat-container .str-chat__message-simple-name {
+  color: #075E54 !important;
+  font-weight: bold !important;
+}
+
+.vip-chat-container .str-chat__message-simple-timestamp {
+  color: #999 !important;
+}
+
+.vip-chat-container .str-chat__input-flat-wrapper {
+  background-color: #F0F0F0 !important;
+  border-top: 1px solid #ddd !important;
+  padding: 10px !important;
+}
+
+.vip-chat-container .str-chat__textarea textarea {
+  background-color: #fff !important;
+  color: #000 !important;
+  border-radius: 20px !important;
+  border: 1px solid #fff !important;
+  padding: 10px 15px !important;
+}
+
+.vip-chat-container .str-chat__send-button {
+  fill: #075E54 !important;
+}

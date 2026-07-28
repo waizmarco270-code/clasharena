@@ -60,6 +60,7 @@ import dynamic from 'next/dynamic';
 import { THRuleCard } from '@/components/th-rule-card';
 
 const TournamentChat = dynamic(() => import('@/components/chat/TournamentChat'), { ssr: false });
+import { Tournament1v1Room } from '@/components/tournament/Tournament1v1Room';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -631,6 +632,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   }
 
   if (tLoading) return <PageWrapper><div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-primary" /></div></PageWrapper>;
+
+  if (t?.subCategory === '1vs1') {
+    return <Tournament1v1Room tournament={t} tournamentId={id} />;
+  }
 
   // Render Cancelled Screen
   if (t?.status === 'cancelled') {

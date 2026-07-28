@@ -4,6 +4,7 @@ import './globals.css';
 import './badge-anime.css';
 import { FirebaseClientProvider } from '@/firebase';
 import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NotificationHandler } from "@/components/notification-handler";
@@ -134,7 +135,33 @@ export default function RootLayout({
   }
 
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: {
+          colorPrimary: '#f97316',
+          colorBackground: '#09090b',
+          colorInputBackground: '#18181b',
+          colorInputText: '#fff',
+        },
+        elements: {
+          card: 'bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl',
+          headerTitle: 'font-headline font-black uppercase italic tracking-tighter text-white',
+          headerSubtitle: 'text-muted-foreground',
+          socialButtonsBlockButton: 'bg-white/5 border-white/10 hover:bg-white/10 text-white',
+          socialButtonsBlockButtonText: 'font-bold',
+          dividerLine: 'bg-white/10',
+          dividerText: 'text-muted-foreground',
+          formFieldLabel: 'uppercase text-[10px] font-black tracking-widest text-muted-foreground',
+          formFieldInput: 'bg-white/5 border-white/10 text-white rounded-xl h-12',
+          formButtonPrimary: 'bg-primary hover:bg-primary/90 text-white font-black uppercase h-12 rounded-xl glow-primary',
+          footerActionLink: 'text-primary hover:text-primary/80 font-bold',
+          badge: 'bg-primary/20 text-primary',
+          userPreviewMainIdentifier: 'font-bold text-white',
+          userPreviewSecondaryIdentifier: 'text-muted-foreground',
+        }
+      }}
+    >
       <html lang="en" suppressHydrationWarning>
         <head>
           <link rel="preconnect" href="https://fonts.googleapis.com" />

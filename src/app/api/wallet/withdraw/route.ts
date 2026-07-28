@@ -128,6 +128,22 @@ export async function POST(request: Request) {
       });
     });
 
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
+      await fetch(`${baseUrl}/api/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: 'admins',
+          title: 'New Payout Request 💸',
+          body: `${userData?.username || 'Unknown'} requested a withdrawal of ${amount} V-Cash.`,
+          data: { type: 'withdrawal_request' }
+        })
+      });
+    } catch(e) {
+      console.error('Failed to notify admins of withdrawal', e);
+    }
+
     return NextResponse.json({ success: true, message: 'Withdrawal request submitted successfully.' });
   } catch (error: any) {
     console.error('Withdrawal API Error:', error);

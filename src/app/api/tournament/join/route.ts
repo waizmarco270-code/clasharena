@@ -111,6 +111,7 @@ export async function POST(req: Request) {
         tournamentId,
         userId,
         username: profile.username || 'Warrior',
+        avatarUrl: profile.avatarUrl || profile.imageUrl || '',
         tag: profile.tag || '',
         assignedClan: '',
         joinCode: '',

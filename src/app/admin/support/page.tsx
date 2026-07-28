@@ -18,11 +18,13 @@ import {
   ShieldCheck,
   Search,
   Filter,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, limit, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -35,13 +37,14 @@ export default function AdminSupportPage() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const supportQuery = useMemo(() => query(collection(db, 'support-tickets'), orderBy('createdAt', 'desc'), limit(50)), [db]);
+  const supportQuery = useMemo(() => query(collection(db, 'support-tickets'), orderBy('createdAt', 'desc'), limit(200)), [db]);
   const { data: tickets, loading } = useCollection(supportQuery);
 
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   const [search, setSearch] = useState('');
+  const [resolvedLimit, setResolvedLimit] = useState(10);
 
   const filteredTickets = useMemo(() => {
     if (!tickets) return [];
@@ -51,6 +54,24 @@ export default function AdminSupportPage() {
       t.category.toLowerCase().includes(search.toLowerCase())
     );
   }, [tickets, search]);
+
+  const pendingTickets = useMemo(() => {
+    return filteredTickets.filter(t => t.status !== 'resolved');
+  }, [filteredTickets]);
+
+  const resolvedTickets = useMemo(() => {
+    return filteredTickets.filter(t => t.status === 'resolved').slice(0, resolvedLimit);
+  }, [filteredTickets, resolvedLimit]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to permanently delete this support ticket?')) return;
+    try {
+      await deleteDoc(doc(db, 'support-tickets', id));
+      toast({ title: "DOSSIER DESTROYED", description: "The ticket has been deleted." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "DELETE FAILED" });
+    }
+  };
 
   const handleReply = async () => {
     if (!selectedTicket || !replyText.trim() || isReplying) return;
@@ -62,6 +83,22 @@ export default function AdminSupportPage() {
         repliedAt: new Date().toISOString(),
         status: 'resolved'
       });
+      
+      try {
+        await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'user',
+            userId: selectedTicket.userId,
+            title: 'Support Request Resolved 🟢',
+            body: `Admin replied: "${replyText.substring(0, 50)}${replyText.length > 50 ? '...' : ''}"`,
+            data: { type: 'support_resolved' }
+          })
+        });
+      } catch (e) {
+        console.error("User notification failed", e);
+      }
       toast({ title: "REPLY DISPATCHED", description: "Warrior notified." });
       setSelectedTicket(null);
       setReplyText('');
@@ -74,67 +111,139 @@ export default function AdminSupportPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-         <div>
-            <h2 className="font-headline text-2xl font-black uppercase italic tracking-tighter">SUPPORT <span className="text-green-500">DOSSIERS</span></h2>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Reviewing {tickets?.length || 0} Incident Reports</p>
-         </div>
-         <div className="relative group max-w-sm w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-green-500 transition-colors" />
-            <Input 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
-              placeholder="SEARCH COMMANDERS OR SUBJECTS..." 
-              className="bg-white/5 border-white/10 pl-10 h-11 text-[10px] font-black uppercase tracking-widest"
-            />
-         </div>
-      </div>
+      <Tabs defaultValue="pending" className="w-full space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <div>
+              <h2 className="font-headline text-2xl font-black uppercase italic tracking-tighter">SUPPORT <span className="text-green-500">DOSSIERS</span></h2>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Reviewing Incident Reports</p>
+           </div>
+           
+           <TabsList className="bg-white/5 border border-white/10 h-12 p-1">
+             <TabsTrigger value="pending" className="font-black uppercase text-xs px-6 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-black">
+               Pending ({pendingTickets.length})
+             </TabsTrigger>
+             <TabsTrigger value="resolved" className="font-black uppercase text-xs px-6 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+               Resolved ({resolvedTickets.length})
+             </TabsTrigger>
+           </TabsList>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <div className="col-span-full flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-green-500" /></div>
-        ) : filteredTickets.length === 0 ? (
-          <div className="col-span-full py-20 text-center glass border-dashed border-white/10 rounded-3xl opacity-40">
-             <ShieldCheck className="w-12 h-12 mx-auto mb-4" />
-             <p className="font-black uppercase tracking-widest">All Intel Clear • No Pending Issues</p>
+           <div className="relative group max-w-sm w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-green-500 transition-colors" />
+              <Input 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="SEARCH COMMANDERS OR SUBJECTS..." 
+                className="bg-white/5 border-white/10 pl-10 h-11 text-[10px] font-black uppercase tracking-widest"
+              />
+           </div>
+        </div>
+
+        <TabsContent value="pending" className="outline-none mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              <div className="col-span-full flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-green-500" /></div>
+            ) : pendingTickets.length === 0 ? (
+              <div className="col-span-full py-20 text-center glass border-dashed border-white/10 rounded-3xl opacity-40">
+                 <ShieldCheck className="w-12 h-12 mx-auto mb-4" />
+                 <p className="font-black uppercase tracking-widest">All Intel Clear • No Pending Issues</p>
+              </div>
+            ) : pendingTickets.map((t: any) => (
+              <Card key={t.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-green-500/40 transition-all flex flex-col h-full">
+                 <div className="h-1 w-full bg-yellow-500 animate-pulse" />
+                 <CardHeader className="pb-4">
+                    <div className="flex justify-between items-start mb-2">
+                       <Badge variant="outline" className="text-[8px] font-black bg-white/5 border-white/10 uppercase">{t.category}</Badge>
+                       <Badge className="text-[8px] font-black uppercase bg-yellow-500">
+                          {t.status}
+                       </Badge>
+                    </div>
+                    <CardTitle className="text-sm font-black uppercase italic truncate text-white">{t.subject}</CardTitle>
+                    <div className="flex items-center gap-2 pt-1">
+                       <User className="w-3 h-3 text-green-500" />
+                       <span className="text-[9px] font-bold text-muted-foreground uppercase">{t.username}</span>
+                    </div>
+                 </CardHeader>
+                 <CardContent className="flex-1 space-y-4">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3 bg-white/5 p-3 rounded-xl italic">"{t.description}"</p>
+                    {t.screenshotUrl && (
+                      <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10">
+                         <Image src={t.screenshotUrl} alt="Evidence" fill className="object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                         <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 text-green-500 fill-green-500" />
+                            <span className="text-[8px] font-black uppercase text-white shadow-xl">Visual Evidence</span>
+                         </div>
+                      </div>
+                    )}
+                 </CardContent>
+                 <div className="p-4 bg-white/5 border-t border-white/5 mt-auto flex gap-2">
+                    <Button onClick={() => setSelectedTicket(t)} className="flex-1 h-10 bg-green-600 font-black uppercase text-[10px] rounded-xl hover:bg-green-700 glow-primary transition-all">
+                       REVIEW DOSSIER <Eye className="w-3.5 h-3.5 ml-2" />
+                    </Button>
+                 </div>
+              </Card>
+            ))}
           </div>
-        ) : filteredTickets.map((t: any) => (
-          <Card key={t.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-green-500/40 transition-all flex flex-col h-full">
-             <div className={cn("h-1 w-full", t.status === 'resolved' ? "bg-blue-600" : "bg-yellow-500 animate-pulse")} />
-             <CardHeader className="pb-4">
-                <div className="flex justify-between items-start mb-2">
-                   <Badge variant="outline" className="text-[8px] font-black bg-white/5 border-white/10 uppercase">{t.category}</Badge>
-                   <Badge className={cn("text-[8px] font-black uppercase", t.status === 'resolved' ? "bg-blue-600" : "bg-yellow-500")}>
-                      {t.status}
-                   </Badge>
-                </div>
-                <CardTitle className="text-sm font-black uppercase italic truncate text-white">{t.subject}</CardTitle>
-                <div className="flex items-center gap-2 pt-1">
-                   <User className="w-3 h-3 text-green-500" />
-                   <span className="text-[9px] font-bold text-muted-foreground uppercase">{t.username}</span>
-                </div>
-             </CardHeader>
-             <CardContent className="flex-1 space-y-4">
-                <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3 bg-white/5 p-3 rounded-xl italic">"{t.description}"</p>
-                {t.screenshotUrl && (
-                  <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10">
-                     <Image src={t.screenshotUrl} alt="Evidence" fill className="object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                     <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
-                        <Zap className="w-3 h-3 text-green-500 fill-green-500" />
-                        <span className="text-[8px] font-black uppercase text-white shadow-xl">Visual Evidence</span>
-                     </div>
-                  </div>
-                )}
-             </CardContent>
-             <div className="p-4 bg-white/5 border-t border-white/5 mt-auto">
-                <Button onClick={() => setSelectedTicket(t)} className="w-full h-10 bg-green-600 font-black uppercase text-[10px] rounded-xl hover:bg-green-700 glow-primary transition-all">
-                   REVIEW DOSSIER <Eye className="w-3.5 h-3.5 ml-2" />
-                </Button>
+        </TabsContent>
+
+        <TabsContent value="resolved" className="outline-none mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              <div className="col-span-full flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-blue-500" /></div>
+            ) : resolvedTickets.length === 0 ? (
+              <div className="col-span-full py-20 text-center glass border-dashed border-white/10 rounded-3xl opacity-40">
+                 <ShieldCheck className="w-12 h-12 mx-auto mb-4 text-blue-500" />
+                 <p className="font-black uppercase tracking-widest text-blue-500">No Resolved Issues</p>
+              </div>
+            ) : resolvedTickets.map((t: any) => (
+              <Card key={t.id} className="glass border-white/5 bg-black/40 overflow-hidden group hover:border-blue-500/40 transition-all flex flex-col h-full opacity-80 hover:opacity-100">
+                 <div className="h-1 w-full bg-blue-600" />
+                 <CardHeader className="pb-4">
+                    <div className="flex justify-between items-start mb-2">
+                       <Badge variant="outline" className="text-[8px] font-black bg-white/5 border-white/10 uppercase">{t.category}</Badge>
+                       <Badge className="text-[8px] font-black uppercase bg-blue-600">
+                          {t.status}
+                       </Badge>
+                    </div>
+                    <CardTitle className="text-sm font-black uppercase italic truncate text-white">{t.subject}</CardTitle>
+                    <div className="flex items-center gap-2 pt-1">
+                       <User className="w-3 h-3 text-blue-500" />
+                       <span className="text-[9px] font-bold text-muted-foreground uppercase">{t.username}</span>
+                    </div>
+                 </CardHeader>
+                 <CardContent className="flex-1 space-y-4">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3 bg-white/5 p-3 rounded-xl italic">"{t.description}"</p>
+                    {t.screenshotUrl && (
+                      <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10">
+                         <Image src={t.screenshotUrl} alt="Evidence" fill className="object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                         <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 text-blue-500 fill-blue-500" />
+                            <span className="text-[8px] font-black uppercase text-white shadow-xl">Visual Evidence</span>
+                         </div>
+                      </div>
+                    )}
+                 </CardContent>
+                 <div className="p-4 bg-white/5 border-t border-white/5 mt-auto flex gap-2">
+                    <Button onClick={() => setSelectedTicket(t)} className="flex-1 h-10 bg-blue-600 font-black uppercase text-[10px] rounded-xl hover:bg-blue-700 transition-all">
+                       VIEW DOSSIER <Eye className="w-3.5 h-3.5 ml-2" />
+                    </Button>
+                    <Button variant="outline" onClick={() => handleDelete(t.id)} className="h-10 px-3 bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 hover:text-red-400 shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                 </div>
+              </Card>
+            ))}
+          </div>
+          {filteredTickets.filter(t => t.status === 'resolved').length > resolvedLimit && (
+             <div className="flex justify-center mt-8">
+               <Button variant="outline" onClick={() => setResolvedLimit(prev => prev + 10)} className="bg-white/5 border-white/10 uppercase font-black text-xs h-12 px-8 hover:bg-white/10 text-white hover:text-white">
+                 LOAD MORE DOSSIERS
+               </Button>
              </div>
-          </Card>
-        ))}
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
         <DialogContent className="glass border-white/10 max-w-4xl p-0 overflow-hidden outline-none h-[90vh] flex flex-col">

@@ -151,7 +151,7 @@ export function MaintenanceGuard({ children }: { children: React.ReactNode }) {
           {/* Animated Glowing Icon */}
           <div className="relative inline-flex items-center justify-center">
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-            <div className="relative p-6 bg-gradient-to-br from-primary to-orange-600 rounded-3xl border border-primary/40 shadow-[0_0_50px_rgba(255,69,0,0.15)] animate-bounce duration-[3000ms]">
+            <div className="relative p-6 bg-gradient-to-br from-primary to-orange-600 rounded-3xl border border-primary/40 shadow-[0_0_50px_rgba(255,69,0,0.15)] animate-bounce [animation-duration:3s]">
               <Wrench className="w-12 h-12 text-white" />
             </div>
           </div>

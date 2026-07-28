@@ -126,7 +126,7 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
   if (tLoading) return <PageWrapper><div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-primary" /></div></PageWrapper>;
   if (!t) return <PageWrapper><div className="text-center py-20"><p className="text-muted-foreground font-black uppercase">Arena Not Found</p></div></PageWrapper>;
 
-  const canEnterArena = registration || isAdmin || t.status === 'completed';
+  const canEnterArena = registration || t.status === 'completed';
 
   return (
     <PageWrapper>
@@ -245,6 +245,13 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                             </Button>
                           ) : null}
                         </div>
+                    )}
+                    {isAdmin && (
+                      <Link href={`/arena/tournament/${id}/play`} className="block mt-4">
+                        <Button variant="outline" className="w-full h-12 border-primary/50 text-primary font-black uppercase rounded-xl">
+                          <Shield className="mr-2 w-4 h-4" /> MANAGE ARENA (ADMIN)
+                        </Button>
+                      </Link>
                     )}
                   </div>
                 )}

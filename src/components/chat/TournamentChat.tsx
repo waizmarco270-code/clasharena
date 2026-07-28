@@ -20,6 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
+import { useProfile } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
   const { channel } = useChannelStateContext();
@@ -78,10 +80,12 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
               {onlineMembers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No players online right now.</p>}
               {onlineMembers.map(m => (
                 <div key={m.user_id} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5">
-                  <Avatar className="w-8 h-8 border border-white/10">
-                    <AvatarImage src={m.user?.image} />
-                    <AvatarFallback className="bg-zinc-800 text-[10px]">{m.user?.name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <div className={cn("relative shrink-0", m.user?.equippedAvatar === 'rainbow_vip_glow' ? 'w-8 h-8 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_10px_rgba(255,255,255,0.2)]' : '')}>
+                    <Avatar className={cn("w-full h-full border border-white/10", m.user?.equippedAvatar === 'rainbow_vip_glow' ? 'rounded-full border-black animate-[spin_4s_linear_infinite_reverse]' : '')}>
+                      <AvatarImage src={m.user?.image} />
+                      <AvatarFallback className="bg-zinc-800 text-[10px]">{m.user?.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-white uppercase">{m.user?.name}</span>
                     <span className="text-[9px] text-green-400 font-black uppercase">Online Now</span>
@@ -115,10 +119,12 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
               {pinnedMessages.length === 0 && <p className="text-xs text-muted-foreground text-center py-4 uppercase font-black tracking-widest">No pinned messages yet.</p>}
               {pinnedMessages.map((msg: any) => (
                 <div key={msg.id} className="flex gap-3 p-3 bg-blue-900/10 rounded-xl border border-blue-500/20 relative group">
-                  <Avatar className="w-8 h-8 border border-white/10 shrink-0">
-                    <AvatarImage src={msg.user?.image} />
-                    <AvatarFallback className="bg-zinc-800 text-[10px]">{msg.user?.name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <div className={cn("relative shrink-0", msg.user?.equippedAvatar === 'rainbow_vip_glow' ? 'w-8 h-8 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_10px_rgba(255,255,255,0.2)]' : '')}>
+                    <Avatar className={cn("w-full h-full border border-white/10", msg.user?.equippedAvatar === 'rainbow_vip_glow' ? 'rounded-full border-black animate-[spin_4s_linear_infinite_reverse]' : '')}>
+                      <AvatarImage src={msg.user?.image} />
+                      <AvatarFallback className="bg-zinc-800 text-[10px]">{msg.user?.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </div>
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex justify-between items-center w-full">
                       <span className="text-[10px] font-black text-blue-300 uppercase">{msg.user?.name}</span>
@@ -150,6 +156,7 @@ export default function TournamentChat({
   teamId?: string;
 }) {
   const { user } = useUser();
+  const { profile } = useProfile();
   const [chatClient, setChatClient] = useState<StreamChat | null>(null);
   const [channel, setChannel] = useState<StreamChannel | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +198,7 @@ export default function TournamentChat({
               id: user.id,
               name: user.username || user.firstName || 'Warrior',
               image: user.imageUrl || '',
+              equippedAvatar: profile?.equippedAvatar,
             },
             token
           );

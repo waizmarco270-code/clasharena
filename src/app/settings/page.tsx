@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
 
   const menuItems = [
+    { label: 'Account & Security', desc: 'Manage your Clerk identity', icon: ShieldAlert, href: '/settings/account', color: 'text-red-500' },
     { label: 'Intelligence FAQ', desc: 'Search common arena protocols', icon: HelpCircle, href: '/settings/faq', color: 'text-blue-500' },
     { label: 'Contact Support', desc: 'Submit a technical support ticket', icon: MessageSquare, href: '/settings/support', color: 'text-green-500' },
     { label: "What's New", desc: 'View latest features and patches', icon: Sparkles, href: '/settings/whats-new', color: 'text-yellow-500' },

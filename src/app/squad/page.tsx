@@ -19,6 +19,7 @@ export default function SquadBuilderPage() {
   const { toast } = useToast();
   
   const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referredByName, setReferredByName] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +37,9 @@ export default function SquadBuilderPage() {
             setReferralCode(newCode);
           } else {
             setReferralCode(data.referralCode);
+          }
+          if (data?.referredByName) {
+            setReferredByName(data.referredByName);
           }
         }
 
@@ -85,7 +89,7 @@ export default function SquadBuilderPage() {
   const completedCount = referrals.filter(r => r.status === 'Completed').length;
 
   return (
-    <PageWrapper title="Squad Builder">
+    <PageWrapper title="Invite & Earn">
       <div className="max-w-4xl mx-auto space-y-6 pb-20">
         
         {/* Banner */}
@@ -98,7 +102,7 @@ export default function SquadBuilderPage() {
               <Target className="w-3 h-3 mr-1" /> CLAN AFFILIATE PROGRAM
             </Badge>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-white uppercase drop-shadow-md">
-              Build Your Squad
+              Invite & Earn
             </h1>
             <p className="text-white/90 max-w-lg font-medium text-lg leading-snug">
               Invite your clanmates to Clash Arena. When they make their first recharge of 30 coins or more, you both get rewarded! You earn <strong className="text-yellow-400">10 Coins</strong> instantly.
@@ -138,6 +142,16 @@ export default function SquadBuilderPage() {
         </div>
 
         {/* Share Links */}
+        {referredByName && (
+          <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl flex items-center gap-3">
+            <Users className="w-6 h-6 text-primary" />
+            <div>
+              <p className="text-[10px] uppercase font-black tracking-widest text-primary">Referred By</p>
+              <p className="text-lg font-bold text-white uppercase">{referredByName}</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="glass border-white/5 bg-black/40">
             <CardHeader>
@@ -206,7 +220,7 @@ export default function SquadBuilderPage() {
         {/* Referrals List */}
         <Card className="glass border-white/5 bg-black/40">
           <CardHeader>
-            <CardTitle className="text-lg font-black uppercase italic">Your Squad ({referrals.length})</CardTitle>
+            <CardTitle className="text-lg font-black uppercase italic">Your Invites ({referrals.length})</CardTitle>
             <CardDescription>Track the status of players who used your link.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -217,7 +231,7 @@ export default function SquadBuilderPage() {
             ) : referrals.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground flex flex-col items-center">
                 <Users className="w-12 h-12 mb-4 opacity-20" />
-                <p>No squad members yet.</p>
+                <p>No invited players yet.</p>
                 <p className="text-xs mt-1">Share your link to get started!</p>
               </div>
             ) : (

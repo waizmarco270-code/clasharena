@@ -72,28 +72,62 @@ export function AppSidebar() {
 
   const userNav = [
     { name: 'My Profile', href: '/profile', icon: User, color: 'text-orange-500' },
-    { name: 'Squad Builder', href: '/squad', icon: Users, color: 'text-orange-500' },
+    { name: 'Invite & Earn', href: '/squad', icon: Users, color: 'text-orange-500' },
     { name: 'Rules & Policies', href: '/rules', icon: ScrollText, color: 'text-cyan-500' },
     { name: 'Settings', href: '/settings', icon: Settings, color: 'text-gray-400' },
   ];
 
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-white/5 bg-card/50 backdrop-blur-xl">
-      <SidebarHeader className="h-20 flex flex-col justify-center px-4 border-b border-white/5">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0 shadow-xl">
+      <SidebarHeader className="h-20 flex flex-row items-center justify-between px-4 border-b border-white/5">
+        <Link href="/dashboard" className="flex items-center gap-2 group">
+          <div className="relative w-8 h-8 bg-primary rounded-xl flex items-center justify-center font-bold text-lg text-white glow-primary rotate-3 group-hover:rotate-0 transition-transform overflow-hidden shrink-0 shadow-xl">
              <AppLogoImage fallbackUrl={logoUrl} fill className="object-cover" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
             <span className="font-headline font-black text-lg tracking-tight uppercase leading-none truncate whitespace-nowrap">
               CLASH <span className="legendary-text italic">ARENA</span>
             </span>
-            <span className="text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase opacity-60 truncate">Elite Ecosystem</span>
           </div>
         </Link>
+        <div className="flex items-center gap-1.5 group-data-[collapsible=icon]:hidden">
+          <Link href="/settings" className="w-8 h-8 flex items-center justify-center rounded-lg border border-yellow-500/30 hover:border-yellow-500/60 bg-yellow-500/10 hover:bg-yellow-500/20 transition-all text-yellow-500">
+            <Settings className="w-4 h-4" />
+          </Link>
+          <Link href="/" className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-500/30 hover:border-red-500/60 bg-red-500/10 hover:bg-red-500/20 transition-all text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+            <Home className="w-4 h-4" />
+          </Link>
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="py-4">
+        {/* VIP PASS SECTION */}
+        <div className="px-4 mb-6 group-data-[collapsible=icon]:hidden flex gap-2">
+          {isAdmin ? (
+            <Link href="/vip/pricing" className="flex-1 relative overflow-hidden rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-red-500/10 p-2 hover:border-yellow-500/50 transition-colors shadow-[0_0_15px_rgba(234,179,8,0.1)] flex flex-col items-center justify-center text-center gap-1 group">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+              <Crown className="w-4 h-4 text-yellow-500 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">VIP Pass</span>
+            </Link>
+          ) : (
+            <div className="flex-1 relative overflow-hidden rounded-xl border border-white/5 bg-white/5 p-2 flex flex-col items-center justify-center text-center gap-1 opacity-50 cursor-not-allowed">
+              <Crown className="w-4 h-4 text-muted-foreground" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Locked</span>
+            </div>
+          )}
+          {(profile?.isVip || isAdmin) ? (
+            <Link href="/vip/lounge" className="flex-1 relative overflow-hidden rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-red-500/10 p-2 hover:border-purple-500/50 transition-colors flex flex-col items-center justify-center text-center gap-1 group">
+              <Zap className="w-4 h-4 text-purple-400 animate-pulse group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">Elite Lounge</span>
+            </Link>
+          ) : (
+            <div className="flex-1 relative overflow-hidden rounded-xl border border-white/5 bg-white/5 p-2 flex flex-col items-center justify-center text-center gap-1 opacity-50 cursor-not-allowed">
+              <Zap className="w-4 h-4 text-muted-foreground" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Locked</span>
+            </div>
+          )}
+        </div>
+
         <SidebarGroup>
           <SidebarGroupLabel className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 group-data-[collapsible=icon]:hidden mb-2">
             BATTLE ZONE

@@ -134,6 +134,56 @@ export async function POST(request: Request) {
             [`inventory.total${ticketType.charAt(0).toUpperCase() + ticketType.slice(1)}TicketsEarned`]: FieldValue.increment(1)
           });
         }
+      } else if (paymentType === 'vip_pass') {
+        const vipType = ticketType || 'weekly'; // weekly, monthly, permanent
+        const stockRef = adminDb.collection('app-settings').doc('avp-stock');
+        const stockSnap = await transaction.get(stockRef);
+        const stockData = stockSnap.exists ? stockSnap.data() : { monthlyOfferStock: 10, permanentStock: 5 };
+        
+        let hasStock = true;
+        let stockFieldToUpdate = null;
+        
+        if (vipType === 'monthly') {
+          if (stockData.monthlyOfferStock <= 0) hasStock = false;
+          else stockFieldToUpdate = 'monthlyOfferStock';
+        } else if (vipType === 'permanent') {
+          if (stockData.permanentStock <= 0) hasStock = false;
+          else stockFieldToUpdate = 'permanentStock';
+        }
+
+        if (!hasStock) {
+          // OUT OF STOCK FALLBACK: Credit coins equivalent to amount paid
+          transaction.update(userRef, {
+            balance: FieldValue.increment(coins || amount),
+            totalCoinsEarned: FieldValue.increment(coins || amount)
+          });
+        } else {
+          // VALID VIP PURCHASE
+          if (stockFieldToUpdate) {
+            transaction.update(stockRef, {
+              [stockFieldToUpdate]: FieldValue.increment(-1)
+            });
+          }
+
+          const now = new Date();
+          let endDate = null;
+          if (vipType === 'weekly') {
+            endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          } else if (vipType === 'monthly') {
+            endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+          }
+
+          transaction.update(userRef, {
+            isVip: true,
+            vipType: vipType,
+            vipStartDate: FieldValue.serverTimestamp(),
+            vipEndDate: endDate,
+            equippedAvatar: 'rainbow_vip_glow',
+            unlockedAvatars: FieldValue.arrayUnion('rainbow_vip_glow'),
+            weeklyClaims: {}, // Reset claims
+            lastDailyClaim: null
+          });
+        }
       } else {
         // STANDARD RECHARGE
         if (currency === 'vcash') {

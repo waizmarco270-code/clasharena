@@ -124,17 +124,42 @@ export default function WalletLogsPage() {
       const coinsToCredit = req.coins !== undefined ? req.coins : req.amount;
       const currency = req.currency || 'coins';
       
-      if (currency === 'vcash') {
-        batch.update(targetUserRef, { 
-          vCashBalance: increment(coinsToCredit),
-          unplayedBalance: increment(coinsToCredit)
+      if (req.paymentType === 'vip_pass') {
+        const vipType = req.ticketType || 'weekly';
+        
+        // Let's assume stock is verified before or we don't strictly enforce on manual to avoid complex manual transaction failures.
+        // Or we just grant it since they paid.
+        const now = new Date();
+        let endDate = null;
+        if (vipType === 'weekly') {
+          endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        } else if (vipType === 'monthly') {
+          endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+
+        batch.update(targetUserRef, {
+          isVip: true,
+          vipType: vipType,
+          vipStartDate: serverTimestamp(),
+          vipEndDate: endDate,
+          equippedAvatar: 'rainbow_vip_glow',
+          unlockedAvatars: ['rainbow_vip_glow'],
+          weeklyClaims: {},
+          lastDailyClaim: null
         });
       } else {
-        batch.update(targetUserRef, { balance: increment(coinsToCredit) });
+        if (currency === 'vcash') {
+          batch.update(targetUserRef, { 
+            vCashBalance: increment(coinsToCredit),
+            unplayedBalance: increment(coinsToCredit)
+          });
+        } else {
+          batch.update(targetUserRef, { balance: increment(coinsToCredit) });
+        }
       }
       batch.update(doc(db, 'recharge-requests', req.id), { status: 'approved' });
 
-      // SQUAD BUILDER REFERRAL LOGIC
+      // INVITE AND EARN REFERRAL LOGIC
       if (userSnap.exists() && coinsToCredit >= 30) {
         const userData = userSnap.data();
         if (userData?.referredBy && userData?.hasClaimedReferral === false) {

@@ -128,6 +128,22 @@ export default function SupportPage() {
 
     try {
       await addDoc(collection(db, 'support-tickets'), ticketData);
+
+      try {
+        await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'admins',
+            title: 'New Support Ticket 🚨',
+            body: `${user.username || user.firstName || 'Warrior'} opened a ticket: ${form.subject}`,
+            data: { type: 'support_ticket' }
+          })
+        });
+      } catch (e) {
+        console.error("Admin notification trigger failed", e);
+      }
+
       toast({ title: "INTEL DISPATCHED", description: "Our officers will review your request." });
       setForm({ category: '', subject: '', description: '' });
       setScreenshotUrl('');

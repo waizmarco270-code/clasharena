@@ -26,6 +26,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Rejection reason is required.' }, { status: 400 });
     }
 
+    let targetUserId = '';
+
     await adminDb.runTransaction(async (transaction) => {
       const withdrawRef = adminDb.collection('withdrawals').doc(withdrawalId);
       const withdrawSnap = await transaction.get(withdrawRef);
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
       }
 
       const reqUserId = withdrawData.userId;
+      targetUserId = reqUserId;
       const amount = withdrawData.amount;
 
       if (status === 'approved') {
@@ -103,6 +106,25 @@ export async function POST(request: Request) {
         });
       }
     });
+
+    try {
+      if (targetUserId) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
+        await fetch(`${baseUrl}/api/notifications/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: 'user',
+            userId: targetUserId,
+            title: status === 'approved' ? 'Payout Approved! 💸' : 'Payout Rejected ❌',
+            body: status === 'approved' ? 'Your withdrawal request has been successfully processed.' : `Your withdrawal was rejected: ${rejectionReason}`,
+            data: { type: 'withdrawal_update' }
+          })
+        });
+      }
+    } catch(e) {
+      console.error('Failed to notify user of withdrawal update', e);
+    }
 
     return NextResponse.json({ success: true, message: `Withdrawal successfully ${status}.` });
   } catch (error: any) {

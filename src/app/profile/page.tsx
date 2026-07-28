@@ -14,7 +14,7 @@ import {
   Wallet, Trophy, Swords, Zap, Timer, QrCode, Edit3, ShieldCheck,
   Loader2, ImagePlus, CreditCard, CheckCircle2, PackageCheck, Eye,
   Gift, IndianRupee, Lock, Check, ChevronRight, ChevronLeft, ExternalLink,
-  History, Clock, ArrowRight, UserCog, Medal, Ticket, Save
+  History, Clock, ArrowRight, UserCog, Medal, Ticket, Save, Crown
 } from 'lucide-react';
 import { useFirestore, useCollection, useProfile, useBackgrounds } from '@/firebase';
 import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion, limit } from 'firebase/firestore';
@@ -125,8 +125,21 @@ export default function ProfilePage() {
     toast({ title: "BADGE EQUIPPED" });
   };
 
+  const handleEquipAvatar = async (avatarId: string) => {
+    if (!userRef) return;
+    if (!profile?.unlockedAvatars?.includes(avatarId)) {
+      toast({ variant: 'destructive', title: 'LOCKED', description: 'You need to unlock this avatar first.' });
+      return;
+    }
+    await updateDoc(userRef, { equippedAvatar: avatarId });
+    toast({ title: "AVATAR EQUIPPED" });
+  };
+
   // Glow color based on rank
   const getRankGlow = () => {
+    if (profile?.equippedAvatar === 'rainbow_vip_glow') {
+      return 'shadow-[0_0_40px_rgba(255,255,255,0.2)] border-white/20';
+    }
     switch (activeBadgeInfo.type) {
       case 'LEGENDARY': return 'shadow-[0_0_30px_rgba(239,68,68,0.5)] border-red-500/50';
       case 'CHAMPION': return 'shadow-[0_0_30px_rgba(168,85,247,0.5)] border-purple-500/50';
@@ -158,18 +171,27 @@ export default function ProfilePage() {
             </div>
             
             <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-              {/* Hexagon Avatar */}
+              {/* Hexagon Avatar or VIP Circle */}
               <div className="relative group">
-                <div className={cn("p-1.5 rounded-2xl rotate-3 transition-transform group-hover:rotate-6", activeBadgeInfo.className)}>
-                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl overflow-hidden bg-background border-4 border-black/50 -rotate-3 group-hover:-rotate-6 transition-transform">
-                    <Avatar className="w-full h-full rounded-none">
+                {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
+                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1.5 animate-[spin_4s_linear_infinite] shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    <Avatar className="w-full h-full rounded-full border-4 border-black animate-[spin_4s_linear_infinite_reverse]">
                       <AvatarImage src={user?.imageUrl} className="object-cover" />
-                      <AvatarFallback className="rounded-none bg-muted text-4xl font-black">{profile?.username?.[0] || '?'}</AvatarFallback>
+                      <AvatarFallback className="bg-muted text-4xl font-black">{profile?.username?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                   </div>
-                </div>
+                ) : (
+                  <div className={cn("p-1.5 rounded-2xl rotate-3 transition-transform group-hover:rotate-6", activeBadgeInfo.className)}>
+                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl overflow-hidden bg-background border-4 border-black/50 -rotate-3 group-hover:-rotate-6 transition-transform">
+                      <Avatar className="w-full h-full rounded-none">
+                        <AvatarImage src={user?.imageUrl} className="object-cover" />
+                        <AvatarFallback className="rounded-none bg-muted text-4xl font-black">{profile?.username?.[0] || '?'}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </div>
+                )}
                 {/* Active Badge overlapping avatar */}
-                <div className="absolute -bottom-4 -right-4 bg-background p-1.5 rounded-full shadow-2xl">
+                <div className="absolute -bottom-4 -right-4 bg-background p-1.5 rounded-full shadow-2xl z-20">
                    <div className={cn("flex items-center justify-center w-12 h-12 rounded-full", activeBadgeInfo.className)}>
                      <Trophy className="w-6 h-6 text-white" />
                    </div>
@@ -221,10 +243,13 @@ export default function ProfilePage() {
           }} className="w-full space-y-6">
             <TabsList className="bg-black/40 border border-white/10 rounded-2xl h-14 p-1 w-full flex">
               <TabsTrigger value="overview" className="flex-1 rounded-xl font-black uppercase tracking-widest text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">
-                <UserCog className="w-4 h-4 mr-2" /> Commander Intel
+                <UserCog className="w-4 h-4 mr-2 hidden md:block" /> Intel
+              </TabsTrigger>
+              <TabsTrigger value="avatars" className="flex-1 rounded-xl font-black uppercase tracking-widest text-xs md:text-sm data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all">
+                <Crown className="w-4 h-4 mr-2 hidden md:block" /> Avatars
               </TabsTrigger>
               <TabsTrigger value="payouts" className="flex-1 rounded-xl font-black uppercase tracking-widest text-xs md:text-sm data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-[0_0_15px_rgba(22,163,74,0.5)] transition-all">
-                <Zap className="w-4 h-4 mr-2" /> Payout Hub
+                <Zap className="w-4 h-4 mr-2 hidden md:block" /> Payouts
               </TabsTrigger>
             </TabsList>
 
@@ -424,6 +449,50 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
+            </TabsContent>
+
+            {/* ============================== */}
+            {/* AVATARS TAB */}
+            {/* ============================== */}
+            <TabsContent value="avatars" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="glass border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-foreground">
+                    <Crown className="w-4 h-4 text-purple-500" /> Avatar Collection
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {/* Default Avatar */}
+                  <div className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border ${!profile?.equippedAvatar || profile?.equippedAvatar === 'default' ? 'bg-primary/20 border-primary shadow-lg' : 'bg-black/20 border-white/5'} cursor-pointer hover:bg-white/5 transition-colors h-48`} onClick={() => handleEquipAvatar('default')}>
+                     <div className="w-20 h-20 rounded-xl bg-background border border-white/10 overflow-hidden">
+                       <Avatar className="w-full h-full rounded-none">
+                         <AvatarImage src={user?.imageUrl} className="object-cover" />
+                       </Avatar>
+                     </div>
+                     <p className="mt-3 text-xs font-black uppercase text-white">Default (Hex)</p>
+                     {(!profile?.equippedAvatar || profile?.equippedAvatar === 'default') && <Badge className="absolute top-2 right-2 bg-primary text-[8px] px-1 border-none">Equipped</Badge>}
+                  </div>
+
+                  {/* VIP Rainbow Glow */}
+                  <div className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border ${profile?.equippedAvatar === 'rainbow_vip_glow' ? 'bg-purple-900/20 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-black/20 border-white/5'} cursor-pointer hover:bg-white/5 transition-colors h-48 group`} onClick={() => handleEquipAvatar('rainbow_vip_glow')}>
+                     <div className="w-20 h-20 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1 animate-[spin_4s_linear_infinite] group-hover:scale-110 transition-transform">
+                        <Avatar className="w-full h-full rounded-full border-[3px] border-black animate-[spin_4s_linear_infinite_reverse]">
+                          <AvatarImage src={user?.imageUrl} className="object-cover" />
+                        </Avatar>
+                     </div>
+                     <p className="mt-4 text-xs font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400">Rainbow VIP</p>
+                     {!profile?.unlockedAvatars?.includes('rainbow_vip_glow') && (
+                       <div className="absolute inset-0 bg-black/70 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                         <div className="text-center">
+                           <Lock className="w-6 h-6 text-white mx-auto mb-1" />
+                           <span className="text-[9px] font-bold text-white uppercase tracking-widest">VIP Pass Required</span>
+                         </div>
+                       </div>
+                     )}
+                     {profile?.equippedAvatar === 'rainbow_vip_glow' && <Badge className="absolute top-2 right-2 bg-purple-500 text-[8px] px-1 border-none">Equipped</Badge>}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* ============================== */}
