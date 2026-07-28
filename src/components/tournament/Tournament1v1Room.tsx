@@ -616,7 +616,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
               </Tabs>
 
               {/* Admin Panel */}
-              {isAdmin && (challenge.status === 'active' || challenge.status === 'disputed' || challenge.status === 'pending_settlement') && (
+              {isAdmin && challenge.status !== 'completed' && challenge.status !== 'cancelled' && (
                 <Card className="glass border-blue-500/30 bg-blue-950/20 mt-6">
                    <CardHeader>
                      <CardTitle className="text-lg font-black uppercase text-blue-500 flex items-center gap-2"><Gavel className="w-5 h-5" /> Admin Settlement</CardTitle>

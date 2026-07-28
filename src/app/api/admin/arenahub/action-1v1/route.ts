@@ -7,38 +7,39 @@ export async function POST(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userDoc = await adminDb.collection('users').doc(userId).get();
     if (!userDoc.exists) {
-      return new NextResponse("User not found", { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userData = userDoc.data();
     if (userData?.isAdmin !== true && userData?.isSuperAdmin !== true) {
-      return new NextResponse("Forbidden: Admin access required", { status: 403 });
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { tournamentId, action, winnerId } = body;
+    const { action, winnerId } = body;
+    const tournamentId = body.tournamentId || body.challengeId;
 
     if (!tournamentId || !action) {
-      return new NextResponse("Missing required fields", { status: 400 });
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const challengeRef = adminDb.collection('tournaments').doc(tournamentId);
     const challengeSnap = await challengeRef.get();
 
     if (!challengeSnap.exists) {
-      return new NextResponse("Challenge not found", { status: 404 });
+      return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
     }
 
     const challenge = challengeSnap.data();
 
     // Prevent action if already completed or cancelled
     if (challenge?.status === 'completed' || challenge?.status === 'cancelled') {
-       return new NextResponse("Challenge already settled", { status: 400 });
+       return NextResponse.json({ error: "Challenge already settled" }, { status: 400 });
     }
 
     if (action === 'force_win' && winnerId) {
@@ -149,10 +150,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'Battle cancelled and refunded' });
     }
 
-    return new NextResponse("Invalid action", { status: 400 });
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
   } catch (error: any) {
     console.error("Admin Arena Action error:", error);
-    return new NextResponse(error.message, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
