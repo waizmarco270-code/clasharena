@@ -255,7 +255,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
 
   const scores = challenge.scores || { creator: 0, acceptor: 0 };
   const rounds = challenge.rounds || {};
-  const isMatchComplete = challenge.status === 'active' && (scores.creator >= 2 || scores.acceptor >= 2 || (rounds['1']?.winnerId && rounds['2']?.winnerId && rounds['3']?.winnerId));
+  const isMatchComplete = !isHistoryMode && (scores.creator >= 2 || scores.acceptor >= 2 || (rounds['1']?.winnerId && rounds['2']?.winnerId && rounds['3']?.winnerId));
 
   return (
     <PageWrapper>
@@ -367,7 +367,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                         {challenge.creatorClaim && (
                            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${challenge.creatorClaim === 'win' ? 'text-green-500' : challenge.creatorClaim === 'loss' ? 'text-red-500' : 'text-zinc-500'}`}>CLAIMED: {challenge.creatorClaim}</p>
                         )}
-                        {isAcceptor && challenge.status === 'active' && (
+                        {isAcceptor && !isHistoryMode && (
                            <PingOpponentButton challengeId={challenge.id} targetUserId={challenge.creatorId} />
                         )}
                       </div>
@@ -382,7 +382,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                         <p className="text-4xl font-headline font-black text-green-400 drop-shadow-md">
                           ⚡ {challenge.pool}
                         </p>
-                        {challenge.status === 'active' && (
+                        {!isHistoryMode && (
                           <div className="flex items-center gap-1.5 mt-2 text-[10px] text-yellow-500 font-bold uppercase animate-pulse">
                             <Clock className="w-3 h-3" /> Awaiting Results
                           </div>
@@ -415,7 +415,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                         {challenge.acceptorClaim && (
                            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${challenge.acceptorClaim === 'win' ? 'text-green-500' : challenge.acceptorClaim === 'loss' ? 'text-red-500' : 'text-zinc-500'}`}>CLAIMED: {challenge.acceptorClaim}</p>
                         )}
-                        {isCreator && challenge.status === 'active' && challenge.acceptorId && (
+                        {isCreator && !isHistoryMode && challenge.acceptorId && (
                            <PingOpponentButton challengeId={challenge.id} targetUserId={challenge.acceptorId} />
                         )}
                       </div>
@@ -538,7 +538,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                                         ) : (
                                             <div className="p-3 rounded-xl border border-dashed border-white/10 w-full text-center bg-white/5 flex flex-col items-center justify-center min-h-[80px]">
                                               <p className="text-xs text-muted-foreground italic">Waiting...</p>
-                                              {!isRoundClosed && challenge.status === 'active' && amICreator && crSub && <RoundAutoWinButton challengeId={challenge.id} roundId={rId} mySubmittedAt={crSub.submittedAt} />}
+                                              {!isRoundClosed && !isHistoryMode && amICreator && crSub && <RoundAutoWinButton challengeId={challenge.id} roundId={rId} mySubmittedAt={crSub.submittedAt} />}
                                             </div>
                                          )}
                                      </div>
@@ -547,7 +547,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
 
                                {/* Edit Form (Only visible if participant, challenge active, and hasn't submitted this round) */}
                                
-{!isSpectator && !isHistoryMode && challenge.status === 'active' && (amICreator || amIAcceptor) && !mySub && challenge.clanLink && (
+{!isSpectator && !isHistoryMode && (amICreator || amIAcceptor) && !mySub && challenge.clanLink && (
                                   <div className="space-y-4 pt-4 border-t border-white/5">
                                      <h4 className="font-black uppercase text-sm text-white">Submit Round {roundNum} Stats</h4>
                                      
@@ -669,7 +669,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                        <p className="text-sm text-muted-foreground/70 mt-2">Chat is locked in History mode to preserve records.</p>
                     </div>
                  ) : (
-                    <TournamentChat tournamentId={`vs_${challengeId}`} isActive={true} onUnreadCountChange={() => {}} />
+                    <TournamentChat tournamentId={challengeId} isActive={true} onUnreadCountChange={() => {}} />
                  )}
               </div>
             </div>

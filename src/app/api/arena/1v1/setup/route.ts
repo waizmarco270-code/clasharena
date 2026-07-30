@@ -7,7 +7,9 @@ export async function POST(request: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { tournamentId, clanTag, clanLink } = await request.json();
+    const body = await request.json();
+    const tournamentId = body.tournamentId || body.challengeId;
+    const { clanTag, clanLink } = body;
 
     if (!tournamentId || !clanTag || !clanLink) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
@@ -21,8 +23,13 @@ export async function POST(request: Request) {
        
        const tournament = tournamentSnap.data()!;
        
-       if (tournament.creatorId !== userId) {
-          throw new Error('Only the creator can setup the Clan config.');
+       // Allow any registered participant to set up the clan
+       const regSnap = await transaction.get(tournamentRef.collection('registrations').doc(userId));
+       const userSnap = await adminDb.collection('users').doc(userId).get();
+       const isAdmin = userSnap.data()?.isAdmin || userSnap.data()?.isSuperAdmin;
+       
+       if (!regSnap.exists && !isAdmin && tournament.creatorId !== userId) {
+          throw new Error('Only participants can setup the Clan config.');
        }
        
        transaction.update(tournamentRef, { clanTag, clanLink });
