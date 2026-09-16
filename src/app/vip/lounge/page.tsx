@@ -9,8 +9,10 @@ import { useFirestore, useDoc, useAdminStatus } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Zap, Gift, Calendar, CheckCircle2, Crown, ShieldCheck } from 'lucide-react';
-import VIPChat from '@/components/chat/VIPChat';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+
+const VIPChat = dynamic(() => import('@/components/chat/VIPChat'), { ssr: false });
 
 export default function VIPLoungePage() {
   const { user, isLoaded } = useUser();
