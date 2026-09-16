@@ -24,6 +24,8 @@ import TournamentChat from '@/components/chat/TournamentChat';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { VsRules } from '@/components/vs-arena/VsRules';
 import { VsInstructions } from '@/components/vs-arena/VsInstructions';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
+import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
 import confetti from 'canvas-confetti';
 
 export function Tournament1v1Room({ tournament, tournamentId }: { tournament: any, tournamentId: string }) {
@@ -37,6 +39,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
   const [challenge, setChallenge] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [registrations, setRegistrations] = useState<any[]>([]);
+  const [inspectId, setInspectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db || !tournamentId) return;
@@ -354,9 +357,14 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                     
                     {/* Creator */}
                     <div className="flex flex-col items-center gap-3 w-full md:w-1/3">
-                      <div className="relative">
+                      <div className="relative cursor-pointer" onClick={() => setInspectId(challenge.creatorId)}>
                         <div className={`absolute -inset-4 rounded-full blur-lg opacity-50 ${challenge.winnerId === challenge.creatorId ? 'bg-green-500' : (isHistoryMode && challenge.winnerId ? 'bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.8)]' : 'bg-red-500/20')}`} />
-                        <Image src={challenge.creatorAvatar || '/placeholder-avatar.png'} alt="Creator" width={80} height={80} className="rounded-full border-2 border-white/20 relative z-10" />
+                        <AvatarFrame 
+                          avatarId={challenge.creatorEquippedAvatar}
+                          imageUrl={challenge.creatorAvatar}
+                          username={challenge.creatorName}
+                          className="w-20 h-20 relative z-10 mx-auto"
+                        />
                         {challenge.status === 'completed' && challenge.winnerId === challenge.creatorId && (
                            <Crown className="absolute -top-6 left-1/2 -translate-x-1/2 w-8 h-8 text-yellow-500 drop-shadow-lg z-20 animate-bounce" />
                         )}
@@ -402,9 +410,14 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
 
                     {/* Acceptor */}
                     <div className="flex flex-col items-center gap-3 w-full md:w-1/3">
-                      <div className="relative">
+                      <div className="relative cursor-pointer" onClick={() => challenge.acceptorId && setInspectId(challenge.acceptorId)}>
                         <div className={`absolute -inset-4 rounded-full blur-lg opacity-50 ${challenge.winnerId === challenge.acceptorId ? 'bg-green-500' : (isHistoryMode && challenge.winnerId ? 'bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.8)]' : 'bg-blue-500/20')}`} />
-                        <Image src={challenge.acceptorAvatar || '/placeholder-avatar.png'} alt="Acceptor" width={80} height={80} className="rounded-full border-2 border-white/20 relative z-10" />
+                        <AvatarFrame 
+                          avatarId={challenge.acceptorEquippedAvatar}
+                          imageUrl={challenge.acceptorAvatar}
+                          username={challenge.acceptorName || 'WAITING'}
+                          className="w-20 h-20 relative z-10 mx-auto"
+                        />
                         {challenge.status === 'completed' && challenge.winnerId === challenge.acceptorId && (
                            <Crown className="absolute -top-6 left-1/2 -translate-x-1/2 w-8 h-8 text-yellow-500 drop-shadow-lg z-20 animate-bounce" />
                         )}
@@ -505,7 +518,7 @@ export function Tournament1v1Room({ tournament, tournamentId }: { tournament: an
                                {(crSub || acSub) && (
                                   <div className="flex justify-between items-center bg-black/40 rounded-xl p-4 border border-white/5 mb-6">
                                      <div className="flex flex-col items-center w-[40%] gap-2">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setInspectId(challenge.creatorId)}>
                                            <Image src={challenge.creatorAvatar || '/placeholder-avatar.png'} alt="Creator" width={24} height={24} className="rounded-full" />
                                            <p className="text-[10px] font-black uppercase text-white truncate max-w-[100px]" title={challenge.creatorName}>{challenge.creatorName}</p>
                                         </div>

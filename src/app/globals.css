@@ -57,15 +57,29 @@
     --sidebar-border: 0 0% 10%;
     --sidebar-ring: 15 100% 50%;
   }
+
+  /* Force display of Avatar for current user in Stream Chat */
+  .str-chat__message-simple--me .str-chat__avatar-fallback {
+    display: block !important;
+  }
+  .str-chat__message-simple--me .str-chat__avatar {
+    display: block !important;
+  }
+  .str-chat__message-simple--me .str-chat__message-inner {
+    align-items: flex-end;
+  }
 }
 
-@layer utilities {
+@layer components {
   .glass {
     @apply bg-background/70 backdrop-blur-xl border border-white/10 shadow-2xl;
   }
   .glass-dark {
     @apply bg-background/85 backdrop-blur-2xl border-b border-white/5;
   }
+}
+
+@layer utilities {
   .glow-primary {
     box-shadow: 0 0 40px -10px hsla(var(--primary), 0.8);
   }

@@ -92,9 +92,18 @@ export default function Home() {
   return (
     <PageWrapper>
       <div className="flex flex-col selection:bg-primary selection:text-white overflow-x-hidden min-h-screen relative bg-black">
-        <div className="fixed-bg">
-           <NeuralBackground />
-           <div className="absolute inset-0 opacity-40 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] animate-pulse" />
+        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260406_094145_4a271a6c-3869-4f1c-8aa7-aeb0cb227994.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black" />
         </div>
         
         <header className="fixed top-0 left-0 right-0 z-[100] h-20 glass-dark border-b border-white/5 backdrop-blur-2xl animate-in fade-in slide-in-from-top-4 duration-500">
@@ -122,18 +131,7 @@ export default function Home() {
            </div>
         </header>
 
-        <section className="relative min-h-[100svh] flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
-          <div className="absolute inset-0 z-0 transition-transform duration-1000 ease-out hover:scale-105">
-            <Image 
-              src={heroBg} 
-              alt="Hero Background" 
-              fill 
-              className="object-cover opacity-90 saturate-[1.2]"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black" />
-          </div>
-
+        <section className="relative min-h-[100svh] flex flex-col items-center justify-center text-center px-4 pt-20">
           <div className="relative z-10 max-w-6xl mx-auto flex flex-col items-center justify-center w-full">
             <div className="p-3 md:p-4 bg-primary/20 backdrop-blur-3xl rounded-full border border-primary/30 mb-8 flex items-center gap-3 animate-float shadow-[0_0_50px_rgba(255,69,0,0.3)] animate-in fade-in zoom-in duration-700 delay-300">
                <Shield className="w-4 h-4 md:w-5 md:h-5 text-primary" />

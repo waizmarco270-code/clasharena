@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { 
   Shield, 
   Swords, 
@@ -22,7 +23,8 @@ import {
   Gift,
   Skull,
   Ticket,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc, collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -52,6 +54,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     onlineUsers: 0,
     totalPayments: 0
   });
+
+  const [showTHDialog, setShowTHDialog] = useState(false);
+  const [thStats, setThStats] = useState<Record<string, number>>({});
+  const [loadingThStats, setLoadingThStats] = useState(false);
+
+  const fetchThStats = async () => {
+    setLoadingThStats(true);
+    setShowTHDialog(true);
+    try {
+      const stats: Record<string, number> = {};
+      const usersCol = collection(db, 'users');
+      const promises = [];
+      for (let i = 9; i <= 18; i++) {
+        promises.push(
+          getCountFromServer(query(usersCol, where('townHall', '==', i)))
+            .then(snap => ({ th: `TH ${i}`, count: snap.data().count }))
+        );
+      }
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.count > 0) stats[res.th] = res.count;
+      });
+      const allSnap = await getCountFromServer(usersCol);
+      const totalTh = results.reduce((acc, curr) => acc + curr.count, 0);
+      const others = allSnap.data().count - totalTh;
+      if (others > 0) stats['Unlinked / Others'] = others;
+      
+      setThStats(stats);
+    } catch (err) {
+      console.error('Error fetching TH stats:', err);
+    }
+    setLoadingThStats(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -118,6 +153,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'bans', label: 'Judgment Day', icon: Skull, href: '/admin/bans' },
     { id: 'tickets', label: 'Ticket Vault', icon: Ticket, href: '/admin/tickets', superOnly: true },
     { id: 'backgrounds', label: 'Backgrounds', icon: Monitor, href: '/admin/backgrounds' },
+    { id: 'cosmetics', label: 'Cosmetics Engine', icon: Sparkles, href: '/admin/cosmetics', superOnly: true },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/admin/maintenance' },
   ];
 
@@ -129,14 +165,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* 📊 ADMIN STATS CARDS */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass border-white/5 bg-black/40 overflow-hidden relative group">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card onClick={fetchThStats} className="glass border-white/5 bg-black/40 overflow-hidden relative group cursor-pointer hover:bg-white/5 transition-colors">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Total Warriors</p>
-                <p className="text-xl font-headline font-black text-white">{stats.totalUsers}</p>
+                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest group-hover:text-white transition-colors">Total Warriors</p>
+                <p className="text-xl font-headline font-black text-white group-hover:text-primary transition-colors">{stats.totalUsers}</p>
               </div>
-              <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+              <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
                 <Users className="w-5 h-5 text-emerald-400" />
               </div>
             </CardContent>
@@ -156,17 +192,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </CardContent>
           </Card>
 
-          <Card className="glass border-white/5 bg-black/40 overflow-hidden relative group">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Active Online</p>
-                <p className="text-xl font-headline font-black text-white">{stats.onlineUsers}</p>
-              </div>
-              <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
-                <Activity className="w-5 h-5 text-primary animate-pulse" />
-              </div>
-            </CardContent>
-          </Card>
+
 
           <Card className="glass border-white/5 bg-black/40 overflow-hidden relative group">
             <CardContent className="p-4 flex items-center justify-between">
@@ -203,11 +229,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               );
             })}
           </div>
-          <div className="mt-8">
+          <div className="flex-1 overflow-y-auto pb-safe">
             {children}
           </div>
         </div>
       </div>
+      
+      {/* TH Stats Dialog */}
+      <Dialog open={showTHDialog} onOpenChange={setShowTHDialog}>
+        <DialogContent className="glass border-white/10 bg-zinc-950 text-white max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-2xl font-black uppercase italic tracking-tighter flex items-center gap-2">
+              <Users className="text-primary" /> WARRIOR <span className="text-primary">STATS</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
+              Distribution of players across Town Hall levels.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+            {loadingThStats ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                 <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+                 <p className="text-xs uppercase font-black tracking-widest text-muted-foreground">SCANNING DATABASES...</p>
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                {Object.entries(thStats).map(([th, count]) => (
+                   <div key={th} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-3">
+                     <span className="font-black text-sm uppercase text-white/80">{th}</span>
+                     <span className="font-headline text-lg font-black text-primary">{count}</span>
+                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

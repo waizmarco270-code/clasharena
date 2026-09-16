@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
 import { 
   Swords, 
   Trophy, 
@@ -442,7 +442,6 @@ function RewardVerificationCard({ claim, isAdmin, userId }: { claim: any, isAdmi
         status: 'completed',
         completedAt: new Date().toISOString()
       });
-      triggerConfetti();
       toast({ title: "V-CASH CREDITED!", description: `You have successfully claimed ⚡ ${amount} V-Cash!` });
     } catch (err) {
       console.error(err);
@@ -1466,21 +1465,12 @@ export default function Dashboard() {
             <div className="space-y-6">
                <Card className="glass border-white/5 bg-white/5 p-6 rounded-3xl text-center space-y-4 animate-in fade-in slide-in-from-right-4 duration-700">
                   <div className="relative inline-block">
-                     {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
-                       <div className="mx-auto h-28 w-28 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1 animate-[spin_4s_linear_infinite] shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                          <Avatar className="h-full w-full rounded-full border-4 border-black animate-[spin_4s_linear_infinite_reverse]">
-                             <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
-                             <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                          </Avatar>
-                       </div>
-                     ) : (
-                       <div className={cn("p-1.5 rounded-full mx-auto", activeBadgeInfo.className)}>
-                          <Avatar className="h-24 w-24 border-4 border-background/20 p-1 bg-background">
-                             <AvatarImage src={user?.imageUrl} className="rounded-full object-cover" />
-                             <AvatarFallback className="bg-muted text-2xl font-black">{profile?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                          </Avatar>
-                       </div>
-                     )}
+                     <AvatarFrame 
+                        avatarId={profile?.equippedAvatar}
+                        imageUrl={user?.imageUrl}
+                        username={profile?.username || 'WARRIOR'}
+                        className="h-28 w-28 mx-auto"
+                      />
                   </div>
                   <div>
                      <h3 className="font-headline text-2xl font-black uppercase italic tracking-tighter">{profile?.username || 'WARRIOR'}</h3>

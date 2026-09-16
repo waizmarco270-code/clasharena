@@ -45,8 +45,11 @@ export async function uploadToCloudinary(
   }
 
   // Validate file
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Only image files are supported');
+  const isImage = file.type.startsWith('image/');
+  const isJson = file.type === 'application/json' || file.name.endsWith('.json');
+  
+  if (!isImage && !isJson) {
+    throw new Error('Only image or JSON files are supported');
   }
 
   // Max 10MB
@@ -63,8 +66,9 @@ export async function uploadToCloudinary(
     formData.append('folder', options.folder);
   }
 
+  const resourceType = isJson ? 'raw' : 'image';
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
     { method: 'POST', body: formData }
   );
 

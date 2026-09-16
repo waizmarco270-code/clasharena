@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, addDoc, deleteDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Megaphone, 
@@ -42,6 +42,9 @@ export default function ControlsPage() {
   
   // Poll State
   const [pForm, setPForm] = useState({ question: '', options: ['', ''], allowMultiple: false, displayMode: 'percentage' });
+
+  // Reset State
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleAddAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,12 +128,54 @@ export default function ControlsPage() {
     await updateDoc(doc(db, 'polls', id), { isActive: !current });
   };
 
+  const handleResetCoins = async () => {
+    if (!confirm('WARNING: Are you absolutely sure you want to reset ALL users coins to 0? This cannot be undone.')) return;
+    if (prompt('Type "RESET" to confirm this action.') !== 'RESET') {
+      toast({ variant: 'destructive', title: 'ACTION ABORTED' });
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const snap = await getDocs(usersRef);
+      
+      const batches = [];
+      let batch = writeBatch(db);
+      let count = 0;
+
+      snap.docs.forEach((d) => {
+        batch.update(d.ref, { balance: 0 });
+        count++;
+        if (count === 500) {
+          batches.push(batch);
+          batch = writeBatch(db);
+          count = 0;
+        }
+      });
+
+      if (count > 0) batches.push(batch);
+
+      for (const b of batches) {
+        await b.commit();
+      }
+
+      toast({ title: 'ECOSYSTEM RESET SUCCESSFUL', description: `Reset coins for ${snap.size} players.` });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'RESET FAILED', description: e.message });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <Tabs defaultValue="announcements">
         <TabsList className="bg-white/5 border border-white/5 mb-6">
           <TabsTrigger value="announcements" className="data-[state=active]:bg-primary uppercase font-black text-[10px] h-10 px-6">Announcements</TabsTrigger>
           <TabsTrigger value="polls" className="data-[state=active]:bg-primary uppercase font-black text-[10px] h-10 px-6">Community Polls</TabsTrigger>
+          <TabsTrigger value="ecosystem" className="data-[state=active]:bg-primary uppercase font-black text-[10px] h-10 px-6">Ecosystem</TabsTrigger>
         </TabsList>
 
         <TabsContent value="announcements" className="space-y-8 outline-none">
@@ -239,6 +284,27 @@ export default function ControlsPage() {
                </Card>
              ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="ecosystem" className="space-y-8 outline-none">
+          <Card className="glass border-red-500/50 bg-red-500/5">
+            <CardHeader><CardTitle className="font-headline text-lg uppercase italic flex items-center gap-2 text-red-500"><Settings2 className="w-5 h-5" /> DANGER ZONE</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-black/40 p-8 rounded-2xl border border-red-500/20 text-center space-y-4">
+                <h3 className="font-black uppercase text-xl text-white">Reset Ecosystem Coins</h3>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">This action will reset the <span className="text-yellow-400 font-bold">coins</span> balance of EVERY SINGLE PLAYER in Clash Arena to 0. This does NOT affect V-Cash. This action is irreversible.</p>
+                <div className="pt-4">
+                  <Button 
+                    onClick={handleResetCoins} 
+                    disabled={isResetting} 
+                    className="bg-red-600 hover:bg-red-700 text-white font-black uppercase h-12 px-8 glow-primary transition-all hover:scale-105 active:scale-95"
+                  >
+                    {isResetting ? 'Resetting...' : 'INITIATE GLOBAL RESET'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

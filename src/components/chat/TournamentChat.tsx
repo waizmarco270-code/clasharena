@@ -10,8 +10,10 @@ import {
   Thread,
   Window,
   LoadingIndicator,
+  useChatContext,
   useChannelStateContext,
-  useChatContext
+  Message,
+  useMessageContext
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/index.css';
 import { useUser } from '@clerk/nextjs';
@@ -21,9 +23,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { useProfile } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
+import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
+import { createContext, useContext } from 'react';
 
-const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
+const ChatActionsContext = createContext<{ onInspectUser: (id: string) => void }>({ onInspectUser: () => {} });
+
+const CustomChannelHeader = ({ channelName, onInspectUser }: { channelName: string, onInspectUser: (id: string) => void }) => {
   const { channel } = useChannelStateContext();
   const { client } = useChatContext();
   
@@ -80,11 +88,14 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
               {onlineMembers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No players online right now.</p>}
               {onlineMembers.map(m => (
                 <div key={m.user_id} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5">
-                  <div className={cn("relative shrink-0", m.user?.equippedAvatar === 'rainbow_vip_glow' ? 'w-8 h-8 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_10px_rgba(255,255,255,0.2)]' : '')}>
-                    <Avatar className={cn("w-full h-full border border-white/10", m.user?.equippedAvatar === 'rainbow_vip_glow' ? 'rounded-full border-black animate-[spin_4s_linear_infinite_reverse]' : '')}>
-                      <AvatarImage src={m.user?.image} />
-                      <AvatarFallback className="bg-zinc-800 text-[10px]">{m.user?.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                  <div className="relative shrink-0">
+                    <AvatarFrame 
+                      avatarId={m.user?.equippedAvatar}
+                      imageUrl={m.user?.image}
+                      username={m.user?.name}
+                      className="w-10 h-10"
+                      onClick={() => onInspectUser(m.user?.id)}
+                    />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-white uppercase">{m.user?.name}</span>
@@ -119,11 +130,14 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
               {pinnedMessages.length === 0 && <p className="text-xs text-muted-foreground text-center py-4 uppercase font-black tracking-widest">No pinned messages yet.</p>}
               {pinnedMessages.map((msg: any) => (
                 <div key={msg.id} className="flex gap-3 p-3 bg-blue-900/10 rounded-xl border border-blue-500/20 relative group">
-                  <div className={cn("relative shrink-0", msg.user?.equippedAvatar === 'rainbow_vip_glow' ? 'w-8 h-8 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_10px_rgba(255,255,255,0.2)]' : '')}>
-                    <Avatar className={cn("w-full h-full border border-white/10", msg.user?.equippedAvatar === 'rainbow_vip_glow' ? 'rounded-full border-black animate-[spin_4s_linear_infinite_reverse]' : '')}>
-                      <AvatarImage src={msg.user?.image} />
-                      <AvatarFallback className="bg-zinc-800 text-[10px]">{msg.user?.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                  <div className="relative shrink-0">
+                    <AvatarFrame 
+                      avatarId={msg.user?.equippedAvatar}
+                      imageUrl={msg.user?.image}
+                      username={msg.user?.name}
+                      className="w-10 h-10"
+                      onClick={() => onInspectUser(msg.user?.id)}
+                    />
                   </div>
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex justify-between items-center w-full">
@@ -138,6 +152,56 @@ const CustomChannelHeader = ({ channelName }: { channelName: string }) => {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
+  );
+};
+
+const CustomMessageWrapper = (props: any) => {
+  const { message } = useMessageContext();
+  const { client } = useChatContext();
+  const isMine = message.user?.id === client.userID;
+  const { onInspectUser } = useContext(ChatActionsContext);
+  
+  const { profile } = useProfile();
+  
+  const avatarId = isMine ? profile?.equippedAvatar : undefined;
+  const imageUrl = isMine ? profile?.avatarUrl || message.user?.image : undefined;
+  const username = isMine ? profile?.username || message.user?.name : undefined;
+  
+  return (
+    <div className={cn("flex items-end gap-2 w-full mt-2 mb-2", isMine ? "flex-row-reverse" : "flex-row")}>
+      {isMine && (
+        <div className="shrink-0 z-10 relative self-end cursor-pointer" onClick={() => onInspectUser(client.userID)}>
+          <AvatarFrame 
+            avatarId={avatarId as string}
+            imageUrl={imageUrl as string}
+            username={username as string}
+            className="w-8 h-8 md:w-10 md:h-10"
+          />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <Message {...props} />
+      </div>
+    </div>
+  );
+};
+
+const LiveAvatar = (props: any) => {
+  const { onInspectUser } = useContext(ChatActionsContext);
+  
+  const avatarId = props.user?.equippedAvatar;
+  const imageUrl = props.image || props.user?.image;
+  const username = props.name || props.user?.name;
+
+  return (
+    <div className="shrink-0 mr-2 relative z-10 mt-1 cursor-pointer" onClick={() => onInspectUser(props.user?.id)}>
+      <AvatarFrame 
+        avatarId={avatarId as string}
+        imageUrl={imageUrl as string}
+        username={username as string}
+        className="w-8 h-8 md:w-10 md:h-10"
+      />
     </div>
   );
 };
@@ -160,6 +224,7 @@ export default function TournamentChat({
   const [chatClient, setChatClient] = useState<StreamChat | null>(null);
   const [channel, setChannel] = useState<StreamChannel | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inspectId, setInspectId] = useState<string | null>(null);
   const onUnreadCountChangeRef = useRef(onUnreadCountChange);
 
   // Keep ref updated to avoid stale closures without dependency arrays issues
@@ -275,14 +340,20 @@ export default function TournamentChat({
   return (
     <div className={`h-full w-full bg-[#0a0a0a] overflow-hidden str-chat-custom-container ${isActive ? 'flex flex-col' : 'hidden'}`}>
       <Chat client={chatClient} theme="str-chat__theme-dark">
-        <Channel channel={channel}>
-          <Window>
-            <CustomChannelHeader channelName={teamId ? "Tournament Chat" : "Global Chat"} />
-            <MessageList />
-            <MessageComposer />
-          </Window>
-          <Thread />
-        </Channel>
+        <ChatActionsContext.Provider value={{ onInspectUser: setInspectId }}>
+          <Channel 
+            channel={channel}
+            Avatar={LiveAvatar}
+            Message={CustomMessageWrapper}
+          >
+            <Window>
+              <CustomChannelHeader channelName={teamId ? "Tournament Chat" : "Global Chat"} onInspectUser={setInspectId} />
+              <MessageList />
+              <MessageComposer />
+            </Window>
+            <Thread />
+          </Channel>
+        </ChatActionsContext.Provider>
       </Chat>
       <style dangerouslySetInnerHTML={{__html: `
         .str-chat-custom-container {
@@ -321,6 +392,7 @@ export default function TournamentChat({
            border: 1px solid rgba(255,255,255,0.1);
         }
       `}} />
+      <ProfileInspectModal userId={inspectId} open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)} />
     </div>
   );
 }

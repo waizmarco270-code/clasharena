@@ -11,8 +11,6 @@ import {
   EyeOff,
   Settings
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useDoc, useCollection } from '@/firebase';
 import { doc, query, collection, orderBy, limit, updateDoc, where, getCountFromServer } from 'firebase/firestore';
@@ -20,6 +18,9 @@ import { cn } from '@/lib/utils';
 import { getRankByType, RankType } from '@/lib/rank-utils';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
+import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
+import { Badge } from '@/components/ui/badge';
 
 export default function LeaderboardMainPage() {
   const db = useFirestore();
@@ -32,11 +33,11 @@ export default function LeaderboardMainPage() {
   const isSuperAdmin = user?.id === "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16" || myProfile?.isSuperAdmin;
   const isAdmin = myProfile?.isAdmin || isSuperAdmin;
 
-  // Retrieve top 10 users
+  // Retrieve top 20 users
   const championsQuery = useMemo(() => query(
     collection(db, 'users'), 
     orderBy('wins', 'desc'), 
-    limit(10)
+    limit(20)
   ), [db]);
   const { data: allUsers, loading } = useCollection(championsQuery);
 
@@ -45,14 +46,15 @@ export default function LeaderboardMainPage() {
     return allUsers.filter(u => !u.isHidden).slice(0, 3);
   }, [allUsers]);
 
-  const remaining7 = useMemo(() => {
+  const remaining = useMemo(() => {
     if (!allUsers) return [];
-    return allUsers.filter(u => !u.isHidden).slice(3, 10);
+    return allUsers.filter(u => !u.isHidden).slice(3, 20);
   }, [allUsers]);
 
   const [myRank, setMyRank] = useState<number | null>(null);
   const [loadingRank, setLoadingRank] = useState(false);
   const [hasCheckedRank, setHasCheckedRank] = useState(false);
+  const [inspectId, setInspectId] = useState<string | null>(null);
 
   const handleCheckMyRank = async () => {
     if (!user || !myProfile) return;
@@ -150,11 +152,14 @@ export default function LeaderboardMainPage() {
                     <div className="mb-6">
                       {i === 0 ? <Crown className="text-yellow-500 w-12 h-12" /> : <Medal className="text-gray-400 w-8 h-8" />}
                     </div>
-                    <div className={cn("p-1.5 rounded-full mb-4 group-hover:scale-105 transition-transform duration-500", rankInfo.className)}>
-                      <Avatar className="h-24 w-24 border-4 border-background/10">
-                        <AvatarImage src={champ.avatarUrl} />
-                        <AvatarFallback className="text-2xl font-black">{champ.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                      </Avatar>
+                    <div className={cn("mb-4 group-hover:scale-105 transition-transform duration-500", rankInfo.className)}>
+                       <AvatarFrame 
+                         avatarId={champ.equippedAvatar}
+                         imageUrl={champ.avatarUrl}
+                         username={champ.username}
+                         className="h-28 w-28 mx-auto"
+                         onClick={() => setInspectId(champ.id)}
+                       />
                     </div>
                     <h3 className="font-headline text-2xl font-bold mb-1 text-white">{champ.username}</h3>
                     <Badge variant="secondary" className={cn("mb-4 uppercase font-black", rankInfo.className)}>{rankInfo.label} Warrior</Badge>
@@ -179,8 +184,8 @@ export default function LeaderboardMainPage() {
             )}
           </div>
 
-          {/* Leaderboard Table (Remaining 7) */}
-          {remaining7.length > 0 && (
+          {/* Leaderboard Table (Remaining) */}
+          {remaining.length > 0 && (
             <div className="space-y-4 pt-6">
               <h3 className="font-headline text-xl font-black uppercase italic tracking-tighter text-white">
                 Contenders
@@ -197,17 +202,20 @@ export default function LeaderboardMainPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {remaining7.map((champ: any, idx: number) => {
+                    {remaining.map((champ: any, idx: number) => {
                       const rankInfo = getRankByType(champ.activeBadge as RankType || 'ROOKIE');
                       return (
                         <TableRow key={champ.id} className="border-white/5 hover:bg-white/5 transition-colors">
                           <TableCell className="text-center font-headline font-black text-white italic text-sm"># {idx + 4}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8 border border-white/10">
-                                <AvatarImage src={champ.avatarUrl} />
-                                <AvatarFallback className="text-[10px] font-black">{champ.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                              </Avatar>
+                              <AvatarFrame 
+                                avatarId={champ.equippedAvatar}
+                                imageUrl={champ.avatarUrl}
+                                username={champ.username}
+                                className="h-10 w-10"
+                                onClick={() => setInspectId(champ.id)}
+                              />
                               <div>
                                 <p className="font-bold text-xs uppercase text-white">{champ.username}</p>
                                 <Badge className={cn("text-[7px] font-black uppercase px-1.5 py-0", rankInfo.className)}>
@@ -235,6 +243,7 @@ export default function LeaderboardMainPage() {
           )}
         </>
       )}
+      <ProfileInspectModal userId={inspectId} open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)} />
     </div>
   );
 }

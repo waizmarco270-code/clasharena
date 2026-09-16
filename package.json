@@ -47,6 +47,8 @@
     "firebase": "^11.9.1",
     "firebase-admin": "^14.0.0",
     "genkit": "^1.28.0",
+    "html2canvas": "^1.4.1",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.475.0",
     "next": "15.5.9",
     "next-cloudinary": "^6.16.0",

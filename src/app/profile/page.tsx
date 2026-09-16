@@ -17,7 +17,7 @@ import {
   History, Clock, ArrowRight, UserCog, Medal, Ticket, Save, Crown
 } from 'lucide-react';
 import { useFirestore, useCollection, useProfile, useBackgrounds } from '@/firebase';
-import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion, limit } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, orderBy, updateDoc, arrayUnion, limit, increment } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -29,7 +29,8 @@ import { cn } from '@/lib/utils';
 import { AccountSlots } from '@/components/AccountSlots';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { formatDistanceToNow } from 'date-fns';
-
+import { useCosmetics } from '@/hooks/use-cosmetics';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
 export default function ProfilePage() {
@@ -44,8 +45,12 @@ export default function ProfilePage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || profile?.isSuperAdmin;
   const isAdmin = profile?.isAdmin || isSuperAdmin;
+  const { cosmetics, loading: cosmeticsLoading } = useCosmetics();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeAvatarTab, setActiveAvatarTab] = useState('OWNED');
+  const [previewAvatar, setPreviewAvatar] = useState<any>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
   // --- Profile Edit State ---
   const [editOpen, setEditOpen] = useState(false);
@@ -125,15 +130,81 @@ export default function ProfilePage() {
     toast({ title: "BADGE EQUIPPED" });
   };
 
+
+  const [purchasingAvatar, setPurchasingAvatar] = useState<string | null>(null);
+
   const handleEquipAvatar = async (avatarId: string) => {
     if (!userRef) return;
-    if (!profile?.unlockedAvatars?.includes(avatarId)) {
-      toast({ variant: 'destructive', title: 'LOCKED', description: 'You need to unlock this avatar first.' });
+    
+    if (avatarId === 'default' || profile?.unlockedAvatars?.includes(avatarId) || isSuperAdmin) {
+      await updateDoc(userRef, { equippedAvatar: avatarId });
+      toast({ title: "AVATAR EQUIPPED" });
       return;
     }
-    await updateDoc(userRef, { equippedAvatar: avatarId });
-    toast({ title: "AVATAR EQUIPPED" });
+
+    const price = cosmetics[avatarId]?.price;
+    if (price === undefined || price === null) {
+      toast({ variant: 'destructive', title: 'LOCKED', description: 'Item Not Found.' });
+      return;
+    }
+    setPurchasingAvatar(avatarId);
   };
+
+  const confirmPurchaseAvatar = async () => {
+    if (!purchasingAvatar || !userRef) return;
+    const price = cosmetics[purchasingAvatar]?.price || 0;
+    if ((profile?.balance || 0) < price) {
+      toast({ variant: 'destructive', title: 'INSUFFICIENT COINS', description: `You need ${price} coins to buy this avatar.` });
+      setPurchasingAvatar(null);
+      return;
+    }
+
+    try {
+      await updateDoc(userRef, {
+        balance: increment(-price),
+        unlockedAvatars: arrayUnion(purchasingAvatar),
+        equippedAvatar: purchasingAvatar
+      });
+      toast({ title: "AVATAR UNLOCKED!", description: `Deducted ${price} coins.` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'ERROR', description: err.message });
+    } finally {
+      setPurchasingAvatar(null);
+    }
+  };
+
+  const handlePurchaseAvatar = async (avatar: any) => {
+    if (!userRef || !profile) return;
+    if (avatar.price > 0 && (profile.balance || 0) < avatar.price) {
+      toast({ variant: 'destructive', title: 'INSUFFICIENT COINS', description: `You need ${avatar.price} coins.` });
+      return;
+    }
+    setIsPurchasing(true);
+    try {
+      await updateDoc(userRef, {
+        balance: increment(-avatar.price),
+        unlockedAvatars: arrayUnion(avatar.id),
+        equippedAvatar: avatar.id
+      });
+      toast({ title: 'PURCHASED & EQUIPPED', description: `${avatar.name} is now yours!` });
+      setPreviewAvatar(null);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'ERROR', description: err.message });
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const AVATAR_TABS = ['OWNED', 'ALL', 'VIP', 'GOLD', 'LEGENDARY', 'MYTHIC'];
+  
+  const filteredCosmetics = useMemo(() => {
+    const items = Object.values(cosmetics);
+    if (activeAvatarTab === 'ALL') return items;
+    if (activeAvatarTab === 'OWNED') {
+      return items.filter(item => item.id === 'default' || profile?.unlockedAvatars?.includes(item.id) || isSuperAdmin);
+    }
+    return items.filter(item => item.tier === activeAvatarTab);
+  }, [cosmetics, activeAvatarTab, profile?.unlockedAvatars, isSuperAdmin]);
 
   // Glow color based on rank
   const getRankGlow = () => {
@@ -173,23 +244,12 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
               {/* Hexagon Avatar or VIP Circle */}
               <div className="relative group">
-                {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
-                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1.5 animate-[spin_4s_linear_infinite] shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-                    <Avatar className="w-full h-full rounded-full border-4 border-black animate-[spin_4s_linear_infinite_reverse]">
-                      <AvatarImage src={user?.imageUrl} className="object-cover" />
-                      <AvatarFallback className="bg-muted text-4xl font-black">{profile?.username?.[0] || '?'}</AvatarFallback>
-                    </Avatar>
-                  </div>
-                ) : (
-                  <div className={cn("p-1.5 rounded-2xl rotate-3 transition-transform group-hover:rotate-6", activeBadgeInfo.className)}>
-                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl overflow-hidden bg-background border-4 border-black/50 -rotate-3 group-hover:-rotate-6 transition-transform">
-                      <Avatar className="w-full h-full rounded-none">
-                        <AvatarImage src={user?.imageUrl} className="object-cover" />
-                        <AvatarFallback className="rounded-none bg-muted text-4xl font-black">{profile?.username?.[0] || '?'}</AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </div>
-                )}
+                <AvatarFrame 
+                  avatarId={profile?.equippedAvatar || 'default'} 
+                  imageUrl={user?.imageUrl} 
+                  username={profile?.username}
+                  className="w-32 h-32 md:w-40 md:h-40"
+                />
                 {/* Active Badge overlapping avatar */}
                 <div className="absolute -bottom-4 -right-4 bg-background p-1.5 rounded-full shadow-2xl z-20">
                    <div className={cn("flex items-center justify-center w-12 h-12 rounded-full", activeBadgeInfo.className)}>
@@ -456,41 +516,71 @@ export default function ProfilePage() {
             {/* ============================== */}
             <TabsContent value="avatars" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
               <Card className="glass border-white/10">
-                <CardHeader>
+                <CardHeader className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-foreground">
                     <Crown className="w-4 h-4 text-purple-500" /> Avatar Collection
                   </CardTitle>
+                  <Tabs value={activeAvatarTab} onValueChange={setActiveAvatarTab} className="w-full md:w-auto">
+                    <TabsList className="bg-black/40 border border-white/5 flex overflow-x-auto h-auto py-1 px-1">
+                      {AVATAR_TABS.map(tab => (
+                        <TabsTrigger key={tab} value={tab} className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-full px-4 py-1.5 uppercase font-black text-[10px] tracking-widest">
+                          {tab}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {/* Default Avatar */}
-                  <div className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border ${!profile?.equippedAvatar || profile?.equippedAvatar === 'default' ? 'bg-primary/20 border-primary shadow-lg' : 'bg-black/20 border-white/5'} cursor-pointer hover:bg-white/5 transition-colors h-48`} onClick={() => handleEquipAvatar('default')}>
-                     <div className="w-20 h-20 rounded-xl bg-background border border-white/10 overflow-hidden">
-                       <Avatar className="w-full h-full rounded-none">
-                         <AvatarImage src={user?.imageUrl} className="object-cover" />
-                       </Avatar>
-                     </div>
-                     <p className="mt-3 text-xs font-black uppercase text-white">Default (Hex)</p>
-                     {(!profile?.equippedAvatar || profile?.equippedAvatar === 'default') && <Badge className="absolute top-2 right-2 bg-primary text-[8px] px-1 border-none">Equipped</Badge>}
-                  </div>
-
-                  {/* VIP Rainbow Glow */}
-                  <div className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border ${profile?.equippedAvatar === 'rainbow_vip_glow' ? 'bg-purple-900/20 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-black/20 border-white/5'} cursor-pointer hover:bg-white/5 transition-colors h-48 group`} onClick={() => handleEquipAvatar('rainbow_vip_glow')}>
-                     <div className="w-20 h-20 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-1 animate-[spin_4s_linear_infinite] group-hover:scale-110 transition-transform">
-                        <Avatar className="w-full h-full rounded-full border-[3px] border-black animate-[spin_4s_linear_infinite_reverse]">
-                          <AvatarImage src={user?.imageUrl} className="object-cover" />
-                        </Avatar>
-                     </div>
-                     <p className="mt-4 text-xs font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400">Rainbow VIP</p>
-                     {!profile?.unlockedAvatars?.includes('rainbow_vip_glow') && (
-                       <div className="absolute inset-0 bg-black/70 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                         <div className="text-center">
-                           <Lock className="w-6 h-6 text-white mx-auto mb-1" />
-                           <span className="text-[9px] font-bold text-white uppercase tracking-widest">VIP Pass Required</span>
-                         </div>
-                       </div>
-                     )}
-                     {profile?.equippedAvatar === 'rainbow_vip_glow' && <Badge className="absolute top-2 right-2 bg-purple-500 text-[8px] px-1 border-none">Equipped</Badge>}
-                  </div>
+                  {filteredCosmetics.map((avatar) => {
+                    const isEquipped = profile?.equippedAvatar === avatar.id || (!profile?.equippedAvatar && avatar.id === 'default');
+                    const isUnlocked = avatar.id === 'default' || profile?.unlockedAvatars?.includes(avatar.id) || isSuperAdmin;
+                    
+                    const getTierCardGlow = (tier: string, isEquipped: boolean) => {
+                      if (isEquipped) return 'bg-primary/20 border-primary shadow-[0_0_25px_rgba(255,69,0,0.5)]';
+                      const base = 'bg-black/20 hover:bg-white/5 transition-all duration-500';
+                      if (tier === 'MYTHIC') return `${base} border-fuchsia-500/40 shadow-[0_0_30px_rgba(217,70,239,0.2)] hover:shadow-[0_0_50px_rgba(217,70,239,0.5)] hover:border-fuchsia-400/60`;
+                      if (tier === 'LEGENDARY') return `${base} border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)] hover:shadow-[0_0_40px_rgba(239,68,68,0.3)]`;
+                      if (tier === 'GOLD') return `${base} border-yellow-500/40 shadow-[0_0_20px_rgba(234,179,8,0.1)] hover:shadow-[0_0_30px_rgba(234,179,8,0.2)]`;
+                      return `${base} border-white/5`;
+                    };
+                    
+                    return (
+                      <div key={avatar.id} className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border ${getTierCardGlow(avatar.tier, isEquipped)} cursor-pointer h-48 group overflow-visible mt-4`} onClick={() => setPreviewAvatar(avatar)}>
+                         {avatar.tier !== 'DEFAULT' && (
+                           <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[8px] font-black uppercase shadow-lg z-30 ${
+                             avatar.tier === 'VIP' ? 'bg-gradient-to-r from-red-500 to-purple-500 text-white' : 
+                             avatar.tier === 'GOLD' ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black shadow-[0_0_15px_rgba(250,204,21,0.6)] border border-yellow-300/50' : 
+                             avatar.tier === 'LEGENDARY' ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.8)] border border-red-400/50 animate-pulse' :
+                             'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 text-white shadow-[0_0_25px_rgba(217,70,239,0.9)] border border-fuchsia-400/80 animate-pulse'
+                           }`}>
+                             {avatar.tier}
+                           </div>
+                         )}
+                         
+                         <AvatarFrame 
+                           avatarId={avatar.id} 
+                           imageUrl={user?.imageUrl} 
+                           username={profile?.username}
+                           className="w-20 h-20 group-hover:scale-110 transition-transform"
+                         />
+                         
+                         <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-center text-white">{avatar.name}</p>
+                         
+                         {!isUnlocked && (
+                           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 bg-black/80 rounded-full px-2 py-0.5 flex items-center justify-center border border-white/10 shadow-lg">
+                              <Lock className="w-3 h-3 text-muted-foreground mr-1" />
+                              <span className="text-[8px] font-black text-yellow-500">{avatar.price > 0 ? `${avatar.price} COINS` : 'VIP PASS'}</span>
+                           </div>
+                         )}
+                         {isEquipped && <Badge className="absolute top-2 right-2 bg-primary text-[8px] px-1 border-none z-30">Equipped</Badge>}
+                      </div>
+                    )
+                  })}
+                  {filteredCosmetics.length === 0 && (
+                    <div className="col-span-full py-10 text-center text-muted-foreground text-xs uppercase font-black">
+                      No cosmetics found in this category.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -568,6 +658,116 @@ export default function ProfilePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Avatar Purchase Dialog */}
+      <Dialog open={!!purchasingAvatar} onOpenChange={(open) => !open && setPurchasingAvatar(null)}>
+        <DialogContent className="glass border-primary/20 max-w-sm p-6 rounded-3xl bg-black/95">
+          <DialogHeader>
+            <DialogTitle className="font-headline italic uppercase text-2xl text-white text-center">Unlock Avatar</DialogTitle>
+            <DialogDescription className="text-center text-white/60">
+              Are you sure you want to purchase this premium avatar for <span className="font-black text-yellow-400">{purchasingAvatar ? cosmetics[purchasingAvatar]?.price : 0} Coins</span>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-4 mt-6">
+            <Button variant="ghost" onClick={() => setPurchasingAvatar(null)} className="flex-1 rounded-xl text-white hover:bg-white/10 uppercase font-black text-xs">
+              Cancel
+            </Button>
+            <Button onClick={confirmPurchaseAvatar} className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-white uppercase font-black text-xs shadow-[0_0_20px_rgba(255,69,0,0.4)]">
+              Buy Now
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================== */}
+      {/* AVATAR PREVIEW MODAL */}
+      {/* ============================== */}
+      <Dialog open={!!previewAvatar} onOpenChange={(open) => !open && setPreviewAvatar(null)}>
+        {previewAvatar && (
+          <DialogContent className="sm:max-w-[400px] bg-zinc-950 border border-white/10 text-white p-0 overflow-hidden shadow-2xl">
+            <div className={`relative p-8 flex flex-col items-center justify-center min-h-[300px] ${
+              previewAvatar.tier === 'MYTHIC' ? 'bg-gradient-to-b from-fuchsia-950/40 to-transparent' : 
+              previewAvatar.tier === 'LEGENDARY' ? 'bg-gradient-to-b from-red-950/40 to-transparent' : 
+              previewAvatar.tier === 'GOLD' ? 'bg-gradient-to-b from-yellow-950/20 to-transparent' : ''
+            }`}>
+              {previewAvatar.tier !== 'DEFAULT' && (
+                <Badge className={`absolute top-4 left-4 uppercase font-black text-[10px] tracking-widest ${
+                  previewAvatar.tier === 'VIP' ? 'bg-gradient-to-r from-red-500 to-purple-500 text-white border-none' : 
+                  previewAvatar.tier === 'GOLD' ? 'bg-yellow-500 text-black border-none' : 
+                  previewAvatar.tier === 'LEGENDARY' ? 'bg-red-600 text-white border-none' :
+                  'bg-fuchsia-600 text-white border-none'
+                }`}>
+                  {previewAvatar.tier}
+                </Badge>
+              )}
+              
+              <AvatarFrame 
+                avatarId={previewAvatar.id} 
+                imageUrl={user?.imageUrl} 
+                username={profile?.username}
+                className="w-32 h-32 my-6 scale-125"
+              />
+              
+              <h2 className="mt-8 text-2xl font-black uppercase tracking-wider text-white text-center">
+                {previewAvatar.name}
+              </h2>
+              <p className="text-xs text-muted-foreground font-black uppercase tracking-widest mt-1">
+                {previewAvatar.type === 'lottie' ? 'Animated Lottie Frame' : 'Premium CSS Frame'}
+              </p>
+            </div>
+
+            <div className="p-6 bg-black/40 border-t border-white/5 space-y-4">
+              {(() => {
+                const isOwned = previewAvatar.id === 'default' || profile?.unlockedAvatars?.includes(previewAvatar.id) || isSuperAdmin;
+                const isEquipped = profile?.equippedAvatar === previewAvatar.id || (!profile?.equippedAvatar && previewAvatar.id === 'default');
+                
+                if (isEquipped) {
+                  return (
+                    <Button disabled className="w-full bg-primary/20 text-primary border border-primary/50 font-black tracking-widest uppercase h-12">
+                      <CheckCircle2 className="w-5 h-5 mr-2" /> Currently Equipped
+                    </Button>
+                  );
+                }
+                
+                if (isOwned) {
+                  return (
+                    <Button onClick={() => { handleEquipAvatar(previewAvatar.id); setPreviewAvatar(null); }} className="w-full bg-primary hover:bg-primary/90 text-white font-black tracking-widest uppercase h-12">
+                      Equip Avatar
+                    </Button>
+                  );
+                }
+                
+                // Not owned
+                if (previewAvatar.price === 0 && previewAvatar.tier === 'VIP') {
+                  return (
+                    <Button disabled className="w-full bg-zinc-800 text-zinc-400 font-black tracking-widest uppercase h-12">
+                      <Lock className="w-5 h-5 mr-2" /> Requires VIP Pass
+                    </Button>
+                  );
+                }
+                
+                return (
+                  <Button 
+                    onClick={() => handlePurchaseAvatar(previewAvatar)} 
+                    disabled={isPurchasing}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-black tracking-widest uppercase h-12 relative overflow-hidden group"
+                  >
+                    {isPurchasing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
+                        <span className="relative z-10 flex items-center">Buy for {previewAvatar.price} Coins</span>
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
     </PageWrapper>
   );
 }

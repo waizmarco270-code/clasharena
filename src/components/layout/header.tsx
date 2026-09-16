@@ -20,6 +20,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { usePathname } from 'next/navigation';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
 
 const MASTER_SUPER_ADMIN_ID = "user_3FPUpUpNM4gNnZFAu8ATO6bcQ16";
 
@@ -314,49 +316,24 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <div className="relative cursor-pointer group">
-                  {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
-                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                        <Avatar className="h-full w-full rounded-full border-2 border-black animate-[spin_4s_linear_infinite_reverse]">
-                          <AvatarImage src={user?.imageUrl || profile?.avatarUrl} alt={profile?.username} />
-                          <AvatarFallback className="bg-primary/20 text-primary font-black">
-                            {(profile?.username || user?.firstName || 'W').charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                     </div>
-                  ) : (
-                    <>
-                      <div className={cn("absolute -inset-0.5 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500 bg-current", activeBadgeInfo.className)} />
-                      <Avatar className={cn("h-8 w-8 sm:h-10 sm:w-10 relative border-2 border-background z-10", activeBadgeInfo.className)}>
-                        <AvatarImage src={user?.imageUrl || profile?.avatarUrl} alt={profile?.username} />
-                        <AvatarFallback className="bg-primary/20 text-primary font-black">
-                          {(profile?.username || user?.firstName || 'W').charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </>
-                  )}
+                  <AvatarFrame
+                    avatarId={profile?.equippedAvatar}
+                    imageUrl={user?.imageUrl || profile?.avatarUrl}
+                    username={profile?.username || user?.firstName || 'W'}
+                    className="w-10 h-10 sm:w-12 sm:h-12"
+                  />
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64 glass border-white/10 p-2 mt-2" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-2">
                     <div className="flex items-center gap-3 pb-2 border-b border-white/5">
-                      {profile?.equippedAvatar === 'rainbow_vip_glow' ? (
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 p-[2px] animate-[spin_4s_linear_infinite] shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                           <Avatar className="h-full w-full rounded-full border-2 border-black animate-[spin_4s_linear_infinite_reverse]">
-                             <AvatarImage src={user?.imageUrl || profile?.avatarUrl} alt={profile?.username} />
-                             <AvatarFallback className="bg-primary/20 text-primary font-black">
-                               {(profile?.username || user?.firstName || 'W').charAt(0).toUpperCase()}
-                             </AvatarFallback>
-                           </Avatar>
-                        </div>
-                      ) : (
-                        <Avatar className={cn("h-12 w-12 border-2", activeBadgeInfo.className)}>
-                          <AvatarImage src={user?.imageUrl || profile?.avatarUrl} alt={profile?.username} />
-                          <AvatarFallback className="bg-primary/20 text-primary font-black">
-                            {(profile?.username || user?.firstName || 'W').charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
+                      <AvatarFrame
+                        avatarId={profile?.equippedAvatar}
+                        imageUrl={user?.imageUrl || profile?.avatarUrl}
+                        username={profile?.username || user?.firstName || 'W'}
+                        className="w-14 h-14"
+                      />
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-black leading-none uppercase text-white truncate max-w-[140px]">
                           {profile?.username || user?.firstName || 'Commander'}

@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
+import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,9 +38,12 @@ import {
   ImagePlus, 
   AlertCircle, 
   ArrowRight,
-  Save,
   Link as LinkIcon,
-  Zap
+  Zap,
+  Download,
+  Palette,
+  Save,
+  Settings2
 } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, addDoc, deleteDoc, getDocs, getDoc, increment, limit, serverTimestamp } from 'firebase/firestore';
@@ -58,6 +63,34 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dynamic from 'next/dynamic';
 import { THRuleCard } from '@/components/th-rule-card';
+import html2canvas from 'html2canvas';
+
+const LiveWarriorAvatar = ({ userId, fallbackAvatarId, fallbackImageUrl, username, onClick }: any) => {
+  const db = useFirestore();
+  const userRef = useMemo(() => doc(db, 'users', userId), [db, userId]);
+  const { data: profile } = useDoc(userRef);
+
+  return (
+    <AvatarFrame
+      avatarId={profile?.equippedAvatar || fallbackAvatarId}
+      imageUrl={profile?.avatarUrl || fallbackImageUrl}
+      username={username}
+      className="h-16 w-16 shrink-0"
+      onClick={onClick}
+    />
+  );
+};
+
+const CANVAS_THEMES: Record<string, string> = {
+  cyberpunk: "bg-[#0f0c29] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#302b63] to-[#24243e] border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.15)]",
+  warzone: "bg-[#2a0808] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#450a0a] via-[#2a0808] to-[#000000] border-red-500/40 shadow-[0_0_50px_rgba(220,38,38,0.2)]",
+  fantasy: "bg-[#111827] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#3730a3] via-[#312e81] to-[#111827] border-purple-500/30 shadow-[0_0_50px_rgba(168,85,247,0.15)]",
+  neo_tokyo: "bg-[#09090b] bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] border-rose-500/30 shadow-[0_0_50px_rgba(244,63,94,0.15)]",
+  champion_house: "bg-[#1a1100] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#713f12] via-[#422006] to-[#000000] border-yellow-500/50 shadow-[0_0_80px_rgba(234,179,8,0.3)]",
+  vip_rainbow: "bg-black bg-[linear-gradient(120deg,rgba(168,85,247,0.15),rgba(236,72,153,0.15),rgba(234,179,8,0.15),rgba(6,182,212,0.15))] border-white/20 shadow-[0_0_80px_rgba(236,72,153,0.2)]",
+  classic_dark: "bg-[#0a0a0a] border-white/5",
+  custom: "bg-black border-white/10"
+};
 
 const TournamentChat = dynamic(() => import('@/components/chat/TournamentChat'), { ssr: false });
 import { Tournament1v1Room } from '@/components/tournament/Tournament1v1Room';
@@ -93,37 +126,124 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   const [ending, setEnding] = useState(false);
   const [demoSize, setDemoSize] = useState<number | null>(null);
   const [demoMatches, setDemoMatches] = useState<any[]>([]);
+  
+  const [activeTab, setActiveTab] = useState('fixtures');
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isToolbarOpen, setIsToolbarOpen] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      canvasRef.current?.requestFullscreen().catch(err => {
+        console.error("Error attempting to enable fullscreen:", err);
+      });
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
 
-  // Custom Clan states
+  const handleDownloadCanvas = async () => {
+    if (!canvasRef.current) return;
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(canvasRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `bracket-${t?.name || 'tournament'}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({ title: "DOWNLOAD COMPLETE", description: "Bracket saved in HD." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "DOWNLOAD FAILED" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const [customThemeDialogOpen, setCustomThemeDialogOpen] = useState(false);
+  const [customDesktopFile, setCustomDesktopFile] = useState<File | null>(null);
+  const [customMobileFile, setCustomMobileFile] = useState<File | null>(null);
+  const [uploadingCustomTheme, setUploadingCustomTheme] = useState(false);
+
+  const submitCustomTheme = async () => {
+    if (!isAdmin || !id) return;
+    setUploadingCustomTheme(true);
+    try {
+      let desktopUrl = t?.customThemeDesktop || '';
+      let mobileUrl = t?.customThemeMobile || '';
+
+      if (customDesktopFile) {
+        const res = await uploadToCloudinary(customDesktopFile);
+        desktopUrl = res.url;
+      }
+      if (customMobileFile) {
+        const res = await uploadToCloudinary(customMobileFile);
+        mobileUrl = res.url;
+      }
+
+      await updateDoc(doc(db, 'tournaments', id), { 
+        canvasTheme: 'custom',
+        customThemeDesktop: desktopUrl,
+        customThemeMobile: mobileUrl
+      });
+      toast({ title: "CUSTOM THEME APPLIED" });
+      setCustomThemeDialogOpen(false);
+      setCustomDesktopFile(null);
+      setCustomMobileFile(null);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "UPLOAD FAILED", description: err.message });
+    } finally {
+      setUploadingCustomTheme(false);
+    }
+  };
+
+  const handleThemeChange = async (themeKey: string) => {
+    if (!isAdmin || !id) return;
+    if (themeKey === 'custom') {
+      setCustomThemeDialogOpen(true);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'tournaments', id), { canvasTheme: themeKey });
+      toast({ title: "THEME UPDATED", description: "Universal canvas theme applied." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "ERROR", description: err.message });
+    }
+  };
+
   const [editClan1Tag, setEditClan1Tag] = useState('');
   const [editClan1Link, setEditClan1Link] = useState('');
   const [editClan2Tag, setEditClan2Tag] = useState('');
   const [editClan2Link, setEditClan2Link] = useState('');
   const [savingProtocol, setSavingProtocol] = useState(false);
 
-  // Dialog status states
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  // Battle Log States
   const [logImageUrl, setLogImageUrl] = useState('');
   const [logCaption, setLogCaption] = useState('');
   const [uploadingLog, setUploadingLog] = useState(false);
   const logInputRef = useRef<HTMLInputElement>(null);
 
-  // Manual Fixture States
   const [manualSetupOpen, setManualSetupOpen] = useState(false);
   const [manualSlots, setManualSlots] = useState<{ id: string, name: string }[]>([]);
 
-  // Chat States
-  const [activeTab, setActiveTab] = useState("fixtures");
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
+  const [inspectId, setInspectId] = useState<string | null>(null);
+
   const [alertOpen, setAlertOpen] = useState(false);
   const [sendingAlert, setSendingAlert] = useState(false);
   const [timeLeft, setTimeLeft] = useState<{ label: string, time: string, isLive: boolean }>({ label: 'LOADING', time: '--:--', isLive: false });
@@ -322,7 +442,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         await setDoc(doc(db, 'tournaments', id, 'matches', match.id), match);
       }
 
-      // Generate Clan Assignments & Codes
       const totalPlayers = registrations.length;
       const updatePromises = registrations.map(async (p: any) => {
         let assignedClan = 'Clan 1';
@@ -392,6 +511,54 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     } catch (e) { toast({ variant: "destructive", title: "GENERATION FAILED" }); } finally { setGenerating(false); }
   };
 
+  const handleMatchReset = async (match: any) => {
+    if (!isAdmin || !match.winnerId || (!demoSize && t?.status === 'completed')) return;
+    if (demoSize) {
+       const updated = demoMatches.map(m => {
+         if (m.id === match.id) return { ...m, winnerId: '' };
+         if (m.id === match.nextMatchId || m.id === match.loserNextMatchId) {
+            const isP1 = m.player1Id === match.winnerId;
+            return { ...m, [isP1 ? 'player1Id' : 'player2Id']: '', [isP1 ? 'player1Name' : 'player2Name']: '' };
+         }
+         return m;
+       });
+       setDemoMatches(updated);
+       return;
+    }
+
+    const winnerId = match.winnerId;
+    const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
+
+    const matchRef = doc(db, 'tournaments', id, 'matches', match.id);
+    await updateDoc(matchRef, { winnerId: null });
+
+    if (match.nextMatchId) {
+       const nextRef = doc(db, 'tournaments', id, 'matches', match.nextMatchId);
+       const nextSnap = await getDoc(nextRef);
+       if (nextSnap.exists()) {
+          const nextData = nextSnap.data();
+          if (nextData.player1Id === winnerId) await updateDoc(nextRef, { player1Id: null, player1Name: null });
+          if (nextData.player2Id === winnerId) await updateDoc(nextRef, { player2Id: null, player2Name: null });
+       }
+    }
+
+    if (t?.bracketType === 'double_elimination' && loserId && loserId !== 'bye') {
+       if (match.loserNextMatchId) {
+          const lbNextRef = doc(db, 'tournaments', id, 'matches', match.loserNextMatchId);
+          const lbNextSnap = await getDoc(lbNextRef);
+          if (lbNextSnap.exists()) {
+             const lbData = lbNextSnap.data();
+             if (lbData.player1Id === loserId) await updateDoc(lbNextRef, { player1Id: null, player1Name: null });
+             if (lbData.player2Id === loserId) await updateDoc(lbNextRef, { player2Id: null, player2Name: null });
+          }
+       } else {
+          const regRef = doc(db, 'tournaments', id, 'registrations', loserId);
+          await updateDoc(regRef, { status: 'approved' }).catch(() => {});
+       }
+    }
+    toast({ title: "MATCH RESET" });
+  };
+
   const handleMatchWinner = async (match: any, winnerId: string, winnerName: string) => {
     if (!isAdmin || !winnerId || winnerId === 'bye' || t?.status === 'completed') return;
     if (demoSize) {
@@ -411,13 +578,10 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     const matchRef = doc(db, 'tournaments', id, 'matches', match.id);
     await updateDoc(matchRef, { winnerId });
 
-    // Special Grand Final Logic: Bracket Reset
     let shouldTriggerNextMatch = true;
     if (t?.bracketType === 'double_elimination' && match.id === 'gf-m0') {
-        // WB winner arrived first and is player1. If player1 wins, tournament is over.
         if (winnerId === match.player1Id) {
             shouldTriggerNextMatch = false;
-            // Complete tournament early!
             triggerConfetti();
         }
     }
@@ -452,7 +616,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                   }
                }
            } else {
-               // Mark as eliminated in registrations if they fully lose (no drop-down)
                const regRef = doc(db, 'tournaments', id, 'registrations', loserId);
                await updateDoc(regRef, { status: 'eliminated' }).catch(() => {});
            }
@@ -507,12 +670,11 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         claimData.completedAt = serverTimestamp();
       } else if (t.rewardType === 'ticket') {
         const amount = parseInt(t.rewardValue) || 1;
-        const tType = t.rewardTicketType || 'bronze'; // Ensure this matches what was saved in admin panel
+        const tType = t.rewardTicketType || 'bronze';
         await updateDoc(doc(db, 'users', winnerId), {
           [`inventory.${tType}Tickets`]: increment(amount)
         });
         
-        // Log it to recharge requests for tracking
         const logRef = doc(collection(db, 'recharge-requests'));
         await setDoc(logRef, {
           userId: winnerId,
@@ -610,6 +772,13 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
   };
 
   function generateDemoMatches(size: number) {
+    if (t?.bracketType === 'double_elimination') {
+      const fakePlayers = Array.from({ length: size }).map((_, i) => ({
+         id: `w${i+1}`,
+         name: `Warrior ${i+1}`
+      }));
+      return generateBracketMatches(fakePlayers, size, 'double_elimination');
+    }
     const rounds = Math.ceil(Math.log2(size));
     const demoArr = [];
     for (let r = 1; r <= rounds; r++) {
@@ -637,7 +806,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
     return <Tournament1v1Room tournament={t} tournamentId={id} />;
   }
 
-  // Render Cancelled Screen
   if (t?.status === 'cancelled') {
     const userReg = registrations?.find((r: any) => r.userId === user?.id);
     const hasRefund = t.entryFee > 0 && userReg;
@@ -690,7 +858,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             <div className="flex gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1">
               {isAdmin && (
                  <>
-                   <DropdownDemo onSelect={setDemoSize} current={demoSize} />
                    {t?.status !== 'completed' && (
                      <>
                         <Button variant="outline" size="sm" onClick={() => {
@@ -723,7 +890,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           </div>
         )}
 
-        {/* START TIME & WARNING CARD */}
         {t?.startTime && t.status !== 'completed' && t.status !== 'cancelled' && (
           <div className="flex flex-col md:flex-row gap-4 mb-2 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Card className={cn("glass border flex-1 p-4 rounded-2xl flex items-center justify-between", timeLeft.isLive ? "border-red-500/40 bg-red-900/10" : "border-primary/20 bg-primary/5")}>
@@ -773,16 +939,65 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           )}
           
           <TabsContent value="fixtures" className={cn("mt-4 outline-none relative group", isFullscreen ? "m-0 h-full" : "h-[80vh]")}>
-            <Card className={cn("glass border-white/5 relative overflow-hidden bg-[#0a0a0a] shadow-2xl transition-all duration-300", isFullscreen ? "h-full rounded-none border-0" : "h-full rounded-[2.5rem]")}>
-               <div className="absolute top-6 left-6 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl">
-                 <Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.max(0.4, prev - 0.2))}><Minus className="w-4 h-4" /></Button>
-                 <span className="text-[10px] font-black text-white w-12 text-center">{Math.round(zoom * 100)}%</span>
-                 <Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.min(2, prev + 0.2))}><Plus className="w-4 h-4" /></Button>
-                 <div className="w-[1px] h-4 bg-white/20 mx-1" /><Button size="icon" variant="ghost" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoom(1)}><Monitor className="w-4 h-4" /></Button>
-                 <div className="w-[1px] h-4 bg-white/20 mx-1" /><Button size="icon" variant="ghost" className={cn("h-9 w-9 text-white hover:bg-white/10", isFullscreen ? "text-primary" : "")} onClick={() => setIsFullscreen(!isFullscreen)}>{isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</Button>
+            <div ref={canvasRef} className={cn("glass relative overflow-hidden transition-all duration-300", isFullscreen ? "h-screen w-screen border-0 rounded-none bg-black" : "h-full rounded-[2.5rem] border-white/5", CANVAS_THEMES[t?.canvasTheme] || CANVAS_THEMES['classic_dark'])}>
+               {t?.canvasTheme === 'custom' && (
+                 <>
+                   {t?.customThemeDesktop && <img src={t.customThemeDesktop} alt="BG" className="absolute inset-0 hidden md:block w-full h-full object-cover opacity-40 pointer-events-none z-[0]" />}
+                   {(t?.customThemeMobile || t?.customThemeDesktop) && <img src={t.customThemeMobile || t.customThemeDesktop} alt="BG" className="absolute inset-0 md:hidden w-full h-full object-cover opacity-40 pointer-events-none z-[0]" />}
+                 </>
+               )}
+               <div className="absolute top-4 left-4 md:top-6 md:left-6 z-50 flex flex-col md:flex-row items-start md:items-center gap-2">
+                 <Button size="icon" variant="ghost" className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl text-white hover:bg-white/10 shrink-0" onClick={() => setIsToolbarOpen(!isToolbarOpen)}>
+                   <Settings2 className={cn("w-4 h-4 transition-transform duration-300", isToolbarOpen ? "rotate-90" : "")} />
+                 </Button>
+                 {isToolbarOpen && (
+                   <div className="flex items-center gap-1 md:gap-2 bg-black/80 backdrop-blur-xl border border-white/10 p-1 md:p-1.5 rounded-full shadow-2xl scale-[0.8] md:scale-100 origin-top-left animate-in fade-in slide-in-from-left-4 duration-300">
+                     <Button size="icon" variant="ghost" className="h-7 w-7 md:h-9 md:w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.max(0.4, prev - 0.2))}><Minus className="w-4 h-4" /></Button>
+                     <div className="hidden md:flex items-center justify-center w-12 text-[10px] font-black text-white">
+                       <input
+                         type="text"
+                         defaultValue={Math.round(zoom * 100)}
+                         key={zoom}
+                         onBlur={(e) => {
+                           const val = parseInt(e.target.value);
+                           if (!isNaN(val)) setZoom(Math.min(Math.max(val / 100, 0.1), 5));
+                         }}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter') {
+                             const val = parseInt(e.currentTarget.value);
+                             if (!isNaN(val)) setZoom(Math.min(Math.max(val / 100, 0.1), 5));
+                             e.currentTarget.blur();
+                           }
+                         }}
+                         className="w-7 text-right bg-transparent border-b border-transparent focus:border-white/20 outline-none p-0 m-0"
+                       />
+                       <span className="opacity-80">%</span>
+                     </div>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 md:h-9 md:w-9 text-white hover:bg-white/10" onClick={() => setZoom(prev => Math.min(2, prev + 0.2))}><Plus className="w-4 h-4" /></Button>
+                     <div className="w-[1px] h-4 bg-white/20 mx-0.5 md:mx-1" /><Button size="icon" variant="ghost" className="h-7 w-7 md:h-9 md:w-9 text-white hover:bg-white/10" onClick={() => setZoom(1)}><Monitor className="w-4 h-4" /></Button>
+                     <div className="w-[1px] h-4 bg-white/20 mx-0.5 md:mx-1" /><Button size="icon" variant="ghost" className={cn("h-7 w-7 md:h-9 md:w-9 text-white hover:bg-white/10", isFullscreen ? "text-primary" : "")} onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</Button>
+                     <div className="w-[1px] h-4 bg-white/20 mx-0.5 md:mx-1" />
+                     <Button size="icon" variant="ghost" className="h-7 w-7 md:h-9 md:w-9 text-white hover:bg-white/10" onClick={handleDownloadCanvas} disabled={isDownloading}>{isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</Button>
+                     {isAdmin && (
+                       <>
+                         <div className="w-[1px] h-4 bg-white/20 mx-0.5 md:mx-1" />
+                         <DropdownDemo onSelect={setDemoSize} current={demoSize} />
+                         <div className="w-[1px] h-4 bg-white/20 mx-0.5 md:mx-1" />
+                         <Select value={t?.canvasTheme || 'classic_dark'} onValueChange={handleThemeChange}>
+                           <SelectTrigger className="h-7 md:h-9 w-[110px] md:w-[130px] bg-transparent border-0 text-white focus:ring-0 text-[9px] md:text-[10px] uppercase font-black px-2">
+                             <Palette className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" /><SelectValue />
+                           </SelectTrigger>
+                           <SelectContent container={canvasRef.current} className="bg-black/95 backdrop-blur-xl border-white/10">
+                             {Object.keys(CANVAS_THEMES).map(k => <SelectItem key={k} value={k} className="text-xs uppercase font-black focus:bg-white/10">{k.replace('_', ' ')}</SelectItem>)}
+                           </SelectContent>
+                         </Select>
+                       </>
+                     )}
+                   </div>
+                 )}
                </div>
                <ScrollArea className="h-full w-full">
-                 <div className="p-40 min-w-max min-h-full transition-transform duration-300 origin-top-left" style={{ transform: `scale(${zoom})` }}>
+                 <div className="p-10 pt-24 md:p-40 min-w-max min-h-full transition-transform duration-300 origin-top-left" style={{ transform: `scale(${zoom})` }}>
                      <div className="flex flex-col gap-4 relative z-10 w-full h-full">
                        {t?.bracketType === 'double_elimination' ? (
                          <Tabs defaultValue="winners" className="w-full">
@@ -809,7 +1024,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                              const pName = pIdx === 1 ? m.player1Name : m.player2Name;
                                              const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
                                              const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default", isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
+                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && (isWinner ? handleMatchReset(m) : handleMatchWinner(m, pId, pName))} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default", isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
                                            })}
                                          </div>
                                          {roundNum < totalRounds && (<svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible"><path d={`M 0 200 L 40 200 L 40 ${mIdx % 2 === 0 ? 300 : 100} L 80 ${mIdx % 2 === 0 ? 300 : 100}`} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" /></svg>)}
@@ -838,7 +1053,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                              const pName = pIdx === 1 ? m.player1Name : m.player2Name;
                                              const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
                                              const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-red-500/50" : "cursor-default", isWinner ? "bg-red-600 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]" : isLoser ? "bg-red-950/40 border-red-900/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-red-500/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
+                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && (isWinner ? handleMatchReset(m) : handleMatchWinner(m, pId, pName))} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-red-500/50" : "cursor-default", isWinner ? "bg-red-600 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]" : isLoser ? "bg-red-950/40 border-red-900/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-red-500/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
                                            })}
                                          </div>
                                          {roundNum < (totalRounds * 2 - 2) && (<svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible"><path d={`M 0 200 L 40 200 L 40 ${mIdx % 2 === 0 ? 300 : 100} L 80 ${mIdx % 2 === 0 ? 300 : 100}`} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" /></svg>)}
@@ -867,7 +1082,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                              const pName = pIdx === 1 ? m.player1Name : m.player2Name;
                                              const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
                                              const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-yellow-500/50" : "cursor-default", isWinner ? "bg-yellow-500 border-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.4)]" : isLoser ? "bg-yellow-900/40 border-yellow-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-yellow-500/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
+                                             return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && (isWinner ? handleMatchReset(m) : handleMatchWinner(m, pId, pName))} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-yellow-500/50" : "cursor-default", isWinner ? "bg-yellow-500 border-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.4)]" : isLoser ? "bg-yellow-900/40 border-yellow-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-yellow-500/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
                                            })}
                                          </div>
                                          {roundNum === 1 && (<svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible"><path d={`M 0 200 L 80 200`} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" /></svg>)}
@@ -900,7 +1115,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                                          const pName = pIdx === 1 ? m.player1Name : m.player2Name;
                                          const isWinner = m.winnerId === pId && pId !== '' && pId !== 'bye';
                                          const isLoser = m.winnerId !== '' && m.winnerId !== pId && pId !== '' && pId !== 'bye';
-                                         return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && handleMatchWinner(m, pId, pName)} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default", isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
+                                         return (<div key={pIdx} onClick={() => isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') && (isWinner ? handleMatchReset(m) : handleMatchWinner(m, pId, pName))} className={cn("h-12 px-4 rounded-xl border-2 flex items-center justify-between group/p transition-all", isAdmin && pId && pId !== 'bye' && (demoSize || t?.status !== 'completed') ? "cursor-pointer hover:border-primary/50" : "cursor-default", isWinner ? "bg-green-600 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : isLoser ? "bg-red-900/40 border-red-600/50 opacity-60" : "bg-black/60 border-white/10")}><div className="flex items-center gap-3 overflow-hidden"><div className={cn("w-1.5 h-6 rounded-full", isWinner ? "bg-white" : "bg-primary/40")} /><span className={cn("text-sm font-black uppercase truncate", isWinner || isLoser ? "text-white" : "text-white/60")}>{pName || 'TBD'}</span></div>{isWinner && <CheckCircle2 className="w-4 h-4 text-white" />}{isLoser && <XCircle className="w-4 h-4 text-white/40" />}</div>);
                                        })}
                                      </div>
                                      {roundNum < totalRounds && (<svg className="absolute left-full top-1/2 -translate-y-1/2 w-40 h-[400px] pointer-events-none overflow-visible"><path d={`M 0 200 L 40 200 L 40 ${mIdx % 2 === 0 ? 300 : 100} L 80 ${mIdx % 2 === 0 ? 300 : 100}`} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/10" /></svg>)}
@@ -917,7 +1132,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                  <ScrollBar orientation="horizontal" className="bg-white/5 h-3" /><ScrollBar orientation="vertical" className="bg-white/5 w-3" />
                </ScrollArea>
                <div className="absolute inset-0 opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-            </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="logs" className="mt-4 outline-none">
@@ -946,14 +1161,12 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
 
           {(!isFullscreen && hasFullAccess) && (
             <>
-
-
               <TabsContent value="members" className="mt-4 outline-none">
                 <Card className="glass border-white/5 p-8 rounded-[2rem] bg-black/40">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {registrations?.map((r: any) => (
                       <div key={r.userId} className={cn(
-                        "relative flex flex-col justify-between p-4 rounded-2xl border group hover:border-primary/40 transition-all gap-4 overflow-hidden",
+                        "relative flex flex-col justify-between p-4 rounded-2xl border group hover:border-primary/40 transition-all gap-4",
                         r.ticketUsed === 'golden' ? "bg-yellow-500/5 border-yellow-500/20" :
                         r.ticketUsed === 'silver' ? "bg-slate-400/5 border-slate-400/20" :
                         r.ticketUsed === 'bronze' ? "bg-amber-600/5 border-amber-600/20" :
@@ -961,17 +1174,20 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                       )}>
                         {r.ticketUsed && r.ticketUsed !== 'none' && (
                           <div className={cn(
-                            "absolute inset-0 bg-gradient-to-r w-full animate-shimmer pointer-events-none opacity-20",
+                            "absolute inset-0 bg-gradient-to-r w-full animate-shimmer pointer-events-none opacity-20 rounded-2xl overflow-hidden",
                             r.ticketUsed === 'golden' ? "from-yellow-500/0 via-yellow-500/20 to-yellow-500/0" :
                             r.ticketUsed === 'silver' ? "from-slate-400/0 via-slate-400/20 to-slate-400/0" :
                             "from-amber-500/0 via-amber-500/20 to-amber-500/0"
                           )} />
                         )}
                         <div className="flex items-center gap-4 relative z-10">
-                          <Avatar className="h-12 w-12 border-2 border-white/10 group-hover:border-primary/20">
-                            <AvatarImage src={r.avatarUrl} />
-                            <AvatarFallback className="font-black text-sm">{r.username.substring(0,2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
+                          <LiveWarriorAvatar
+                            userId={r.userId}
+                            fallbackAvatarId={r.equippedAvatar}
+                            fallbackImageUrl={r.avatarUrl}
+                            username={r.username}
+                            onClick={() => setInspectId(r.userId)}
+                          />
                           <div className="overflow-hidden relative z-10">
                             <p className={cn(
                               "font-black uppercase text-sm truncate transition-colors",
@@ -986,7 +1202,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                           </div>
                         </div>
 
-                        {/* Clan & Join Code Data (Admin/SuperAdmin only) */}
                         {isAdmin && (
                           <div className="pt-3 border-t border-white/5 flex flex-col gap-2">
                             <div className="flex justify-between items-center">
@@ -1004,7 +1219,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                           </div>
                         )}
 
-                        {/* Kick Player button (Admin/SuperAdmin only) */}
                         {isAdmin && (
                           <Button 
                             variant="ghost" 
@@ -1020,8 +1234,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
                   </div>
                 </Card>
               </TabsContent>
-              
-
               
               <TabsContent value="protocol" className="mt-4 outline-none">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1195,7 +1407,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         </Tabs>
       </div>
 
-      {/* Manual Fixture Setup */}
       <Dialog open={manualSetupOpen} onOpenChange={setManualSetupOpen}>
         <DialogContent className="glass border-primary/20 bg-black/90 max-w-3xl">
           <DialogHeader>
@@ -1265,7 +1476,50 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         </DialogContent>
       </Dialog>
 
-      {/* End Tournament Confirmation */}
+      <Dialog open={customThemeDialogOpen} onOpenChange={setCustomThemeDialogOpen}>
+        <DialogContent className="bg-black/95 backdrop-blur-xl border-white/10 max-w-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-headline italic uppercase text-2xl text-white">Custom Theme</DialogTitle>
+            <DialogDescription className="text-white/60">Upload a background for your canvas.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-white">Desktop Background (16:9)</label>
+              <div className="relative aspect-video w-full rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all overflow-hidden cursor-pointer" onClick={() => document.getElementById('customDesktopInput')?.click()}>
+                {(customDesktopFile || t?.customThemeDesktop) ? (
+                  <>
+                     <img src={customDesktopFile ? URL.createObjectURL(customDesktopFile) : (t?.customThemeDesktop || undefined)} alt="Desktop BG" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                     <div className="relative z-10 flex flex-col items-center gap-1"><CheckCircle2 className="w-6 h-6 text-green-500" /><p className="text-[10px] font-black text-white uppercase">Selected</p></div>
+                  </>
+                ) : (
+                  <><ImagePlus className="w-8 h-8 text-muted-foreground" /><p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Select Desktop</p></>
+                )}
+                <input id="customDesktopInput" type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files && setCustomDesktopFile(e.target.files[0])} />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-white">Mobile Background (9:16)</label>
+              <div className="relative aspect-[9/16] w-32 mx-auto rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-all overflow-hidden cursor-pointer" onClick={() => document.getElementById('customMobileInput')?.click()}>
+                {(customMobileFile || t?.customThemeMobile) ? (
+                  <>
+                     <img src={customMobileFile ? URL.createObjectURL(customMobileFile) : (t?.customThemeMobile || undefined)} alt="Mobile BG" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                     <div className="relative z-10 flex flex-col items-center gap-1"><CheckCircle2 className="w-6 h-6 text-green-500" /><p className="text-[10px] font-black text-white uppercase">Selected</p></div>
+                  </>
+                ) : (
+                  <><ImagePlus className="w-6 h-6 text-muted-foreground" /><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center px-2">Select Mobile</p></>
+                )}
+                <input id="customMobileInput" type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files && setCustomMobileFile(e.target.files[0])} />
+              </div>
+            </div>
+            
+            <Button className="w-full h-12 font-black uppercase tracking-widest" onClick={submitCustomTheme} disabled={uploadingCustomTheme}>
+              {uploadingCustomTheme ? <Loader2 className="w-5 h-5 animate-spin" /> : "Apply Theme"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
         <DialogContent className="glass border-primary/20 max-w-md p-6 rounded-3xl bg-black/90">
           <DialogHeader className="mb-4">
@@ -1325,7 +1579,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Tournament Confirmation */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent className="glass border-red-500/20 max-w-md p-6 rounded-3xl bg-black/90">
           <DialogHeader className="mb-4">
@@ -1358,7 +1611,6 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           </div>
         </DialogContent>
       </Dialog>
-      {/* Floating Action Button for Chat */}
       {(!isFullscreen && hasFullAccess) && (
         <Button
           onClick={() => setIsChatOpen(true)}
@@ -1380,10 +1632,8 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
         </Button>
       )}
 
-      {/* Chat Side Panel */}
       {(!isFullscreen && hasFullAccess) && (
         <>
-          {/* Backdrop for mobile */}
           {isChatOpen && (
             <div 
               className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm lg:hidden transition-opacity" 
@@ -1415,7 +1665,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
           </div>
         </>
       )}
-
+      <ProfileInspectModal userId={inspectId} open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)} />
     </PageWrapper>
   );
 }

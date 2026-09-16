@@ -57,7 +57,7 @@ export default function UserManagementPage() {
 
   const isSuperAdmin = user?.id === MASTER_SUPER_ADMIN_ID || myProfile?.isSuperAdmin;
 
-  const [limitCount, setLimitCount] = useState(100);
+  const [limitCount, setLimitCount] = useState(200);
   // Retrieve all users (Active Player Cache)
   const allUsersQuery = useMemo(() => query(collection(db, 'users'), limit(limitCount)), [db, limitCount]);
   const { data: allUsers, loading } = useCollection(allUsersQuery);
@@ -478,7 +478,7 @@ export default function UserManagementPage() {
             <Button 
               variant="outline" 
               className="glass border-white/10 hover:bg-white/5 text-white font-bold"
-              onClick={() => setLimitCount(prev => prev + 20)}
+              onClick={() => setLimitCount(prev => prev + 100)}
             >
               Load More Users
             </Button>

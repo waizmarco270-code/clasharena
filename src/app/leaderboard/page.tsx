@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import '@/app/badge-anime.css';
+import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
+import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
 
 export default function RichLeaderboardPage() {
   const db = useFirestore();
@@ -19,6 +21,7 @@ export default function RichLeaderboardPage() {
   const [allTimePlayers, setAllTimePlayers] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('current');
+  const [inspectId, setInspectId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRichest = async () => {
@@ -153,10 +156,13 @@ export default function RichLeaderboardPage() {
 
                     {/* Avatar & Info */}
                     <div className="flex-1 flex items-center gap-4 w-full">
-                      <Avatar className={cn("w-16 h-16 md:w-20 md:h-20 border-2 shadow-lg", borderColor)}>
-                         <AvatarImage src={player.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`} />
-                         <AvatarFallback className="font-black text-xl bg-black">{player.username?.substring(0,2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                      <AvatarFrame 
+                        avatarId={player.equippedAvatar}
+                        imageUrl={player.avatarUrl}
+                        username={player.username}
+                        className={cn("w-16 h-16 md:w-20 md:h-20", borderColor)}
+                        onClick={() => setInspectId(player.id)}
+                      />
                       
                       <div className="space-y-1.5 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -217,6 +223,7 @@ export default function RichLeaderboardPage() {
         </Tabs>
 
       </div>
+      <ProfileInspectModal userId={inspectId} open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)} />
     </PageWrapper>
   );
 }

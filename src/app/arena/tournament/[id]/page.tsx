@@ -6,7 +6,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, ChevronLeft, Loader2, PlayCircle, Shield, Swords, Trophy, Users, Zap, Ticket, Crown } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Loader2, PlayCircle, Shield, Swords, Trophy, Users, Zap, Ticket, Crown, Share2 } from 'lucide-react';
 import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Image from 'next/image';
@@ -123,6 +123,27 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
     }
   };
 
+  const handleShare = async () => {
+    if (!t) return;
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: `Clash Arena - ${t.name}`,
+      text: `Join my Clash Arena Tournament: ${t.name}! Check it out here:`,
+      url: shareUrl,
+    };
+    
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing", err);
+      }
+    } else {
+      navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      toast({ title: "LINK COPIED", description: "Tournament link copied to clipboard!" });
+    }
+  };
+
   if (tLoading) return <PageWrapper><div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-primary" /></div></PageWrapper>;
   if (!t) return <PageWrapper><div className="text-center py-20"><p className="text-muted-foreground font-black uppercase">Arena Not Found</p></div></PageWrapper>;
 
@@ -131,9 +152,14 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
   return (
     <PageWrapper>
       <div className="max-w-6xl mx-auto space-y-8 pb-20">
-        <Link href="/arena" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest">
-          <ChevronLeft className="w-4 h-4" /> Back to Arena
-        </Link>
+        <div className="flex justify-between items-center">
+          <Link href="/arena" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest">
+            <ChevronLeft className="w-4 h-4" /> Back to Arena
+          </Link>
+          <Button variant="outline" size="sm" onClick={handleShare} className="bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-black font-black uppercase text-[10px] tracking-widest gap-2">
+            <Share2 className="w-3 h-3" /> Share Tournament
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
