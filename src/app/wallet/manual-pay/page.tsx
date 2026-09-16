@@ -7,6 +7,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { 
   QrCode, 
   ExternalLink, 
@@ -108,7 +109,7 @@ function ManualPayContent() {
             body: JSON.stringify({
               audience: 'admins',
               title: 'Manual Recharge Alert ⚡',
-              body: `${requestData.username} requested 🪙 ${requestData.amount} Coins. Review details now!`,
+              body: `${requestData.username} requested <CoinIcon /> ${requestData.amount} Coins. Review details now!`,
               data: {
                 type: 'manual_recharge',
                 transactionId: requestData.transactionId
@@ -145,7 +146,7 @@ function ManualPayContent() {
         <div className="space-y-4">
           <h2 className="font-headline text-4xl font-black italic uppercase">REQUEST <span className="text-primary">COMMANDED</span></h2>
           <p className="text-muted-foreground font-medium px-8">
-            Your payment for <span className="text-white font-bold">{currency === 'vcash' ? `⚡ ${amount} V-Cash` : `🪙 ${amount} Coins`}</span> has been received.
+            Your payment for <span className="text-white font-bold">{currency === 'vcash' ? `⚡ ${amount} V-Cash` : <><CoinIcon /> {amount} Coins</>}</span> has been received.
           </p>
         </div>
         <Card className="glass border-white/5 bg-white/5 p-6 mx-8 flex items-center gap-4 text-left">

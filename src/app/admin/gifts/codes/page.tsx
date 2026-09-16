@@ -8,6 +8,7 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Key, Gift, X, Loader2, Coins, Activity, Timer, Users, RefreshCw, PowerOff, Trash2, Ticket, Crown, Zap } from 'lucide-react';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -196,7 +197,7 @@ export default function GiftCodesPage() {
                         <SelectValue placeholder="Select Reward" />
                       </SelectTrigger>
                       <SelectContent className="border-white/10 glass text-xs font-bold text-white">
-                        <SelectItem value="coins">🪙 Coins</SelectItem>
+                        <SelectItem value="coins"><CoinIcon /> Coins</SelectItem>
                         <SelectItem value="v-cash">⚡ V-Cash</SelectItem>
                         <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
                         <SelectItem value="silver">🎫 Silver Ticket</SelectItem>

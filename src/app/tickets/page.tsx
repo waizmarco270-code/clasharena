@@ -9,6 +9,7 @@ import { useFirestore, useProfile } from '@/firebase';
 import { collection, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@clerk/nextjs';
+import { CoinIcon } from '@/components/ui/coin-icon';
 
 export default function TicketVaultPage() {
   const db = useFirestore();
@@ -65,7 +66,7 @@ export default function TicketVaultPage() {
        toast({
         variant: "destructive",
         title: "OUT OF STOCK",
-        description: `The ticket sold out during purchase! We refunded you 🪙 ${urlParams.get('amount')} Coins to your wallet.`,
+        description: `The ticket sold out during purchase! We refunded you <CoinIcon /> ${urlParams.get('amount')} Coins to your wallet.`,
       });
       window.history.replaceState({}, '', '/tickets');
     }

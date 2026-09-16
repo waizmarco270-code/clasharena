@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useCosmetics } from "@/hooks/use-cosmetics";
 import { Button } from "@/components/ui/button";
+import { CoinIcon } from '@/components/ui/coin-icon';
 
 interface ProfileInspectModalProps {
   userId: string | null;
@@ -119,7 +120,7 @@ export function ProfileInspectModal({ userId, open, onOpenChange }: ProfileInspe
                      </div>
                      <div className="text-left">
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Treasury</p>
-                        <p className="text-sm font-black text-white">🪙 {profileData.balance || 0} Coins</p>
+                        <p className="text-sm font-black text-white"><CoinIcon /> {profileData.balance || 0} Coins</p>
                      </div>
                   </div>
                   <div className="text-right">

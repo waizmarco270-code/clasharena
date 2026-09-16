@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { 
   History, 
   ChevronLeft, 
@@ -160,7 +161,7 @@ export default function WalletHistoryPage() {
             <CardContent className="p-6 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Total Coins Credited</p>
-                <p className="text-2xl font-headline font-black text-white">🪙 {stats.totalCoins}</p>
+                <p className="text-2xl font-headline font-black text-white"><CoinIcon /> {stats.totalCoins}</p>
               </div>
               <div className="p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/20 group-hover:scale-110 transition-transform">
                 <Coins className="w-6 h-6 text-yellow-500" />
@@ -322,7 +323,7 @@ export default function WalletHistoryPage() {
                             <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/5">📝 MANUAL</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-headline font-black text-white">🪙 {log.amount}</TableCell>
+                        <TableCell className="font-headline font-black text-white"><CoinIcon /> {log.amount}</TableCell>
                         <TableCell className="text-xs text-muted-foreground font-medium">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3 h-3" />

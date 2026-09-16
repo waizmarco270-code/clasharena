@@ -11,6 +11,7 @@ import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { isBefore, isAfter } from 'date-fns';
 import { THRuleCard } from '@/components/th-rule-card';
 import { useUser } from "@clerk/nextjs";
@@ -185,12 +186,14 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
                     <Trophy className="w-5 h-5 text-yellow-500 mx-auto mb-2" />
                     <p className="text-[10px] text-muted-foreground uppercase font-black">Prize Pool</p>
-                    <p className="text-lg font-black text-white">{t.prizePool}</p>
+                    <p className="text-lg font-black text-white">
+                      {t.prizePool?.includes('🪙') ? <><CoinIcon /> {t.prizePool.replace('🪙', '').trim()}</> : t.prizePool}
+                    </p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
                     <Swords className="w-5 h-5 text-red-500 mx-auto mb-2" />
                     <p className="text-[10px] text-muted-foreground uppercase font-black">Entry Fee</p>
-                    <p className="text-lg font-black text-primary">🪙 {t.entryFee}</p>
+                    <p className="text-lg font-black text-primary"><CoinIcon /> {t.entryFee}</p>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
                     <Users className="w-5 h-5 text-blue-500 mx-auto mb-2" />
@@ -246,7 +249,7 @@ export default function TournamentDetailsPage({ params }: { params: Promise<{ id
                     >
                       {registering ? <Loader2 className="animate-spin" /> : (
                         <>
-                          PAY 🪙 {t.entryFee} <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                          PAY <CoinIcon /> {t.entryFee} <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
                         </>
                       )}
                     </Button>

@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { AppLogoImage } from '@/components/ui/app-logo-image';
 import { Badge } from '@/components/ui/badge';
 import { getRankByWins, getRankByType, RankType } from '@/lib/rank-utils';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -278,7 +279,7 @@ export function Header() {
           
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Link href="/wallet" className="flex items-center gap-1 sm:gap-2 bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-border/10 hover:bg-primary/10 transition-colors group">
-              <span className="text-[11px] sm:text-sm font-black leading-none mt-0.5">🪙 {profile?.balance || 0}</span>
+              <span className="text-[11px] sm:text-sm font-black leading-none mt-0.5"><CoinIcon /> {profile?.balance || 0}</span>
               <div className="flex h-4 w-4 sm:h-6 sm:w-6 rounded-full items-center justify-center bg-transparent group-hover:scale-110 transition-transform">
                 <Wallet className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
               </div>

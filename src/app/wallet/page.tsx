@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { 
   Wallet, 
   Plus, 
@@ -85,8 +86,8 @@ function WalletPageContent() {
   const [loading, setLoading] = useState(false);
 
   const templates = [
-    { id: 't1', payAmount: 20, coins: 20, label: '🪙 20' },
-    { id: 't2', payAmount: 50, coins: 50, label: '🪙 50' },
+    { id: 't1', payAmount: 20, coins: 20, label: <><CoinIcon /> 20</> },
+    { id: 't2', payAmount: 50, coins: 50, label: <><CoinIcon /> 50</> },
     { id: 't3', payAmount: 100, coins: 120, label: '100 + 20 Bonus' },
     { id: 't4', payAmount: 129, coins: 169, label: '129 + 40 Bonus', badge: 'VALUE FOR MONEY' }
   ];
@@ -130,7 +131,7 @@ function WalletPageContent() {
 
       toast({
         title: "RECHARGE SUCCESSFUL",
-        description: `🪙 ${creditedAmount} Coins have been added to your vault!`,
+        description: <><CoinIcon /> {creditedAmount} Coins have been added to your vault!</>,
       });
 
       // Clear search query parameters cleanly without reload
@@ -276,7 +277,7 @@ function WalletPageContent() {
             <CardContent>
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl font-headline font-black text-foreground">🪙 {profile?.balance || 0}</span>
+                  <span className="text-4xl font-headline font-black text-foreground"><CoinIcon /> {profile?.balance || 0}</span>
                 </div>
                 <div className="flex items-center gap-3 border-t border-white/10 pt-4">
                   <span className="text-xs font-black uppercase text-muted-foreground w-20">VS Balance</span>
@@ -302,7 +303,7 @@ function WalletPageContent() {
                   onClick={() => setCurrency('coins')}
                   className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${currency === 'coins' ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground hover:text-white'}`}
                 >
-                  🪙 Coins
+                  <CoinIcon /> Coins
                 </button>
                 <button 
                   onClick={() => setCurrency('vcash')}

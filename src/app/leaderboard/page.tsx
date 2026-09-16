@@ -8,6 +8,7 @@ import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Trophy, Crown, Coins, Ticket, Loader2, ShieldAlert } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import '@/app/badge-anime.css';
@@ -189,7 +190,7 @@ export default function RichLeaderboardPage() {
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1 flex items-center gap-1 justify-center md:justify-end">
                           <Coins className="w-3 h-3 text-amber-500" /> {activeTab === 'current' ? 'Wallet Balance' : 'Lifetime Coins'}
                         </p>
-                        <p className="text-3xl font-headline font-black text-white">🪙 {displayCoins}</p>
+                        <p className="text-3xl font-headline font-black text-white"><CoinIcon /> {displayCoins}</p>
                       </div>
 
                       {/* Tickets */}

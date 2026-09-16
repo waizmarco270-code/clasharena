@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarFrame } from "@/components/cosmetics/AvatarFrame";
 import { CosmeticItem, CosmeticTier, CosmeticType, AVATAR_REGISTRY } from "@/config/cosmetics";
-import { Loader2, Plus, UploadCloud, Save, Trash2, ShieldAlert, Edit3 } from "lucide-react";
+import { Loader2, Plus, UploadCloud, Save, Trash2, ShieldAlert, Edit3, Hexagon, Gem, Crown, Sparkles, Circle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -222,6 +222,86 @@ export default function AdminCosmeticsPage() {
         </div>
 
       </div>
+
+        {/* CURRENCY ASSET PREVIEW */}
+        <div className="pt-12 border-t border-white/5 space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-headline font-black italic uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-600">
+              Currency Asset Previews
+            </h2>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest">
+              Select the new premium identity for Clash Arena Coins
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6">
+            {/* 1. Golden Hex-Core */}
+            <Card className="glass border-amber-500/20 bg-black/60 relative overflow-hidden group hover:border-amber-500/50 transition-all hover:-translate-y-2">
+              <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-amber-500/20 blur-2xl rounded-full" />
+                  <Hexagon className="w-20 h-20 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)] fill-amber-500/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Hexagon className="w-8 h-8 text-amber-200 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,1)]" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-black uppercase text-amber-400 tracking-wider">The Golden Hex-Core</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase mt-2">Modern / Esports Vibe</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 2. Royal Gem */}
+            <Card className="glass border-yellow-500/20 bg-black/60 relative overflow-hidden group hover:border-yellow-500/50 transition-all hover:-translate-y-2">
+              <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-yellow-500/20 blur-2xl rounded-full" />
+                  <Gem className="w-20 h-20 text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] fill-yellow-500/20" />
+                </div>
+                <div>
+                  <h3 className="font-black uppercase text-yellow-400 tracking-wider">The Royal Gem</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase mt-2">Premium Loot Vibe</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 3. Clash Crown */}
+            <Card className="glass border-orange-500/20 bg-black/60 relative overflow-hidden group hover:border-orange-500/50 transition-all hover:-translate-y-2">
+              <div className="absolute inset-0 bg-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full" />
+                  <Crown className="w-20 h-20 text-orange-400 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] fill-orange-500/20" />
+                </div>
+                <div>
+                  <h3 className="font-black uppercase text-orange-400 tracking-wider">The Clash Crown</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase mt-2">Glory & Champion Vibe</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 4. Radiant Token */}
+            <Card className="glass border-yellow-300/20 bg-black/60 relative overflow-hidden group hover:border-yellow-300/50 transition-all hover:-translate-y-2">
+              <div className="absolute inset-0 bg-yellow-300/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-yellow-300/20 blur-2xl rounded-full" />
+                  <Circle className="w-20 h-20 text-yellow-500 drop-shadow-[0_0_15px_rgba(253,224,71,0.5)] fill-yellow-600/40" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="w-10 h-10 text-yellow-200 fill-yellow-400 drop-shadow-[0_0_10px_rgba(253,224,71,1)]" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-black uppercase text-yellow-300 tracking-wider">The Radiant Token</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase mt-2">Classic Legendary Vibe</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
       {/* CREATE / EDIT MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

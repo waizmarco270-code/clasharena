@@ -10,6 +10,7 @@ import { useCollection, useFirestore, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, setDoc, limit, writeBatch, getDoc, getDocs, where, deleteDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Eye, TrendingUp, Search, X, Loader2, Calendar, Settings as SettingsIcon } from 'lucide-react';
 import { default as NextLink } from 'next/link';
@@ -281,7 +282,7 @@ export default function WalletLogsPage() {
                   <PlayerTHBadge userId={req.userId} />
                 </TableCell>
                 <TableCell className={`font-black ${req.amount < 0 ? 'text-red-500' : req.currency === 'vcash' ? 'text-green-500' : 'text-primary'}`}>
-                  {req.currency === 'vcash' ? '⚡ ' : '🪙 '} 
+                  {req.currency === 'vcash' ? '⚡ ' : <CoinIcon />} 
                   {req.amount > 0 && type !== 'deduction' ? '+' : ''}{req.coins !== undefined ? req.coins : req.amount}
                   {req.coins !== undefined && req.coins !== req.amount && (
                     <span className="block text-[9px] text-muted-foreground mt-0.5 uppercase tracking-widest">PAID ₹{req.amount}</span>

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, Gift, X, Loader2, Coins, Skull, Activity, Timer, CheckCircle2, User, Trash2, Ticket, Crown, Zap } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -339,7 +340,7 @@ export default function AdminGiftsPage() {
                             <Badge variant="outline" className="border-slate-400/30 text-slate-400 bg-slate-400/5 px-1.5"><Ticket className="w-3 h-3 mr-1"/> {u.inventory?.silverTickets || 0}</Badge>
                             <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 bg-yellow-500/5 px-1.5"><Crown className="w-3 h-3 mr-1"/> {u.inventory?.goldenTickets || 0}</Badge>
                           </div>
-                          <p className="text-xs font-black text-primary ml-2">🪙 {u.balance || 0}</p>
+                          <p className="text-xs font-black text-primary ml-2"><CoinIcon /> {u.balance || 0}</p>
                         </div>
                       </div>
                     ))
@@ -365,7 +366,7 @@ export default function AdminGiftsPage() {
                       </div>
                       <div className="text-right bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
                         <p className="text-[9px] text-muted-foreground uppercase font-black mb-0.5">Current Balance</p>
-                        <p className="font-headline font-black text-primary text-lg leading-none">🪙 {selectedUser.balance || 0}</p>
+                        <p className="font-headline font-black text-primary text-lg leading-none"><CoinIcon /> {selectedUser.balance || 0}</p>
                       </div>
                     </div>
                   </div>
@@ -379,7 +380,7 @@ export default function AdminGiftsPage() {
                             <SelectValue placeholder="Select Reward" />
                           </SelectTrigger>
                           <SelectContent className="border-white/10 glass text-xs font-bold text-white">
-                            <SelectItem value="coins">🪙 Coins</SelectItem>
+                            <SelectItem value="coins"><CoinIcon /> Coins</SelectItem>
                             <SelectItem value="v-cash">⚡ V-Cash</SelectItem>
                             <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
                             <SelectItem value="silver">🎫 Silver Ticket</SelectItem>
@@ -466,7 +467,7 @@ export default function AdminGiftsPage() {
                         <SelectValue placeholder="Select Reward" />
                       </SelectTrigger>
                       <SelectContent className="border-white/10 glass text-xs font-bold text-white">
-                        <SelectItem value="coins">🪙 Coins</SelectItem>
+                        <SelectItem value="coins"><CoinIcon /> Coins</SelectItem>
                         <SelectItem value="v-cash">⚡ V-Cash</SelectItem>
                         <SelectItem value="bronze">🎫 Bronze Ticket</SelectItem>
                         <SelectItem value="silver">🎫 Silver Ticket</SelectItem>

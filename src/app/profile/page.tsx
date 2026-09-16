@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Wallet, Trophy, Swords, Zap, Timer, QrCode, Edit3, ShieldCheck,
@@ -488,7 +489,7 @@ export default function ProfilePage() {
                               <div>
                                 <p className="font-bold text-sm text-foreground uppercase">{w.tournamentName || 'Tournament Victory'}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  {rType === 'coin' && <span className="text-xs font-black text-primary">🪙 {rValue}</span>}
+                                  {rType === 'coin' && <span className="text-xs font-black text-primary"><CoinIcon /> {rValue}</span>}
                                   {rType === 'v-cash' && <span className="text-xs font-black text-green-500">⚡ {rValue}</span>}
                                   {rType === 'ticket' && <span className="text-xs font-black text-amber-500">🎫 {rValue} {w.rewardTicketType || ''} Ticket</span>}
                                   {rType !== 'coin' && rType !== 'v-cash' && rType !== 'ticket' && <span className="text-xs font-black text-primary">🎁 {w.rewardItemName || rValue}</span>}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { 
   Search, 
   CheckCircle2, 
@@ -176,7 +177,7 @@ export default function UserManagementPage() {
     try {
       await updateDoc(doc(db, 'users', userId), { balance: increment(50) });
       toast({
-        title: "Coins Dispatched 🪙",
+        title: "Coins Dispatched <CoinIcon />",
         description: `Dispatched 50 Arena Coins to ${username}.`
       });
     } catch (err: any) {

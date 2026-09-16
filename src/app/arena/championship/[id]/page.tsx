@@ -12,6 +12,7 @@ import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { isBefore, isAfter } from 'date-fns';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
@@ -164,7 +165,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           <div className="absolute bottom-6 left-8">
             <h3 className="text-xl font-black uppercase italic text-white drop-shadow-lg">Entry Fee</h3>
-            <p className="text-3xl font-black text-yellow-500">{t.entryFee === 0 ? 'FREE' : `🪙 ${t.entryFee}`}</p>
+            <p className="text-3xl font-black text-yellow-500">{t.entryFee === 0 ? 'FREE' : <><CoinIcon /> {t.entryFee}</>}</p>
           </div>
         </div>
 
@@ -215,7 +216,7 @@ export default function ChampionshipDetailsPage({ params }: { params: Promise<{ 
                         {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : 
                          !isAllowedTh ? `TH ${myTh} NOT ALLOWED` :
                          isMyThFull ? `TH ${myTh} FULL` :
-                         status === 'OPEN' ? `PAY 🪙 ${t.entryFee || 0}` : 
+                         status === 'OPEN' ? `PAY <CoinIcon /> ${t.entryFee || 0}` : 
                          status === 'REGISTRATION_SOON' ? 'WAITING' : 'CLOSED'}
                       </Button>
 

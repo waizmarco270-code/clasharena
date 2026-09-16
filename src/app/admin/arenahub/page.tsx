@@ -5,6 +5,7 @@ import { default as NextLink } from 'next/link';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Badge } from '@/components/ui/badge';
 import { TournamentStatusBadge } from '@/components/TournamentStatusBadge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';

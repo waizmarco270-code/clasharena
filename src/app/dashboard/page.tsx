@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
 import { 
   Swords, 
@@ -1032,7 +1033,7 @@ function GiftClaimCard({ gift, onClaim }: { gift: any, onClaim: (giftId: string,
           <div className="text-right hidden md:block">
             <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Reward</p>
             <p className="font-black text-2xl text-primary leading-none capitalize">
-              {rewardType === 'coins' ? `🪙 ${gift.amount}` : `${gift.amount} ${rewardType} Ticket${gift.amount > 1 ? 's' : ''}`}
+              {rewardType === 'coins' ? <><CoinIcon /> {gift.amount}</> : `${gift.amount} ${rewardType} Ticket${gift.amount > 1 ? 's' : ''}`}
             </p>
           </div>
           <Button onClick={handleClaim} disabled={claiming} className="bg-primary text-black font-black uppercase tracking-widest px-8 h-12 hover:bg-primary/90 glow-primary">
@@ -1349,7 +1350,7 @@ export default function Dashboard() {
                 <Card className="glass border-border/40 dark:border-white/5 bg-primary/5 hover:bg-primary/10 transition-colors backdrop-blur-xl group">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-4"><Wallet className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" /><Badge variant="outline" className="text-[10px] border-primary/20">VAULT</Badge></div>
-                    <p className="text-2xl font-black font-headline text-foreground">🪙 {profile?.balance || 0}</p>
+                    <p className="text-2xl font-black font-headline text-foreground"><CoinIcon /> {profile?.balance || 0}</p>
                     <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Available Coins</p>
                   </CardContent>
                 </Card>
@@ -1418,7 +1419,9 @@ export default function Dashboard() {
                          <CardContent className="p-5 flex justify-between items-center bg-black/35">
                             <div className="space-y-0.5">
                                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Reward Pool</p>
-                               <p className="text-lg font-headline font-black text-primary">{t.prizePool}</p>
+                               <p className="text-lg font-headline font-black text-primary">
+                                 {t.prizePool?.includes('🪙') ? <><CoinIcon /> {t.prizePool.replace('🪙', '').trim()}</> : t.prizePool}
+                               </p>
                             </div>
                             <NextLink href={t.type === 'championship' ? `/arena/championship/${t.id}` : `/arena/tournament/${t.id}`}>
                                <Button className="bg-white text-black font-black uppercase h-10 px-6 rounded-xl hover:scale-105 transition-transform text-xs">

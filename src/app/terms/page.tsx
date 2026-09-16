@@ -3,6 +3,7 @@
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Scale, ShieldAlert, CheckCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { CoinIcon } from '@/components/ui/coin-icon';
 
 export default function TermsPage() {
   const sections = [
@@ -16,7 +17,7 @@ export default function TermsPage() {
     },
     {
       title: "3. Coin Recharge & Payments",
-      content: "Clash Arena uses virtual Coins ('🪙') as platform currency for tournament entries. Coins can be obtained via authorized online payment methods (Razorpay). Coins hold no monetary value outside the platform, cannot be transferred to other users, and cannot be exchanged for cash currency under normal conditions, subject to our Refund Policy."
+      content: <>Clash Arena uses virtual Coins ('<CoinIcon />') as platform currency for tournament entries. Coins can be obtained via authorized online payment methods (Razorpay). Coins hold no monetary value outside the platform, cannot be transferred to other users, and cannot be exchanged for cash currency under normal conditions, subject to our Refund Policy.</>
     },
     {
       title: "4. Tournament Guidelines & Bracket Integrity",

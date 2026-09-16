@@ -5,6 +5,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Search, Loader2, Skull, Gavel, Scale, CheckCircle2, XCircle, Filter, Activity, Clock } from 'lucide-react';
 import { useFirestore } from '@/firebase';
@@ -325,7 +326,7 @@ export default function AdminBansPage() {
                         </div>
                         <div className="bg-white/5 p-3 rounded-xl text-center border border-white/10">
                           <p className="text-[9px] font-black uppercase text-muted-foreground mb-1">Wallet</p>
-                          <p className="font-black text-amber-500 text-sm">{selectedUser.walletBalance || 0} 🪙</p>
+                          <p className="font-black text-amber-500 text-sm">{selectedUser.walletBalance || 0} <CoinIcon /></p>
                         </div>
                       </div>
 

@@ -10,6 +10,7 @@ import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
 import { ProfileInspectModal } from '@/components/profile/ProfileInspectModal';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { CoinIcon } from '@/components/ui/coin-icon';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Swords, 
@@ -828,7 +829,7 @@ export default function TournamentPlayArena({ params }: { params: Promise<{ id: 
             {hasRefund && (
               <div className="pt-4 border-t border-white/5 bg-green-500/5 p-3 rounded-xl border border-green-500/10 text-center">
                 <p className="text-[10px] font-black text-green-500 uppercase tracking-widest">Entry Fee Refunded</p>
-                <p className="text-lg font-black text-white mt-1">🪙 {t.entryFee} Coins Credited</p>
+                <p className="text-lg font-black text-white mt-1"><CoinIcon /> {t.entryFee} Coins Credited</p>
               </div>
             )}
             <p className="text-[9px] text-center text-muted-foreground uppercase font-black tracking-widest pt-2">We apologize for the inconvenience.</p>
