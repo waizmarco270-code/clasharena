@@ -23,7 +23,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { useProfile, useBackgrounds, useFirestore, useDoc } from '@/firebase';
+import { useProfile, useBackgrounds, useFirestore, useDoc, useAdminStatus } from '@/firebase';
 import { useUser } from "@clerk/nextjs";
 import { doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -78,6 +78,7 @@ function WalletPageContent() {
   const { data: settings } = useDoc(settingsRef);
   const hideManual = settings?.hideManual === true;
   const hideAuto = settings?.hideAuto === true;
+  const { isAdmin } = useAdminStatus();
 
   const [amount, setAmount] = useState<number>(50);
   const [coins, setCoins] = useState<number>(50);
@@ -141,7 +142,7 @@ function WalletPageContent() {
   }, [searchParams, toast]);
 
   const proceedToPay = async (method: 'manual' | 'auto') => {
-    if (amount < 10) {
+    if (amount < 10 && !isAdmin) {
       toast({ variant: "destructive", title: "Minimum Purchase is 10 coins", description: "You must buy at least 10 coins." });
       setMethodDialogOpen(false);
       return;

@@ -60,6 +60,7 @@ export function AppSidebar() {
   const mainNav = [
     { name: 'Command Hub', href: '/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
     { name: 'Tournament Arena', href: '/arena', icon: Swords, color: 'text-red-500' },
+    { name: 'THC Arena 🏆', href: '/thc-arena', icon: Shield, color: 'text-primary' },
     { name: 'VS Arena ⚡', href: '/vs-arena', icon: Zap, color: 'text-orange-500' },
     { name: 'Coin Vault', href: '/wallet', icon: Wallet, color: 'text-emerald-500' },
     { name: 'Ticket Vault', href: '/tickets', icon: Ticket, color: 'text-purple-500' },

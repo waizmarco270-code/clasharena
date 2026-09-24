@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
+import { ThcCreateModal } from '@/components/admin/ThcCreateModal';
 
 export default function ArenaHubPage() {
   const db = useFirestore();
@@ -55,9 +56,16 @@ export default function ArenaHubPage() {
   const { data: vsChallenges } = useCollection(vsQuery);
 
   const [tOpen, setTOpen] = useState(false);
+  const [thcOpen, setThcOpen] = useState(false);
   const [tLoading, setTLoading] = useState(false);
   const [editTId, setEditTId] = useState<string | null>(null);
   const [deleteTId, setDeleteTId] = useState<string | null>(null);
+  const [deleteType, setDeleteType] = useState<'arena' | 'thc' | null>(null);
+  const [editThcData, setEditThcData] = useState<any>(null);
+  
+  // THC Data Fetching
+  const thcQuery = useMemo(() => query(collection(db, 'thc_tournaments'), orderBy('startTime', 'desc'), limit(limitCount)), [db, limitCount]);
+  const { data: thcTournaments } = useCollection(thcQuery);
   const [deleteVsId, setDeleteVsId] = useState<string | null>(null);
   const [vsSettlementMode, setVsSettlementMode] = useState<'auto' | 'manual'>('auto');
   const [vsSettingsLoading, setVsSettingsLoading] = useState(false);
@@ -286,8 +294,8 @@ export default function ArenaHubPage() {
              <Gavel className="w-5 h-5" /> MANAGE TH RULES
            </Button>
         </NextLink>
-        <Button onClick={() => { resetTForm(); setTOpen(true); }} className="bg-primary font-black gap-2 h-12 px-6 glow-primary">
-          <Plus className="w-5 h-5" /> CREATE TOURNAMENT
+        <Button onClick={() => activeTab === 'thc' ? setThcOpen(true) : (resetTForm(), setTOpen(true))} className="bg-primary font-black gap-2 h-12 px-6 glow-primary">
+          <Plus className="w-5 h-5" /> CREATE {activeTab === 'thc' ? 'THC EVENT' : 'TOURNAMENT'}
         </Button>
       </div>
 
@@ -295,6 +303,7 @@ export default function ArenaHubPage() {
         <TabsList className="bg-black/40 border border-white/5 h-12 w-full justify-start rounded-xl p-1 mb-6">
           <TabsTrigger value="latest" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">LATEST ARENA</TabsTrigger>
           <TabsTrigger value="past" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">PAST ARENA</TabsTrigger>
+          <TabsTrigger value="thc" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">THC EVENTS</TabsTrigger>
           <TabsTrigger value="vs-matches" className="data-[state=active]:bg-primary rounded-lg px-6 h-full font-black uppercase text-[10px]">VS MATCHES</TabsTrigger>
         </TabsList>
         
@@ -346,13 +355,44 @@ export default function ArenaHubPage() {
                   </CardContent>
                 </NextLink>
                 <div className="absolute top-2 right-2 flex gap-1 z-10">
-                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={(e) => { e.preventDefault(); setDeleteTId(t.id); }}><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={(e) => { e.preventDefault(); setDeleteTId(t.id); setDeleteType('arena'); }}><Trash2 className="w-4 h-4" /></Button>
                 </div>
               </Card>
             ))}
           </div>
           {pastTournaments.length === 0 && (
              <div className="text-center p-12 text-white/50 font-black uppercase tracking-widest text-[10px]">No Past Arenas</div>
+          )}
+          <div className="flex justify-center mt-8">
+            <Button variant="outline" onClick={() => setLimitCount(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="thc">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {thcTournaments?.map((t: any) => (
+              <Card key={t.id} className="glass border-white/5 overflow-hidden group relative">
+                <NextLink href={`/arena/thc/${t.id}`} className="block">
+                  <div className="relative h-32">
+                    <Image src={(typeof t.imageUrl === 'string' ? t.imageUrl : t.imageUrl?.url) || 'https://picsum.photos/seed/coc/400/200'} alt={t.name} fill className="object-cover opacity-50 hover:opacity-80 transition-opacity" />
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-bold uppercase italic text-sm truncate">{t.name}</h3>
+                    <div className="flex justify-between items-center mt-2">
+                       <Badge variant="outline" className="font-black text-[10px] uppercase text-primary border-primary/30 bg-primary/10">{t.status}</Badge>
+                       <div className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" /><span className="text-[10px] font-black">TH {t.townHall} | {t.mode}</span></div>
+                    </div>
+                  </CardContent>
+                </NextLink>
+                <div className="absolute top-2 right-2 flex gap-1 z-10">
+                  <Button size="icon" variant="secondary" className="h-8 w-8 bg-black/60" onClick={(e) => { e.preventDefault(); setEditThcData(t); setThcOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={(e) => { e.preventDefault(); setDeleteTId(t.id); setDeleteType('thc'); }}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {(!thcTournaments || thcTournaments.length === 0) && (
+             <div className="text-center p-12 text-white/50 font-black uppercase tracking-widest text-[10px]">No THC Events</div>
           )}
           <div className="flex justify-center mt-8">
             <Button variant="outline" onClick={() => setLimitCount(prev => prev + 5)} className="bg-black/40 border-white/10 font-black uppercase text-[10px] h-10 px-8">LOAD MORE</Button>
@@ -436,9 +476,10 @@ export default function ArenaHubPage() {
               <Button variant="outline" className="flex-1 rounded-xl h-10 font-bold" onClick={() => setDeleteTId(null)}>CANCEL</Button>
               <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl h-10 font-black uppercase" onClick={() => {
                 if (deleteTId) {
-                  deleteDoc(doc(db, 'tournaments', deleteTId));
+                  deleteDoc(doc(db, deleteType === 'thc' ? 'thc_tournaments' : 'tournaments', deleteTId));
                   toast({ title: "ARENA DELETED" });
                   setDeleteTId(null);
+                  setDeleteType(null);
                 }
               }}>DELETE</Button>
             </div>
@@ -703,6 +744,7 @@ export default function ArenaHubPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <ThcCreateModal isOpen={thcOpen} onClose={() => { setThcOpen(false); setEditThcData(null); }} editData={editThcData} />
     </div>
   );
 }
