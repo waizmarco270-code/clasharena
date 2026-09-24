@@ -129,9 +129,50 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
   }, [allMatches]);
 
   const [roundSchedules, setRoundSchedules] = useState<Record<string, string>>({});
+  const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
      if (t?.roundSchedules) setRoundSchedules(t.roundSchedules);
+  }, [t]);
+
+  useEffect(() => {
+    if (!t?.registrationStartTime || !t?.registrationEndTime) return;
+    
+    const updateTimer = () => {
+      const now = new Date();
+      const regStart = new Date(t.registrationStartTime);
+      const regEnd = new Date(t.registrationEndTime);
+      
+      let targetDate = null;
+      let prefix = '';
+      
+      if (isBefore(now, regStart)) {
+        targetDate = regStart;
+        prefix = 'Starts in: ';
+      } else if (isBefore(now, regEnd)) {
+        targetDate = regEnd;
+        prefix = 'Ends in: ';
+      }
+      
+      if (targetDate) {
+        const diff = targetDate.getTime() - now.getTime();
+        if (diff <= 0) {
+          setTimeLeft('');
+        } else {
+          const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+          const m = Math.floor((diff / 1000 / 60) % 60);
+          const s = Math.floor((diff / 1000) % 60);
+          setTimeLeft(`${prefix}${d > 0 ? d + 'd ' : ''}${h}h ${m}m ${s}s`);
+        }
+      } else {
+        setTimeLeft('Closed');
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
   }, [t]);
 
   const handleSaveSchedules = async () => {
@@ -473,14 +514,27 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
               ) : (
                  <Card className="glass border-white/5 flex items-center justify-between p-4">
                     <div>
-                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Team Registration</p>
+                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                          Team Registration
+                          {timeLeft && (
+                             <span className={timeLeft === 'Closed' ? 'text-red-500' : 'text-primary'}>
+                               ({timeLeft})
+                             </span>
+                          )}
+                       </p>
                        <h3 className="text-lg font-black text-white uppercase mt-1">Form Your Squad</h3>
                     </div>
-                    <Link href={`/arena/thc/${id}/register`}>
-                       <Button disabled={status !== 'OPEN'} className="bg-primary text-black font-black uppercase glow-primary">
-                          Register Team <ArrowRight className="w-4 h-4 ml-2" />
+                    {status === 'OPEN' ? (
+                       <Link href={`/arena/thc/${id}/register`}>
+                          <Button className="bg-primary text-black font-black uppercase glow-primary">
+                             Register Team <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                       </Link>
+                    ) : (
+                       <Button disabled className="bg-white/10 text-white/50 font-black uppercase">
+                          {status === 'UPCOMING' ? 'Not Started' : 'Registration Closed'}
                        </Button>
-                    </Link>
+                    )}
                  </Card>
               )}
               
