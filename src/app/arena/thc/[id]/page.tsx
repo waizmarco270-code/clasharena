@@ -523,6 +523,9 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                        <h3 className="text-lg font-black text-white uppercase mt-1">{myTeam.name}</h3>
                     </div>
                     <div className="flex gap-2">
+                       <Link href={`/arena/thc/${id}/register`}>
+                          <Button variant="outline" className="border-primary/50 text-primary font-black uppercase hover:bg-primary/10">Manage Team</Button>
+                       </Link>
                        <Link href={`/arena/thc/${id}/match/schedule`}>
                           <Button className="bg-white text-black font-black uppercase">Match Lobby</Button>
                        </Link>
