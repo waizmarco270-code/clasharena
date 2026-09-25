@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronLeft, Loader2, ImagePlus, ShieldAlert, CheckCircle2, Copy, Users } from 'lucide-react';
 import { useDoc, useFirestore, useProfile } from '@/firebase';
-import { doc, collection, setDoc, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, collection, setDoc, query, where, getDocs, updateDoc, arrayUnion, arrayRemove, documentId } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +41,45 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
   // Check if already in a team
   const [myTeam, setMyTeam] = useState<any>(null);
   const [checkingTeam, setCheckingTeam] = useState(true);
+  
+  // Team Edit & Roster state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', clanTag: '', clanLink: '', logoUrl: '' });
+  const [playersData, setPlayersData] = useState<any[]>([]);
+  const [requestsData, setRequestsData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (myTeam) {
+      const fetchUsers = async () => {
+        try {
+          const allUserIds = [...(myTeam.players || []), ...(myTeam.joinRequests || [])];
+          if (allUserIds.length === 0) return;
+          
+          // Chunk to avoid 10-limit 'in' query issues if team is large
+          const chunks = [];
+          for (let i = 0; i < allUserIds.length; i += 10) {
+             chunks.push(allUserIds.slice(i, i + 10));
+          }
+          
+          let fetchedUsers: any[] = [];
+          for (const chunk of chunks) {
+             const q = query(collection(db, 'users'), where(documentId(), 'in', chunk));
+             const snaps = await getDocs(q);
+             fetchedUsers = [...fetchedUsers, ...snaps.docs.map(d => ({ id: d.id, ...d.data() }))];
+          }
+
+          const usersMap = new Map();
+          fetchedUsers.forEach(u => usersMap.set(u.id, u));
+
+          setPlayersData((myTeam.players || []).map((id: string) => usersMap.get(id)).filter(Boolean));
+          setRequestsData((myTeam.joinRequests || []).map((id: string) => usersMap.get(id)).filter(Boolean));
+        } catch (e) {
+          console.error('Failed to fetch users', e);
+        }
+      };
+      fetchUsers();
+    }
+  }, [myTeam, db]);
 
   useEffect(() => {
     if (!user || !db) return;
@@ -85,6 +124,7 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
     setCreating(true);
     try {
       const teamRef = doc(collection(db, 'thc_teams'));
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const teamData = {
         id: teamRef.id,
         tournamentId: id,
@@ -94,6 +134,7 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
         logoUrl: form.logoUrl,
         captainId: user?.id,
         players: [user?.id],
+        joinCode: joinCode,
         paymentStatus: 'paid', // Captain pays full
         status: 'registered',
         createdAt: new Date().toISOString()
@@ -121,7 +162,7 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
     if (!joinCode) return;
     setJoining(true);
     try {
-      const q = query(collection(db, 'thc_teams'), where('id', '==', joinCode), where('tournamentId', '==', id));
+      const q = query(collection(db, 'thc_teams'), where('joinCode', '==', joinCode.toUpperCase()), where('tournamentId', '==', id));
       const snaps = await getDocs(q);
       if (snaps.empty) {
          toast({ variant: 'destructive', title: 'Invalid Team Code' });
@@ -151,9 +192,75 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
 
   const copyCode = () => {
     if (myTeam) {
-      navigator.clipboard.writeText(myTeam.id);
+      navigator.clipboard.writeText(myTeam.joinCode || myTeam.id.slice(0, 6).toUpperCase());
       toast({ title: 'Team Code Copied!' });
     }
+  };
+
+  const regenerateCode = async () => {
+     if (!myTeam || myTeam.captainId !== user?.id) return;
+     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+     await updateDoc(doc(db, 'thc_teams', myTeam.id), { joinCode: newCode });
+     setMyTeam({ ...myTeam, joinCode: newCode });
+     toast({ title: 'New Join Code Generated' });
+  };
+
+  const handleKick = async (playerId: string) => {
+     if (!myTeam || myTeam.captainId !== user?.id) return;
+     await updateDoc(doc(db, 'thc_teams', myTeam.id), { players: arrayRemove(playerId) });
+     setMyTeam({ ...myTeam, players: myTeam.players.filter((p: string) => p !== playerId) });
+     toast({ title: 'Player Kicked' });
+  };
+
+  const startEditing = () => {
+     setEditForm({
+        name: myTeam.name,
+        clanTag: myTeam.clanTag,
+        clanLink: myTeam.clanLink,
+        logoUrl: myTeam.logoUrl
+     });
+     setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+     if (!editForm.name || !editForm.clanTag || !editForm.clanLink || !editForm.logoUrl) {
+        toast({ variant: 'destructive', title: 'Fill all fields' });
+        return;
+     }
+     await updateDoc(doc(db, 'thc_teams', myTeam.id), editForm);
+     setMyTeam({ ...myTeam, ...editForm });
+     setIsEditing(false);
+     toast({ title: 'Team Configuration Saved!' });
+  };
+
+  const handleAcceptRequest = async (playerId: string) => {
+     if (!myTeam || myTeam.captainId !== user?.id) return;
+     if (myTeam.players.length >= t.teamSize) {
+        toast({ variant: 'destructive', title: 'Team is full!' });
+        return;
+     }
+     await updateDoc(doc(db, 'thc_teams', myTeam.id), { 
+        players: arrayUnion(playerId),
+        joinRequests: arrayRemove(playerId)
+     });
+     setMyTeam({ 
+        ...myTeam, 
+        players: [...myTeam.players, playerId],
+        joinRequests: (myTeam.joinRequests || []).filter((id: string) => id !== playerId)
+     });
+     toast({ title: 'Player Accepted' });
+  };
+
+  const handleRejectRequest = async (playerId: string) => {
+     if (!myTeam || myTeam.captainId !== user?.id) return;
+     await updateDoc(doc(db, 'thc_teams', myTeam.id), { 
+        joinRequests: arrayRemove(playerId)
+     });
+     setMyTeam({ 
+        ...myTeam, 
+        joinRequests: (myTeam.joinRequests || []).filter((id: string) => id !== playerId)
+     });
+     toast({ title: 'Request Rejected' });
   };
 
   if (tLoading || checkingTeam) return <PageWrapper><div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div></PageWrapper>;
@@ -161,40 +268,140 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
   if (myTeam) {
     return (
       <PageWrapper>
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
           <Link href={`/arena/thc/${id}`} className="inline-flex items-center text-[10px] font-black uppercase text-muted-foreground hover:text-white transition-colors">
             <ChevronLeft className="w-4 h-4 mr-1" /> BACK TO LOBBY
           </Link>
           
-          <Card className="glass border-primary/30 relative overflow-hidden">
-             <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-primary via-blue-500 to-purple-500" />
-             <CardContent className="p-8 text-center space-y-6">
-                <div className="w-24 h-24 mx-auto rounded-2xl overflow-hidden border-2 border-primary/50 relative">
-                   <img src={(typeof myTeam.logoUrl === 'string' ? myTeam.logoUrl : myTeam.logoUrl?.url) || ''} alt="Logo" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                   <h2 className="text-3xl font-headline font-black italic uppercase text-white">{myTeam.name}</h2>
-                   <p className="text-primary font-black uppercase tracking-widest text-xs mt-1">Successfully Registered</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             {/* Left Column: Team Identity & Code */}
+             <Card className="glass border-primary/30 relative overflow-hidden h-fit">
+                <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-primary via-blue-500 to-purple-500" />
+                <CardContent className="p-8 text-center space-y-6">
+                   {!isEditing ? (
+                      <>
+                         <div className="w-24 h-24 mx-auto rounded-2xl overflow-hidden border-2 border-primary/50 relative">
+                            <img src={(typeof myTeam.logoUrl === 'string' ? myTeam.logoUrl : myTeam.logoUrl?.url) || ''} alt="Logo" className="w-full h-full object-cover" />
+                         </div>
+                         <div>
+                            <h2 className="text-3xl font-headline font-black italic uppercase text-white">{myTeam.name}</h2>
+                            <p className="text-primary font-black uppercase tracking-widest text-xs mt-1">{myTeam.clanTag}</p>
+                         </div>
+                         {myTeam.captainId === user?.id && (
+                            <Button onClick={startEditing} variant="outline" className="w-full border-primary/20 text-primary hover:bg-primary/10 font-black uppercase">Edit Configuration</Button>
+                         )}
+                      </>
+                   ) : (
+                      <div className="space-y-4 text-left">
+                         <h3 className="font-headline font-black italic text-xl uppercase text-primary mb-4">Edit Team</h3>
+                         <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-white">Team Name</Label>
+                            <Input value={editForm.name} onChange={e => setEditForm(p => ({...p, name: e.target.value}))} className="bg-black/50" />
+                         </div>
+                         <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-white">Clan Tag</Label>
+                            <Input value={editForm.clanTag} onChange={e => setEditForm(p => ({...p, clanTag: e.target.value}))} className="bg-black/50 uppercase" />
+                         </div>
+                         <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-white">Clan Link</Label>
+                            <Input value={editForm.clanLink} onChange={e => setEditForm(p => ({...p, clanLink: e.target.value}))} className="bg-black/50" />
+                         </div>
+                         <div className="flex gap-2 pt-2">
+                            <Button onClick={() => setIsEditing(false)} variant="ghost" className="flex-1">Cancel</Button>
+                            <Button onClick={handleSaveEdit} className="flex-1 bg-primary text-black font-black uppercase">Save</Button>
+                         </div>
+                      </div>
+                   )}
 
-                <div className="bg-black/50 border border-white/10 rounded-2xl p-6 space-y-4">
-                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Your Team Invite Code</p>
-                   <div className="flex items-center justify-center gap-4">
-                      <code className="text-2xl font-mono font-black text-white tracking-widest bg-white/5 px-4 py-2 rounded-lg border border-white/10">
-                         {myTeam.id.slice(0, 8).toUpperCase()}
-                      </code>
-                      <Button onClick={copyCode} variant="outline" size="icon" className="h-12 w-12 border-primary/30 text-primary hover:bg-primary/10">
-                         <Copy className="w-5 h-5" />
-                      </Button>
+                   <div className="bg-black/50 border border-white/10 rounded-2xl p-6 space-y-4">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Your Team Invite Code</p>
+                      <div className="flex flex-col gap-2">
+                         <div className="flex items-center justify-center gap-4">
+                            <code className="text-3xl font-mono font-black text-white tracking-widest bg-white/5 px-6 py-3 rounded-lg border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+                               {myTeam.joinCode || myTeam.id.slice(0, 6).toUpperCase()}
+                            </code>
+                            <Button onClick={copyCode} variant="outline" size="icon" className="h-14 w-14 border-primary/30 text-primary hover:bg-primary/10">
+                               <Copy className="w-5 h-5" />
+                            </Button>
+                         </div>
+                         {myTeam.captainId === user?.id && (
+                            <Button onClick={regenerateCode} variant="ghost" className="text-xs text-muted-foreground hover:text-white uppercase font-black">Regenerate Code</Button>
+                         )}
+                      </div>
+                      <p className="text-xs text-white/50">Share this code with your teammates to let them join your roster. Max {t.teamSize} players.</p>
                    </div>
-                   <p className="text-xs text-white/50">Share this code with your teammates to let them join your roster. Max {t.teamSize} players.</p>
-                </div>
-                
-                <Button onClick={() => router.push(`/arena/thc/${id}`)} className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-lg rounded-xl">
-                   Enter Lobby
-                </Button>
-             </CardContent>
-          </Card>
+                   
+                   <Button onClick={() => router.push(`/arena/thc/${id}`)} className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-lg rounded-xl">
+                      Enter Lobby
+                   </Button>
+                </CardContent>
+             </Card>
+
+             {/* Right Column: Roster */}
+             <Card className="glass border-white/10">
+                <CardContent className="p-6">
+                   <h3 className="font-headline font-black italic text-xl uppercase text-white mb-6 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-primary" /> Roster ({myTeam.players.length}/{t.teamSize})
+                   </h3>
+                   <div className="space-y-3">
+                      {playersData.map((p) => {
+                         const isCaptain = p.id === myTeam.captainId;
+                         return (
+                            <div key={p.id} className="flex items-center justify-between bg-black/40 border border-white/5 p-3 rounded-xl">
+                               <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black border border-primary/30">
+                                     {p.username?.[0]?.toUpperCase() || '?'}
+                                  </div>
+                                  <div>
+                                     <p className="font-bold text-white text-sm">{p.username}</p>
+                                     {isCaptain && <p className="text-[10px] text-primary font-black uppercase">Captain</p>}
+                                  </div>
+                               </div>
+                               {myTeam.captainId === user?.id && !isCaptain && (
+                                  <Button onClick={() => handleKick(p.id)} variant="destructive" size="sm" className="h-7 text-[10px] font-black uppercase">Kick</Button>
+                               )}
+                            </div>
+                         )
+                      })}
+                      {myTeam.players.length < t.teamSize && (
+                         <div className="flex items-center justify-center bg-white/5 border border-dashed border-white/20 p-4 rounded-xl text-muted-foreground text-sm font-bold uppercase">
+                            Waiting for players to join...
+                         </div>
+                      )}
+                   </div>
+                </CardContent>
+             </Card>
+
+             {/* Join Requests */}
+             {myTeam.captainId === user?.id && requestsData.length > 0 && (
+                <Card className="glass border-orange-500/30 md:col-span-2">
+                   <CardContent className="p-6">
+                      <h3 className="font-headline font-black italic text-xl uppercase text-orange-400 mb-6 flex items-center gap-2">
+                         <ShieldAlert className="w-5 h-5" /> Join Requests
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {requestsData.map(p => (
+                            <div key={p.id} className="flex items-center justify-between bg-black/40 border border-orange-500/20 p-3 rounded-xl">
+                               <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 font-black border border-orange-500/30">
+                                     {p.username?.[0]?.toUpperCase() || '?'}
+                                  </div>
+                                  <div>
+                                     <p className="font-bold text-white text-sm">{p.username}</p>
+                                     <p className="text-[10px] text-muted-foreground font-bold uppercase">Wants to join</p>
+                                  </div>
+                               </div>
+                               <div className="flex gap-2">
+                                  <Button onClick={() => handleRejectRequest(p.id)} variant="destructive" size="sm" className="h-7 text-[10px] font-black uppercase">Reject</Button>
+                                  <Button onClick={() => handleAcceptRequest(p.id)} size="sm" className="h-7 text-[10px] font-black uppercase bg-orange-500 hover:bg-orange-600 text-black">Accept</Button>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   </CardContent>
+                </Card>
+             )}
+          </div>
         </div>
       </PageWrapper>
     );
@@ -274,7 +481,7 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
                     <Users className="w-8 h-8 text-blue-400" />
                  </div>
                  <h2 className="text-2xl font-headline font-black italic uppercase text-white">Join Your Squad</h2>
-                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">Enter the 8-character code provided by your Team Captain to join the active roster.</p>
+                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">Enter the 6-character code provided by your Team Captain to join the active roster.</p>
                  
                  <Input 
                     value={joinCode} 

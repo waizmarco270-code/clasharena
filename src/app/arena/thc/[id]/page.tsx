@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowRight, ChevronLeft, Loader2, PlayCircle, Shield, Swords, Trophy, Users, Zap, Crown, UserPlus, Info, ScrollText, AlertCircle } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
-import { doc, collection, query, where, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { isBefore, isAfter } from 'date-fns';
@@ -182,6 +182,23 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
         setScheduleModalOpen(false);
      } catch (e) {
         toast({ variant: 'destructive', title: 'Failed to save' });
+     }
+  };
+
+  const [requestingToJoin, setRequestingToJoin] = useState(false);
+  const handleRequestJoin = async () => {
+     if (!user || !selectedTeam) return;
+     setRequestingToJoin(true);
+     try {
+        await updateDoc(doc(db, 'thc_teams', selectedTeam.id), {
+           joinRequests: arrayUnion(user.id)
+        });
+        toast({ title: 'Request Sent to Captain!' });
+        setSelectedTeam({ ...selectedTeam, joinRequests: [...(selectedTeam.joinRequests || []), user.id] });
+     } catch (e) {
+        toast({ variant: 'destructive', title: 'Failed to send request' });
+     } finally {
+        setRequestingToJoin(false);
      }
   };
 
@@ -652,6 +669,20 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                      ))}
                   </div>
                </div>
+
+               {!myTeam && status === 'OPEN' && selectedTeam?.players?.length < t.teamSize && user?.id && (
+                  <div className="pt-4 border-t border-white/10 mt-4">
+                     {selectedTeam?.joinRequests?.includes(user.id) ? (
+                        <Button disabled variant="outline" className="w-full border-green-500/30 text-green-400 bg-green-500/10 font-black uppercase">
+                           Request Pending
+                        </Button>
+                     ) : (
+                        <Button onClick={handleRequestJoin} disabled={requestingToJoin} className="w-full bg-blue-500 text-white font-black uppercase hover:bg-blue-600">
+                           {requestingToJoin ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : 'Request to Join'}
+                        </Button>
+                     )}
+                  </div>
+               )}
             </div>
          </DialogContent>
       </Dialog>
