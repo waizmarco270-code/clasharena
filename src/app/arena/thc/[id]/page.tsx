@@ -517,22 +517,22 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {myTeam ? (
-                 <Card className="glass border-primary/20 bg-primary/5 flex items-center justify-between p-4">
+                 <Card className="glass border-primary/20 bg-primary/5 flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-4">
                     <div>
                        <p className="text-[10px] font-black uppercase text-primary tracking-widest">Your Roster</p>
-                       <h3 className="text-lg font-black text-white uppercase mt-1">{myTeam.name}</h3>
+                       <h3 className="text-lg font-black text-white uppercase mt-1 break-words line-clamp-1">{myTeam.name}</h3>
                     </div>
-                    <div className="flex gap-2">
-                       <Link href={`/arena/thc/${id}/register`}>
-                          <Button variant="outline" className="border-primary/50 text-primary font-black uppercase hover:bg-primary/10">Manage Team</Button>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                       <Link href={`/arena/thc/${id}/register`} className="w-full sm:w-auto">
+                          <Button variant="outline" className="w-full border-primary/50 text-primary font-black uppercase hover:bg-primary/10">Manage Team</Button>
                        </Link>
-                       <Link href={`/arena/thc/${id}/match/schedule`}>
-                          <Button className="bg-white text-black font-black uppercase">Match Lobby</Button>
+                       <Link href={`/arena/thc/${id}/match/schedule`} className="w-full sm:w-auto">
+                          <Button className="w-full bg-white text-black font-black uppercase">Match Lobby</Button>
                        </Link>
                     </div>
                  </Card>
               ) : (
-                 <Card className="glass border-white/5 flex items-center justify-between p-4">
+                 <Card className="glass border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-4">
                     <div>
                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                           Team Registration
@@ -544,17 +544,19 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                        </p>
                        <h3 className="text-lg font-black text-white uppercase mt-1">Form Your Squad</h3>
                     </div>
-                    {status === 'OPEN' ? (
-                       <Link href={`/arena/thc/${id}/register`}>
-                          <Button className="bg-primary text-black font-black uppercase glow-primary">
-                             Register Team <ArrowRight className="w-4 h-4 ml-2" />
+                    <div className="w-full md:w-auto">
+                       {status === 'OPEN' ? (
+                          <Link href={`/arena/thc/${id}/register`} className="w-full">
+                             <Button className="w-full bg-primary text-black font-black uppercase glow-primary">
+                                Register Team <ArrowRight className="w-4 h-4 ml-2" />
+                             </Button>
+                          </Link>
+                       ) : (
+                          <Button disabled className="w-full bg-white/10 text-white/50 font-black uppercase">
+                             {status === 'UPCOMING' ? 'Not Started' : 'Registration Closed'}
                           </Button>
-                       </Link>
-                    ) : (
-                       <Button disabled className="bg-white/10 text-white/50 font-black uppercase">
-                          {status === 'UPCOMING' ? 'Not Started' : 'Registration Closed'}
-                       </Button>
-                    )}
+                       )}
+                    </div>
                  </Card>
               )}
               
