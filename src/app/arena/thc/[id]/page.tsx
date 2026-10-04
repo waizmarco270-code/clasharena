@@ -368,7 +368,9 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
   if (isAfter(now, regStart) && isBefore(now, regEnd)) status = 'OPEN';
   if (isAfter(now, regEnd) && isBefore(now, tourStart)) status = 'STARTING_SOON';
   if (isAfter(now, tourStart)) status = 'LIVE';
+  if (t.status === 'ongoing') status = 'LIVE';
   if (t.status === 'completed') status = 'COMPLETED';
+  if (status === 'OPEN' && t.maxTeams && teams && teams.length >= t.maxTeams) status = 'FULL';
 
   return (
     <PageWrapper>
@@ -570,7 +572,7 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                           </Link>
                        ) : (
                           <Button disabled className="w-full bg-white/10 text-white/50 font-black uppercase">
-                             {status === 'UPCOMING' ? 'Not Started' : 'Registration Closed'}
+                             {status === 'UPCOMING' ? 'Not Started' : status === 'FULL' ? 'Arena Full' : 'Registration Closed'}
                           </Button>
                        )}
                     </div>

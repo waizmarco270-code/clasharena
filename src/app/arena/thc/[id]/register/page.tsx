@@ -123,6 +123,15 @@ export default function ThcRegisterPage({ params }: { params: { id: string } }) 
 
     setCreating(true);
     try {
+      if (t.maxTeams) {
+        const teamsSnap = await getDocs(query(collection(db, 'thc_teams'), where('tournamentId', '==', id)));
+        if (teamsSnap.docs.length >= t.maxTeams) {
+           toast({ variant: 'destructive', title: 'Arena is Full', description: 'Maximum team limit reached.' });
+           setCreating(false);
+           return;
+        }
+      }
+
       const teamRef = doc(collection(db, 'thc_teams'));
       const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const teamData = {
