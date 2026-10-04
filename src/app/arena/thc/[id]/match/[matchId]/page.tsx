@@ -104,7 +104,7 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
 
   const myStars = isTeam1 ? match.team1Stars : match.team2Stars;
   
-  const hasSubmitted = myStars > 0 || (isTeam1 ? match.team1Screenshot !== '' : match.team2Screenshot !== '');
+  const hasSubmitted = (myStars !== undefined && myStars !== null && myStars > 0) || (isTeam1 ? !!match.team1Screenshot : !!match.team2Screenshot);
 
   const handleCheckIn = async () => {
     if (!myTeam) return;

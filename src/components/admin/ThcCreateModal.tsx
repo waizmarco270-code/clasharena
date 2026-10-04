@@ -127,8 +127,9 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
       }
 
       onClose();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Failed to deploy/update THC' });
+    } catch (error: any) {
+      console.error("Publish Error:", error);
+      toast({ variant: 'destructive', title: 'Failed to deploy/update THC', description: error?.message || 'Unknown error' });
     } finally {
       setLoading(false);
     }

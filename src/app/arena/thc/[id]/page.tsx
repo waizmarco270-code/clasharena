@@ -16,6 +16,7 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { CoinIcon } from '@/components/ui/coin-icon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAdminStatus } from '@/firebase';
 import { generateThcBracket } from '@/lib/bracket-generator';
 import { AvatarFrame } from '@/components/cosmetics/AvatarFrame';
@@ -130,6 +131,7 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
 
   const [roundSchedules, setRoundSchedules] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState('');
+  const [adminMatchFilter, setAdminMatchFilter] = useState('All');
 
   useEffect(() => {
      if (t?.roundSchedules) setRoundSchedules(t.roundSchedules);
@@ -608,12 +610,25 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
       {/* Admin Match Overview */}
       {isAdmin && allMatches && allMatches.length > 0 && (
          <div className="mt-12 space-y-4">
-            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-               <Shield className="w-5 h-5 text-red-500" />
-               <h2 className="text-xl font-headline font-black italic uppercase text-red-500">Admin Match Overview</h2>
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 flex-wrap gap-4">
+               <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-red-500" />
+                  <h2 className="text-xl font-headline font-black italic uppercase text-red-500">Admin Match Overview</h2>
+               </div>
+               <Select value={adminMatchFilter} onValueChange={setAdminMatchFilter}>
+                  <SelectTrigger className="w-full sm:w-[200px] bg-black/50 border-white/10 text-xs font-black uppercase text-white">
+                     <SelectValue placeholder="Filter Round" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black border-white/10">
+                     <SelectItem value="All">All Rounds</SelectItem>
+                     {uniqueRounds.map(round => (
+                        <SelectItem key={round} value={round}>{round}</SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-               {allMatches.map(m => {
+               {allMatches.filter(m => adminMatchFilter === 'All' || m.roundLabel === adminMatchFilter).map(m => {
                   const t1 = teams?.find(t => t.id === m.team1Id);
                   const t2 = teams?.find(t => t.id === m.team2Id);
                   return (
