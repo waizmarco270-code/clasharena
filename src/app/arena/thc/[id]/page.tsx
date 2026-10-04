@@ -290,24 +290,35 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleClaimReward = async (position: 'first' | 'second' | 'third', amount: number) => {
-     if (!user || amount <= 0 || claiming) return;
+  const handleClaimReward = async (position: 'first' | 'second' | 'third', amountStr: string) => {
+     if (!user || claiming) return;
+     const isItem = t.rewardType === 'item';
+     const amount = parseInt(amountStr || '0', 10);
+     if (!isItem && amount <= 0) return;
+     
      setClaiming(true);
      try {
         const batch = writeBatch(db);
-        // Add vCash to user
-        const userRef = doc(db, 'users', user.id);
-        const userSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.id)));
-        let currentVcash = 0;
-        if (!userSnap.empty) currentVcash = userSnap.docs[0].data().vCash || 0;
-        batch.update(userRef, { vCash: currentVcash + amount });
+        
+        if (!isItem) {
+           // Add vCash to user
+           const userRef = doc(db, 'users', user.id);
+           const userSnap = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.id)));
+           let currentVcash = 0;
+           if (!userSnap.empty) currentVcash = userSnap.docs[0].data().vCash || 0;
+           batch.update(userRef, { vCash: currentVcash + amount });
+        }
         
         // Update claimed status
         const tRef = doc(db, 'thc_tournaments', id);
         batch.update(tRef, { [`results.claimed.${position}`]: true });
         
         await batch.commit();
-        toast({ title: 'Reward Claimed!', description: `₹${amount} vCash has been added to your wallet.` });
+        if (isItem) {
+           toast({ title: 'Reward Claimed!', description: `Please contact Admin to receive your reward.` });
+        } else {
+           toast({ title: 'Reward Claimed!', description: `₹${amount} vCash has been added to your wallet.` });
+        }
      } catch(e) {
         toast({ variant: 'destructive', title: 'Failed to claim reward' });
      } finally {
@@ -405,7 +416,9 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                  <div className="bg-gradient-to-r from-yellow-500 to-amber-600 p-[2px] rounded-2xl shadow-[0_0_20px_rgba(234,179,8,0.3)] animate-pulse">
                     <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded-[14px] p-4 text-center min-w-[160px]">
                        <p className="text-[10px] font-black uppercase text-yellow-500 mb-1 tracking-widest">Top Prize</p>
-                       <p className="text-2xl font-black text-white italic">₹ {t.rewards.top1}</p>
+                       <p className="text-2xl font-black text-white italic">
+                         {t.rewardType === 'item' ? t.rewards.top1 : `₹ ${t.rewards.top1}`}
+                       </p>
                     </div>
                  </div>
                )}
@@ -429,9 +442,9 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                        {myTeam.id === t.results.firstPlace ? 'CHAMPIONS!' : myTeam.id === t.results.secondPlace ? 'RUNNER UP!' : 'THIRD PLACE!'}
                     </h3>
                     <p className="text-sm font-bold text-green-300">
-                       {myTeam.id === t.results.firstPlace && t.rewards?.top1 ? `You won ₹ ${t.rewards.top1}!` : 
-                        myTeam.id === t.results.secondPlace && t.rewards?.top2 ? `You won ₹ ${t.rewards.top2}!` : 
-                        myTeam.id === t.results.thirdPlace && t.rewards?.top3 ? `You won ₹ ${t.rewards.top3}!` : 
+                       {myTeam.id === t.results.firstPlace && t.rewards?.top1 ? `You won ${t.rewardType === 'item' ? t.rewards.top1 : `₹ ${t.rewards.top1}`}!` : 
+                        myTeam.id === t.results.secondPlace && t.rewards?.top2 ? `You won ${t.rewardType === 'item' ? t.rewards.top2 : `₹ ${t.rewards.top2}`}!` : 
+                        myTeam.id === t.results.thirdPlace && t.rewards?.top3 ? `You won ${t.rewardType === 'item' ? t.rewards.top3 : `₹ ${t.rewards.top3}`}!` : 
                         'Congratulations on your placement!'}
                     </p>
                  </div>
@@ -441,8 +454,10 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                     const pos = myTeam.id === t.results.firstPlace ? 'first' : myTeam.id === t.results.secondPlace ? 'second' : 'third';
                     const amountStr = pos === 'first' ? t.rewards?.top1 : pos === 'second' ? t.rewards?.top2 : t.rewards?.top3;
                     const amount = parseInt(amountStr || '0', 10);
+                    const isItem = t.rewardType === 'item';
                     
-                    if (amount === 0) return null; // No prize set
+                    if (!isItem && amount === 0) return null; // No prize set
+                    if (isItem && !amountStr) return null; // No item string set
                     
                     if (t.results.claimed?.[pos]) {
                        return <Badge className="bg-white text-black font-black uppercase text-xs px-4 py-2">Reward Claimed ✅</Badge>;
@@ -450,12 +465,12 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                     
                     if (myTeam.captainId === user?.id) {
                        return (
-                          <Button onClick={() => handleClaimReward(pos, amount)} disabled={claiming} className="bg-yellow-500 hover:bg-yellow-600 text-black font-black uppercase glow-yellow h-12 px-8">
-                             {claiming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : 'Claim Prize Money'}
+                          <Button onClick={() => handleClaimReward(pos, amountStr)} disabled={claiming} className="bg-yellow-500 hover:bg-yellow-600 text-black font-black uppercase glow-yellow h-12 px-8">
+                             {claiming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : isItem ? 'Claim Prize' : 'Claim Prize Money'}
                           </Button>
                        );
                     } else {
-                       return <div className="text-right"><p className="text-[10px] font-black uppercase text-muted-foreground">Reward has been sent to your captain.</p><p className="text-xs font-bold text-white uppercase mt-1">Must tell him to claim the prize money.</p></div>;
+                       return <div className="text-right"><p className="text-[10px] font-black uppercase text-muted-foreground">Reward has been sent to your captain.</p><p className="text-xs font-bold text-white uppercase mt-1">Must tell him to claim the prize.</p></div>;
                     }
                  })()}
               </div>

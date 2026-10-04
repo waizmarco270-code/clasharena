@@ -37,7 +37,8 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
     registrationEndTime: '',
     startTime: '',
     imageUrl: '',
-    rewards: { top1: 5000, top2: 2500, top3: 1000 }
+    rewardType: 'money',
+    rewards: { top1: 5000 as any, top2: 2500 as any, top3: 1000 as any }
   });
   useEffect(() => {
     if (editData && isOpen) {
@@ -52,6 +53,7 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
           registrationEndTime: editData.registrationEndTime || '',
           startTime: editData.startTime || '',
           imageUrl: editData.imageUrl || '',
+          rewardType: editData.rewardType || 'money',
           rewards: editData.rewards || { top1: 5000, top2: 2500, top3: 1000 }
        });
     } else if (!isOpen) {
@@ -67,6 +69,7 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
           registrationEndTime: '',
           startTime: '',
           imageUrl: '',
+          rewardType: 'money',
           rewards: { top1: 5000, top2: 2500, top3: 1000 }
        });
     }
@@ -109,6 +112,7 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
         registrationEndTime: form.registrationEndTime,
         startTime: form.startTime,
         imageUrl: form.imageUrl,
+        rewardType: form.rewardType,
         rewards: form.rewards,
         updatedAt: new Date().toISOString()
       };
@@ -217,40 +221,52 @@ export function ThcCreateModal({ isOpen, onClose, editData }: ThcCreateModalProp
           </div>
 
           {/* Rewards (V-Cash but showing ₹) */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-white uppercase">Reward Type</Label>
+              <Select value={form.rewardType} onValueChange={(v) => setForm(prev => ({ ...prev, rewardType: v }))}>
+                <SelectTrigger className="bg-black/50 border-white/10">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent className="bg-black border-white/10">
+                  <SelectItem value="money">Money (₹/vCash)</SelectItem>
+                  <SelectItem value="item">Item / Pass</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold text-yellow-500 uppercase">Top 1 Reward</Label>
               <div className="relative">
-                 <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>
+                 {form.rewardType === 'money' && <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>}
                  <Input 
-                   type="number"
+                   type={form.rewardType === 'money' ? 'number' : 'text'}
                    value={form.rewards.top1} 
-                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top1: Number(e.target.value) } }))}
-                   className="bg-black/50 border-yellow-500/30 pl-8"
+                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top1: form.rewardType === 'money' ? Number(e.target.value) : e.target.value } }))}
+                   className={`bg-black/50 border-yellow-500/30 ${form.rewardType === 'money' ? 'pl-8' : ''}`}
                  />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold text-gray-400 uppercase">Top 2 Reward</Label>
               <div className="relative">
-                 <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>
+                 {form.rewardType === 'money' && <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>}
                  <Input 
-                   type="number"
+                   type={form.rewardType === 'money' ? 'number' : 'text'}
                    value={form.rewards.top2} 
-                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top2: Number(e.target.value) } }))}
-                   className="bg-black/50 border-gray-400/30 pl-8"
+                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top2: form.rewardType === 'money' ? Number(e.target.value) : e.target.value } }))}
+                   className={`bg-black/50 border-gray-400/30 ${form.rewardType === 'money' ? 'pl-8' : ''}`}
                  />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold text-amber-700 uppercase">Top 3 Reward</Label>
               <div className="relative">
-                 <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>
+                 {form.rewardType === 'money' && <span className="absolute left-3 top-2.5 text-white/50 font-bold">₹</span>}
                  <Input 
-                   type="number"
+                   type={form.rewardType === 'money' ? 'number' : 'text'}
                    value={form.rewards.top3} 
-                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top3: Number(e.target.value) } }))}
-                   className="bg-black/50 border-amber-700/30 pl-8"
+                   onChange={(e) => setForm(prev => ({ ...prev, rewards: { ...prev.rewards, top3: form.rewardType === 'money' ? Number(e.target.value) : e.target.value } }))}
+                   className={`bg-black/50 border-amber-700/30 ${form.rewardType === 'money' ? 'pl-8' : ''}`}
                  />
               </div>
             </div>
