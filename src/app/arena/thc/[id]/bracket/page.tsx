@@ -6,13 +6,28 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Loader2, Trophy, Star } from 'lucide-react';
 import { useDoc, useFirestore, useCollection, useAdminStatus } from '@/firebase';
-import { doc, collection, query, where, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, updateDoc, writeBatch } from 'firebase/firestore';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Settings, Image as ImageIcon, Trash2, Maximize, Minimize, Crown, CheckCircle2 } from 'lucide-react';
+
+function BracketPlayerRow({ playerId, stat }: { playerId: string, stat?: any }) {
+  const db = useFirestore();
+  const { data: userProfile } = useDoc(doc(db, 'users', playerId));
+  
+  return (
+      <div className="flex justify-between items-center bg-black/40 p-2 rounded text-xs font-bold border border-white/5">
+         <span className="text-white truncate max-w-[120px]">{userProfile?.username || stat?.playerName || 'Loading...'}</span>
+         <div className="flex gap-3">
+            <span className="text-yellow-500">{stat?.stars || 0}★</span>
+            <span className={stat?.destruction ? "text-green-400" : "text-blue-300"}>{stat?.destruction || 0}%</span>
+         </div>
+      </div>
+  );
+}
 
 export default function ThcBracketPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -37,6 +52,31 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
   const bracketRef = useRef<HTMLDivElement>(null);
+
+  const [editMode, setEditMode] = useState(false);
+  const [editedMatches, setEditedMatches] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (matches && !editMode) {
+       setEditedMatches(JSON.parse(JSON.stringify(matches)));
+    }
+  }, [matches, editMode]);
+
+  const handleSaveBracketLayout = async () => {
+    if (!isAdmin || !editMode) return;
+    try {
+      const batch = writeBatch(db);
+      editedMatches.forEach(m => {
+         const matchRef = doc(db, 'thc_matches', m.id);
+         batch.update(matchRef, { team1Id: m.team1Id, team2Id: m.team2Id });
+      });
+      await batch.commit();
+      toast({ title: 'Bracket Layout Saved!' });
+      setEditMode(false);
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Failed to save bracket layout' });
+    }
+  };
 
   useEffect(() => {
      const handleFullscreenChange = () => {
@@ -97,8 +137,48 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
     return teams?.find(team => team.id === teamId) || { name: 'Unknown', logoUrl: '' };
   };
 
+  const handleDragStart = (e: React.DragEvent, teamId: string | null, matchId: string, slot: string) => {
+     if (!editMode) return;
+     e.dataTransfer.setData('teamId', teamId || '');
+     e.dataTransfer.setData('matchId', matchId);
+     e.dataTransfer.setData('slot', slot);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetMatchId: string, targetSlot: 1 | 2) => {
+     if (!editMode) return;
+     e.preventDefault();
+     const teamId = e.dataTransfer.getData('teamId');
+     const sourceMatchId = e.dataTransfer.getData('matchId');
+     const sourceSlot = e.dataTransfer.getData('slot');
+
+     if (!sourceMatchId) return;
+
+     setEditedMatches(prev => {
+        const next = JSON.parse(JSON.stringify(prev)); // Deep copy to trigger re-render properly
+        const sourceMatch = next.find((m: any) => m.id === sourceMatchId);
+        const targetMatch = next.find((m: any) => m.id === targetMatchId);
+        if (!sourceMatch || !targetMatch) return prev;
+
+        const currentTargetTeam = targetSlot === 1 ? targetMatch.team1Id : targetMatch.team2Id;
+
+        if (sourceSlot === '1') sourceMatch.team1Id = currentTargetTeam;
+        else sourceMatch.team2Id = currentTargetTeam;
+
+        if (targetSlot === 1) targetMatch.team1Id = teamId;
+        else targetMatch.team2Id = teamId;
+
+        return next;
+     });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+     if (!editMode) return;
+     e.preventDefault();
+  };
+
   const renderBracket = (bracketType: 'upper' | 'lower') => {
-    const bracketMatches = matches?.filter(m => m.bracket === bracketType || (bracketType === 'upper' && m.bracket === 'final'));
+    const activeMatches = editMode ? editedMatches : matches;
+    const bracketMatches = activeMatches?.filter(m => m.bracket === bracketType || (bracketType === 'upper' && m.bracket === 'final'));
     if (!bracketMatches || bracketMatches.length === 0) {
        return <div className="text-center py-12 text-muted-foreground font-black uppercase text-xs">No matches generated for this bracket yet.</div>;
     }
@@ -159,7 +239,13 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
                               
                               <div className="relative z-10 flex flex-col gap-1 p-1.5">
                                  {/* Team 1 */}
-                                 <div className={`p-2.5 flex items-center justify-between transition-all duration-500 rounded border-l-4 ${match.winnerId && match.winnerId === match.team1Id ? 'bg-green-600/40 border-green-500 shadow-[inset_0_0_20px_rgba(34,197,94,0.5)]' : match.winnerId && match.winnerId !== match.team1Id ? 'bg-slate-900/50 border-slate-700 opacity-50 grayscale' : 'bg-slate-800/80 border-blue-900/80 hover:bg-blue-900/40 hover:border-blue-500/80'}`}>
+                                 <div 
+                                    draggable={editMode && match.round === 1}
+                                    onDragStart={(e) => handleDragStart(e, match.team1Id, match.id, '1')}
+                                    onDrop={(e) => handleDrop(e, match.id, 1)}
+                                    onDragOver={handleDragOver}
+                                    className={`p-2.5 flex items-center justify-between transition-all duration-500 rounded border-l-4 ${editMode && match.round === 1 ? 'cursor-grab hover:bg-primary/20 hover:border-primary/50' : match.winnerId && match.winnerId === match.team1Id ? 'bg-green-600/40 border-green-500 shadow-[inset_0_0_20px_rgba(34,197,94,0.5)]' : match.winnerId && match.winnerId !== match.team1Id ? 'bg-slate-900/50 border-slate-700 opacity-50 grayscale' : 'bg-slate-800/80 border-blue-900/80 hover:bg-blue-900/40 hover:border-blue-500/80'}`}
+                                 >
                                  <div className="flex items-center gap-2 overflow-hidden">
                                     {t1.logoUrl && <img src={typeof t1.logoUrl === 'string' ? t1.logoUrl : t1.logoUrl?.url} alt="" className="w-6 h-6 rounded object-cover shadow-[0_0_10px_rgba(59,130,246,0.5)]" />}
                                     <span className={`font-black uppercase text-xs truncate ${match.winnerId && match.winnerId === match.team1Id ? 'text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 'text-slate-300'}`}>{t1.name}</span>
@@ -170,7 +256,13 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
                                  </div>
                               </div>
                               {/* Team 2 */}
-                              <div className={`p-2.5 flex items-center justify-between transition-all duration-500 rounded border-l-4 ${match.winnerId && match.winnerId === match.team2Id ? 'bg-green-600/40 border-green-500 shadow-[inset_0_0_20px_rgba(34,197,94,0.5)]' : match.winnerId && match.winnerId !== match.team2Id ? 'bg-slate-900/50 border-slate-700 opacity-50 grayscale' : 'bg-slate-800/80 border-red-900/80 hover:bg-red-900/40 hover:border-red-500/80'}`}>
+                              <div 
+                                 draggable={editMode && match.round === 1}
+                                 onDragStart={(e) => handleDragStart(e, match.team2Id, match.id, '2')}
+                                 onDrop={(e) => handleDrop(e, match.id, 2)}
+                                 onDragOver={handleDragOver}
+                                 className={`p-2.5 flex items-center justify-between transition-all duration-500 rounded border-l-4 ${editMode && match.round === 1 ? 'cursor-grab hover:bg-primary/20 hover:border-primary/50' : match.winnerId && match.winnerId === match.team2Id ? 'bg-green-600/40 border-green-500 shadow-[inset_0_0_20px_rgba(34,197,94,0.5)]' : match.winnerId && match.winnerId !== match.team2Id ? 'bg-slate-900/50 border-slate-700 opacity-50 grayscale' : 'bg-slate-800/80 border-red-900/80 hover:bg-red-900/40 hover:border-red-500/80'}`}
+                              >
                                  <div className="flex items-center gap-2 overflow-hidden">
                                     {t2.logoUrl && <img src={typeof t2.logoUrl === 'string' ? t2.logoUrl : t2.logoUrl?.url} alt="" className="w-6 h-6 rounded object-cover shadow-[0_0_10px_rgba(239,68,68,0.5)]" />}
                                     <span className={`font-black uppercase text-xs truncate ${match.winnerId && match.winnerId === match.team2Id ? 'text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 'text-slate-300'}`}>{t2.name}</span>
@@ -248,6 +340,22 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
            </div>
            
            <div className="flex items-center gap-3">
+              {isAdmin && (
+                 <>
+                    {editMode ? (
+                       <div className="flex items-center gap-2">
+                          <Button onClick={() => setEditMode(false)} variant="ghost" className="text-muted-foreground font-black uppercase text-xs">Cancel</Button>
+                          <Button onClick={handleSaveBracketLayout} className="bg-primary text-black hover:bg-primary/90 font-black uppercase shadow-[0_0_15px_rgba(var(--primary),0.5)]">
+                             Save Bracket Layout
+                          </Button>
+                       </div>
+                    ) : (
+                       <Button onClick={() => setEditMode(true)} variant="outline" className="border-primary/50 text-primary hover:bg-primary/20 font-black uppercase">
+                          Edit Bracket Canvas
+                       </Button>
+                    )}
+                 </>
+              )}
               <Button onClick={toggleFullscreen} variant="outline" className="border-white/10 text-white hover:bg-white/5 font-black uppercase">
                  {isFullscreen ? <Minimize className="w-4 h-4 mr-2" /> : <Maximize className="w-4 h-4 mr-2" />}
                  {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Mode'}
@@ -303,6 +411,15 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
             </div>
         </div>
 
+        {editMode && (
+           <div className="bg-primary/20 border border-primary/50 text-primary-foreground p-4 rounded-xl flex items-center justify-between">
+              <div>
+                 <h4 className="font-black uppercase text-sm">Canvas Edit Mode Active</h4>
+                 <p className="text-xs opacity-80 mt-1">Drag and drop teams between slots in Round 1 to re-arrange your bracket visually.</p>
+              </div>
+           </div>
+        )}
+
         {t?.format === 'double_elimination' && (
            <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
               <TabsList className="bg-black/40 border border-white/5 h-12 rounded-xl p-1 mb-6">
@@ -341,43 +458,77 @@ export default function ThcBracketPage({ params }: { params: { id: string } }) {
                     <p className="text-center text-xs text-muted-foreground uppercase font-bold mt-1">Status: {selectedMatch.status}</p>
                  </div>
                  
-                 <div className="grid md:grid-cols-2 p-6 gap-6">
+                 <div className="grid md:grid-cols-[1fr_auto_1fr] p-6 gap-6 items-start max-h-[70vh] overflow-y-auto custom-scrollbar">
                     {/* Team 1 Details */}
                     <div className={`space-y-4 rounded-xl p-4 border ${selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team1Id ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/10'}`}>
-                       <h3 className="font-black uppercase flex items-center justify-between">
-                          <span className={selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team1Id ? 'text-green-400' : 'text-blue-400'}>{getTeam(selectedMatch.team1Id).name}</span>
-                          {selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team1Id && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                       </h3>
-                       <div className="bg-black/50 rounded-lg p-3 space-y-2 text-sm font-bold uppercase">
-                          <div className="flex justify-between"><span>Stars Claimed:</span> <span>{selectedMatch.team1Stars || 0}</span></div>
+                       <div className="flex flex-col items-center gap-2">
+                          {getTeam(selectedMatch.team1Id).logoUrl && <img src={typeof getTeam(selectedMatch.team1Id).logoUrl === 'string' ? getTeam(selectedMatch.team1Id).logoUrl : (getTeam(selectedMatch.team1Id).logoUrl as any)?.url} className="w-16 h-16 rounded-lg object-cover shadow-[0_0_15px_rgba(59,130,246,0.3)] border border-white/10" />}
+                          <h3 className={`font-black uppercase text-xl text-center flex items-center justify-center ${selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team1Id ? 'text-green-400' : 'text-blue-400'}`}>
+                             {getTeam(selectedMatch.team1Id).name}
+                             {selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team1Id && <CheckCircle2 className="w-5 h-5 text-green-500 ml-2" />}
+                          </h3>
+                       </div>
+                       
+                       <div className="bg-black/50 rounded-lg p-3 space-y-2 text-sm font-bold uppercase text-center border border-white/5">
+                          <div className="flex justify-between border-b border-white/10 pb-1"><span>Total Stars:</span> <span className="text-yellow-500">{selectedMatch.team1Stars || 0} ★</span></div>
+                          <div className="flex justify-between border-b border-white/10 pb-1"><span>Destruction:</span> <span>{(selectedMatch.team1Destruction || 0).toFixed(2)}%</span></div>
                           <div className="flex justify-between"><span>Avg Time:</span> <span>{selectedMatch.team1AvgTime || 0}s</span></div>
                        </div>
-                       <div className="h-32 rounded-lg border border-white/10 overflow-hidden relative bg-zinc-900">
-                          {selectedMatch.team1Screenshot ? (
-                             <img src={selectedMatch.team1Screenshot} alt="Proof" className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(selectedMatch.team1Screenshot, '_blank')} />
-                          ) : (
-                             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground font-black uppercase">No Proof Uploaded</div>
-                          )}
-                       </div>
+
+                       {/* Player Stats */}
+                       {getTeam(selectedMatch.team1Id).players && getTeam(selectedMatch.team1Id).players.length > 0 && (
+                          <div className="space-y-2 mt-4 bg-black/20 p-2 rounded-lg border border-white/5">
+                             <h4 className="text-[10px] font-black uppercase text-muted-foreground text-center">Player Performances</h4>
+                             {getTeam(selectedMatch.team1Id).players.map((playerId: string, i: number) => {
+                                const stat = selectedMatch.team1PlayerStats?.[playerId];
+                                return <BracketPlayerRow key={i} playerId={playerId} stat={stat} />;
+                             })}
+                          </div>
+                       )}
+
+                       {selectedMatch.team1Screenshot ? (
+                          <Button variant="outline" className="w-full text-xs font-black uppercase border-white/20 hover:bg-white/10" onClick={() => window.open(selectedMatch.team1Screenshot, '_blank')}>View Proof</Button>
+                       ) : (
+                          <Button disabled variant="outline" className="w-full text-xs font-black uppercase border-white/10 opacity-50">No Proof</Button>
+                       )}
+                    </div>
+
+                    <div className="flex justify-center items-center h-full pt-12 md:pt-0">
+                       <span className="text-4xl font-black italic text-muted-foreground/30 px-4">VS</span>
                     </div>
                     
                     {/* Team 2 Details */}
                     <div className={`space-y-4 rounded-xl p-4 border ${selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team2Id ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/10'}`}>
-                       <h3 className="font-black uppercase flex items-center justify-between">
-                          <span className={selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team2Id ? 'text-green-400' : 'text-red-400'}>{getTeam(selectedMatch.team2Id).name}</span>
-                          {selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team2Id && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                       </h3>
-                       <div className="bg-black/50 rounded-lg p-3 space-y-2 text-sm font-bold uppercase">
-                          <div className="flex justify-between"><span>Stars Claimed:</span> <span>{selectedMatch.team2Stars || 0}</span></div>
+                       <div className="flex flex-col items-center gap-2">
+                          {getTeam(selectedMatch.team2Id).logoUrl && <img src={typeof getTeam(selectedMatch.team2Id).logoUrl === 'string' ? getTeam(selectedMatch.team2Id).logoUrl : (getTeam(selectedMatch.team2Id).logoUrl as any)?.url} className="w-16 h-16 rounded-lg object-cover shadow-[0_0_15px_rgba(239,68,68,0.3)] border border-white/10" />}
+                          <h3 className={`font-black uppercase text-xl text-center flex items-center justify-center ${selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team2Id ? 'text-green-400' : 'text-red-400'}`}>
+                             {getTeam(selectedMatch.team2Id).name}
+                             {selectedMatch.winnerId && selectedMatch.winnerId === selectedMatch.team2Id && <CheckCircle2 className="w-5 h-5 text-green-500 ml-2" />}
+                          </h3>
+                       </div>
+                       
+                       <div className="bg-black/50 rounded-lg p-3 space-y-2 text-sm font-bold uppercase text-center border border-white/5">
+                          <div className="flex justify-between border-b border-white/10 pb-1"><span>Total Stars:</span> <span className="text-yellow-500">{selectedMatch.team2Stars || 0} ★</span></div>
+                          <div className="flex justify-between border-b border-white/10 pb-1"><span>Destruction:</span> <span>{(selectedMatch.team2Destruction || 0).toFixed(2)}%</span></div>
                           <div className="flex justify-between"><span>Avg Time:</span> <span>{selectedMatch.team2AvgTime || 0}s</span></div>
                        </div>
-                       <div className="h-32 rounded-lg border border-white/10 overflow-hidden relative bg-zinc-900">
-                          {selectedMatch.team2Screenshot ? (
-                             <img src={selectedMatch.team2Screenshot} alt="Proof" className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(selectedMatch.team2Screenshot, '_blank')} />
-                          ) : (
-                             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground font-black uppercase">No Proof Uploaded</div>
-                          )}
-                       </div>
+
+                       {/* Player Stats */}
+                       {getTeam(selectedMatch.team2Id).players && getTeam(selectedMatch.team2Id).players.length > 0 && (
+                          <div className="space-y-2 mt-4 bg-black/20 p-2 rounded-lg border border-white/5">
+                             <h4 className="text-[10px] font-black uppercase text-muted-foreground text-center">Player Performances</h4>
+                             {getTeam(selectedMatch.team2Id).players.map((playerId: string, i: number) => {
+                                const stat = selectedMatch.team2PlayerStats?.[playerId];
+                                return <BracketPlayerRow key={i} playerId={playerId} stat={stat} />;
+                             })}
+                          </div>
+                       )}
+
+                       {selectedMatch.team2Screenshot ? (
+                          <Button variant="outline" className="w-full text-xs font-black uppercase border-white/20 hover:bg-white/10" onClick={() => window.open(selectedMatch.team2Screenshot, '_blank')}>View Proof</Button>
+                       ) : (
+                          <Button disabled variant="outline" className="w-full text-xs font-black uppercase border-white/10 opacity-50">No Proof</Button>
+                       )}
                     </div>
                  </div>
                  

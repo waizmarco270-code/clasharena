@@ -15,6 +15,61 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from '@/hooks/use-toast';
 import { uploadToCloudinary } from '@/lib/cloudinary-utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+function PlayerScoreInput({ playerId, onUpdate }: { playerId: string, onUpdate: (data: any) => void }) {
+  const db = useFirestore();
+  const { data: userProfile } = useDoc(doc(db, 'users', playerId));
+  
+  const [stars, setStars] = useState<number | ''>('');
+  const [destruction, setDestruction] = useState<number | ''>('');
+
+  useEffect(() => {
+    if (stars !== '' && destruction !== '' && userProfile) {
+       onUpdate({ stars, destruction, playerName: userProfile.username || 'Unknown' });
+    }
+  }, [stars, destruction, userProfile]);
+
+  return (
+    <div className="flex items-center gap-4 bg-black/50 p-3 rounded-lg border border-white/5">
+       <div className="flex-1">
+          <p className="text-sm font-bold text-white">{userProfile?.username || 'Loading...'}</p>
+          <p className="text-[10px] text-muted-foreground">{userProfile?.tag || 'No Tag'}</p>
+       </div>
+       <div className="w-20">
+          <Label className="text-[9px] uppercase font-black text-muted-foreground">Stars</Label>
+          <Select value={stars.toString()} onValueChange={v => {
+             const s = Number(v);
+             setStars(s);
+             if (s === 3) setDestruction(100);
+          }}>
+             <SelectTrigger className="h-8 bg-zinc-900 border-white/10"><SelectValue placeholder="-" /></SelectTrigger>
+             <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                <SelectItem value="0">0</SelectItem>
+                <SelectItem value="1">1</SelectItem>
+                <SelectItem value="2">2</SelectItem>
+                <SelectItem value="3">3</SelectItem>
+             </SelectContent>
+          </Select>
+       </div>
+       <div className="w-24">
+          <Label className="text-[9px] uppercase font-black text-muted-foreground">Dest. %</Label>
+          <Input 
+             type="number" 
+             value={destruction} 
+             disabled={stars === 3}
+             max={99}
+             onChange={e => {
+                let val = Number(e.target.value);
+                if (val > 99 && stars !== 3) val = 99;
+                setDestruction(val);
+             }} 
+             className="h-8 bg-zinc-900 border-white/10" 
+          />
+       </div>
+    </div>
+  );
+}
 
 export default function ThcBattleLobbyPage({ params }: { params: { id: string, matchId: string } }) {
   const { id, matchId } = params;
@@ -54,7 +109,7 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
 
   // Result submission
   const [submittingResult, setSubmittingResult] = useState(false);
-  const [stars, setStars] = useState<number | ''>('');
+  const [playerStats, setPlayerStats] = useState<Record<string, { stars: number, destruction: number, playerName: string }>>({});
   const [avgTime, setAvgTime] = useState('');
   const [screenshot, setScreenshot] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -161,16 +216,35 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
   };
 
   const handleSubmitResult = async () => {
-    if (stars === '' || !avgTime || !screenshot) {
+    if (!avgTime || !screenshot) {
        toast({ variant: 'destructive', title: 'Fill all fields and upload screenshot' });
        return;
     }
+    
+    if (!myTeam || !myTeam.players) return;
+    
+    const statsArray = Object.values(playerStats);
+    if (statsArray.length !== myTeam.players.length) {
+       toast({ variant: 'destructive', title: 'Please fill scores for all players' });
+       return;
+    }
+
+    let totalStars = 0;
+    let totalDestruction = 0;
+    statsArray.forEach(stat => {
+       totalStars += stat.stars;
+       totalDestruction += stat.destruction;
+    });
+    const avgDestruction = totalDestruction / statsArray.length;
+
     setSubmittingResult(true);
     try {
        const updateData: any = {
-          [isTeam1 ? 'team1Stars' : 'team2Stars']: Number(stars),
+          [isTeam1 ? 'team1Stars' : 'team2Stars']: totalStars,
+          [isTeam1 ? 'team1Destruction' : 'team2Destruction']: avgDestruction,
           [isTeam1 ? 'team1AvgTime' : 'team2AvgTime']: Number(avgTime),
           [isTeam1 ? 'team1Screenshot' : 'team2Screenshot']: screenshot,
+          [isTeam1 ? 'team1PlayerStats' : 'team2PlayerStats']: playerStats,
        };
        
        // If both have submitted, move to disputed for admin review
@@ -503,15 +577,21 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
                     
                     {match.status === 'live' && !hasSubmitted && (
                        <div className="ml-11 space-y-4 bg-black/40 p-5 rounded-xl border border-white/5">
-                          <p className="text-xs text-muted-foreground mb-4">When the war is over, submit your team's total stars, average time, and a screenshot of the final result screen.</p>
+                          <p className="text-xs text-muted-foreground mb-4">When the war is over, submit each player's stars and destruction, average time, and a screenshot of the final result screen.</p>
                           
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-3 mb-6">
+                             {myTeam.players.map((playerId: string) => (
+                                <PlayerScoreInput 
+                                   key={playerId} 
+                                   playerId={playerId} 
+                                   onUpdate={(data) => setPlayerStats(prev => ({ ...prev, [playerId]: data }))} 
+                                />
+                             ))}
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4">
                              <div className="space-y-2">
-                                <Label className="text-[10px] font-bold text-white uppercase tracking-widest">Total Stars Gained</Label>
-                                <Input type="number" value={stars} onChange={e => setStars(Number(e.target.value))} className="bg-black/50 border-white/10" />
-                             </div>
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold text-white uppercase tracking-widest">Avg Time (e.g. 1m 30s = 90)</Label>
+                                <Label className="text-[10px] font-bold text-white uppercase tracking-widest">Team Avg Time (e.g. 1m 30s = 90)</Label>
                                 <Input type="number" placeholder="Seconds" value={avgTime} onChange={e => setAvgTime(e.target.value)} className="bg-black/50 border-white/10" />
                              </div>
                           </div>
@@ -557,11 +637,15 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
                        <h4 className="font-black text-white uppercase">{teams?.find(t => t.id === match.team1Id)?.name || 'Team 1'}</h4>
                        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
                           <span className="text-xs text-muted-foreground uppercase font-bold">Stars Claimed</span>
-                          <span className="text-sm font-black text-white">{match.team1Stars}</span>
+                          <span className="text-sm font-black text-white">{match.team1Stars || 0}</span>
+                       </div>
+                       <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
+                          <span className="text-xs text-muted-foreground uppercase font-bold">Destruction</span>
+                          <span className="text-sm font-black text-white">{(match.team1Destruction || 0).toFixed(2)}%</span>
                        </div>
                        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
                           <span className="text-xs text-muted-foreground uppercase font-bold">Avg Time</span>
-                          <span className="text-sm font-black text-white">{match.team1AvgTime}s</span>
+                          <span className="text-sm font-black text-white">{match.team1AvgTime || 0}s</span>
                        </div>
                        <div className="mt-2 h-32 bg-zinc-900 rounded-lg border border-white/10 overflow-hidden relative group">
                           {match.team1Screenshot ? (
@@ -582,11 +666,15 @@ export default function ThcBattleLobbyPage({ params }: { params: { id: string, m
                        <h4 className="font-black text-white uppercase">{teams?.find(t => t.id === match.team2Id)?.name || 'Team 2'}</h4>
                        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
                           <span className="text-xs text-muted-foreground uppercase font-bold">Stars Claimed</span>
-                          <span className="text-sm font-black text-white">{match.team2Stars}</span>
+                          <span className="text-sm font-black text-white">{match.team2Stars || 0}</span>
+                       </div>
+                       <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
+                          <span className="text-xs text-muted-foreground uppercase font-bold">Destruction</span>
+                          <span className="text-sm font-black text-white">{(match.team2Destruction || 0).toFixed(2)}%</span>
                        </div>
                        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex justify-between">
                           <span className="text-xs text-muted-foreground uppercase font-bold">Avg Time</span>
-                          <span className="text-sm font-black text-white">{match.team2AvgTime}s</span>
+                          <span className="text-sm font-black text-white">{match.team2AvgTime || 0}s</span>
                        </div>
                        <div className="mt-2 h-32 bg-zinc-900 rounded-lg border border-white/10 overflow-hidden relative">
                           {match.team2Screenshot ? (

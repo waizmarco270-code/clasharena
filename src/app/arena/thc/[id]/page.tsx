@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ArrowRight, ChevronLeft, Loader2, PlayCircle, Shield, Swords, Trophy, Users, Zap, Crown, UserPlus, Info, ScrollText, AlertCircle } from 'lucide-react';
 import { useDoc, useFirestore, useCollection } from '@/firebase';
 import { doc, collection, query, where, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -132,6 +133,11 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
   const [roundSchedules, setRoundSchedules] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState('');
   const [adminMatchFilter, setAdminMatchFilter] = useState('All');
+  
+  // Bracket Edit States
+  const [editingMatch, setEditingMatch] = useState<any>(null);
+  const [editingTeam1, setEditingTeam1] = useState<string>('');
+  const [editingTeam2, setEditingTeam2] = useState<string>('');
 
   useEffect(() => {
      if (t?.roundSchedules) setRoundSchedules(t.roundSchedules);
@@ -185,6 +191,20 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
      } catch (e) {
         toast({ variant: 'destructive', title: 'Failed to save' });
      }
+  };
+
+  const handleSaveMatchTeams = async () => {
+    if (!editingMatch) return;
+    try {
+      await updateDoc(doc(db, 'thc_matches', editingMatch.id), {
+        team1Id: editingTeam1 === 'BYE' || !editingTeam1 ? 'BYE' : editingTeam1,
+        team2Id: editingTeam2 === 'BYE' || !editingTeam2 ? 'BYE' : editingTeam2,
+      });
+      toast({ title: 'Match Updated' });
+      setEditingMatch(null);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Failed to update match' });
+    }
   };
 
   const [requestingToJoin, setRequestingToJoin] = useState(false);
@@ -671,9 +691,20 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                               <p className="font-black uppercase text-xs truncate">{t2?.name || (m.team2Id === 'BYE' ? 'BYE' : 'TBD')}</p>
                            </div>
                         </div>
-                        <Link href={`/arena/thc/${id}/match/${m.id}`} className="relative z-10">
-                           <Button variant="secondary" className="w-full text-xs font-black uppercase">Enter Lobby as Admin</Button>
-                        </Link>
+                        <div className="flex flex-col gap-2 relative z-10">
+                           <Link href={`/arena/thc/${id}/match/${m.id}`} className="w-full">
+                              <Button variant="secondary" className="w-full text-xs font-black uppercase">Enter Lobby as Admin</Button>
+                           </Link>
+                           {m.status === 'pending' && (
+                              <Button onClick={() => {
+                                 setEditingMatch(m);
+                                 setEditingTeam1(m.team1Id || '');
+                                 setEditingTeam2(m.team2Id || '');
+                              }} variant="outline" className="w-full border-white/20 text-xs font-black uppercase bg-white/5">
+                                 Edit Match Teams
+                              </Button>
+                           )}
+                        </div>
                      </Card>
                   );
                })}
@@ -720,6 +751,27 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
                      )}
                   </div>
                )}
+
+               {isAdmin && (
+                  <div className="pt-4 border-t border-red-500/20 mt-4">
+                     <Button 
+                        onClick={async () => {
+                           if (!confirm("Are you sure you want to completely ban/remove this team from the tournament?")) return;
+                           try {
+                              await deleteDoc(doc(db, 'thc_teams', selectedTeam.id));
+                              toast({ title: 'Team Removed' });
+                              setSelectedTeam(null);
+                           } catch (e) {
+                              toast({ variant: 'destructive', title: 'Failed to remove team' });
+                           }
+                        }}
+                        variant="destructive" 
+                        className="w-full font-black uppercase text-xs"
+                     >
+                        Remove Team (Admin)
+                     </Button>
+                  </div>
+               )}
             </div>
          </DialogContent>
       </Dialog>
@@ -753,6 +805,51 @@ export default function ThcLobbyPage({ params }: { params: { id: string } }) {
             </div>
          </DialogContent>
       </Dialog>
+
+      {/* Edit Match Teams Modal */}
+      <Dialog open={!!editingMatch} onOpenChange={() => setEditingMatch(null)}>
+         <DialogContent className="glass border-white/10 bg-black/95">
+            <DialogHeader>
+               <DialogTitle className="font-headline font-black italic uppercase text-2xl text-white">
+                  Edit Match Teams
+               </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+               <div>
+                  <Label className="text-xs font-bold uppercase text-muted-foreground mb-2 block">Team 1</Label>
+                  <Select value={editingTeam1} onValueChange={setEditingTeam1}>
+                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                        <SelectValue placeholder="Select Team 1" />
+                     </SelectTrigger>
+                     <SelectContent className="bg-zinc-900 border-zinc-800">
+                        <SelectItem value="BYE">BYE (No Team)</SelectItem>
+                        {teams?.map(t => (
+                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
+               </div>
+               <div>
+                  <Label className="text-xs font-bold uppercase text-muted-foreground mb-2 block">Team 2</Label>
+                  <Select value={editingTeam2} onValueChange={setEditingTeam2}>
+                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                        <SelectValue placeholder="Select Team 2" />
+                     </SelectTrigger>
+                     <SelectContent className="bg-zinc-900 border-zinc-800">
+                        <SelectItem value="BYE">BYE (No Team)</SelectItem>
+                        {teams?.map(t => (
+                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
+               </div>
+               <Button onClick={handleSaveMatchTeams} className="w-full bg-primary text-black font-black uppercase glow-primary mt-2">
+                  Save Changes
+               </Button>
+            </div>
+         </DialogContent>
+      </Dialog>
+
     </PageWrapper>
   );
 }
